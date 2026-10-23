@@ -4,8 +4,15 @@ set(PROJECT_NAME "cbdesk_ffi")
 project(${PROJECT_NAME} LANGUAGES CXX)
 
 include("../cargokit/cmake/cargokit.cmake")
-get_filename_component(_real_dir "${CMAKE_CURRENT_LIST_DIR}" REALPATH)
-get_filename_component(CBDESK_FFI_CRATE "${_real_dir}/../../../../crates/cbdesk-ffi" ABSOLUTE)
+# Flutter configures this file through windows/flutter/ephemeral/.plugin_symlinks.
+# get_filename_component(REALPATH) does not resolve that Windows symlink, so
+# four `..` segments look for the crate under flutter/ instead of the repo.
+cbdesk_resolve_dir(_plugin_windows "${CMAKE_CURRENT_LIST_DIR}")
+get_filename_component(CBDESK_FFI_CRATE "${_plugin_windows}/../../../../crates/cbdesk-ffi" ABSOLUTE)
+if(NOT EXISTS "${CBDESK_FFI_CRATE}/Cargo.toml")
+  message(FATAL_ERROR "cbdesk_ffi: Cargo.toml not found at ${CBDESK_FFI_CRATE} (plugin dir ${_plugin_windows})")
+endif()
+message(STATUS "cbdesk_ffi crate: ${CBDESK_FFI_CRATE}")
 apply_cargokit(${PROJECT_NAME} "${CBDESK_FFI_CRATE}" cbdesk_ffi "")
 
 set(cbdesk_ffi_bundled_libraries

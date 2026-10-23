@@ -20,8 +20,12 @@ sources is derived from that project.
   and macOS debug bundles and an arm64 Android debug APK. CI on `c01d0fb`
   is green. `80534bf` is not: the rebrand scan rejected the shell bridge
   class name, and the Windows `view_remote` tests timed out after the host
-  main thread overflowed its stack. The following commit is the fix. It is
-  not green until Actions finishes.
+  main thread overflowed its stack. `2febc4d` fixed those two, and the Rust
+  jobs passed. Its Flutter Windows and macOS bundle jobs failed. The plugin
+  directory is a symlink, and climbing it looked for the crate under the
+  ephemeral directory. The Windows custom build exited before Cargo. The
+  commit after that resolves the symlink before the climb. It is not green
+  until Actions finishes.
 - Contribution documents: `CONTRIBUTING.md`, `GOVERNANCE.md`, `SECURITY.md`,
   `PRIVACY.md`, `TRADEMARK.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, `NOTICE`.
 - ADRs 001–015. ADR-015 declines a fork for capture, codec, and input.
@@ -215,14 +219,17 @@ the screens and it is not a session to another computer.
 `flutter build apk --debug --target-platform android-arm64` on this
 machine produced an APK whose `lib/arm64-v8a/libcbdesk_ffi.so` is the Rust
 bridge. That APK was not installed on a device, and the system capture
-dialog was not accepted. Windows and macOS bundles are in the workflow and
-are not proven until Actions finishes.
+dialog was not accepted. Windows and macOS bundles are in the workflow.
+On `2febc4d` both failed before linking `libcbdesk_ffi`, because the crate
+path climbed the Flutter plugin symlink. The following commit resolves that
+link. Those two jobs are not proven until Actions finishes.
 
 ## Recommended next run
 
-Prove the Windows and macOS debug bundles and the arm64 Android APK on
-Actions. The macOS plugin is a CocoaPods podspec, and the workflow turns
-Swift Package Manager off before `flutter build macos`. Wayland ScreenCast
+Prove the Windows and macOS debug bundles on Actions. The arm64 Android
+APK job on `2febc4d` succeeded. The macOS plugin is a CocoaPods podspec,
+and the workflow turns Swift Package Manager off before `flutter build macos`.
+Wayland ScreenCast
 is compiled and untested in CI; a portal-capable lab would be the proof,
 not an Xvfb job. A symmetric NAT measurement needs two machines and a
 relay the operator runs outside this repository. Android capture is
@@ -230,7 +237,8 @@ MediaProjection after the system dialog and is scaled so the longer side
 is at most 960. It has not been clicked through on a device in this run.
 
 `c01d0fb` is green on Ubuntu 24.04, Windows 2022, and macOS 14. `80534bf`
-is not. The commit after it is not green until Actions finishes.
+is not. `2febc4d` is not: Flutter on Windows and macOS failed as described
+above. The commit after `2febc4d` is not green until Actions finishes.
 
 Still out of this run: hardware codecs, an iOS shell, compressed file
 chunks, OPAQUE, and DHT blinding. ADR-007 stays Proposed. ADR-008 is

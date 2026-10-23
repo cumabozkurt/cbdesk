@@ -1,12 +1,56 @@
+# Resolve `path` through a Flutter plugin symlink or junction.
+# Four `..` segments from the returned directory reach the repo root
+# both for rust_builder/{linux,windows,cargokit} and for the physical
+# directory those names point at. A candidate that still sits under
+# ephemeral/ is rejected when the repo crate is missing there.
+function(cbdesk_resolve_dir out_var path)
+    set(_candidates "")
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.19")
+        file(REAL_PATH "${path}" _real)
+        string(REGEX REPLACE "^\\\\\\\\[?]\\\\" "" _real "${_real}")
+        list(APPEND _candidates "${_real}")
+    endif()
+    get_filename_component(_legacy "${path}" REALPATH)
+    list(APPEND _candidates "${_legacy}" "${path}")
+    if(WIN32)
+        if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.17")
+            set(_ps1 "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/resolve_symlinks.ps1")
+        else()
+            set(_ps1 "${CMAKE_CURRENT_LIST_DIR}/resolve_symlinks.ps1")
+        endif()
+        execute_process(
+            COMMAND powershell -NoProfile -ExecutionPolicy Bypass -File "${_ps1}" "${path}"
+            OUTPUT_VARIABLE _ps
+            ERROR_VARIABLE _ps_err
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            RESULT_VARIABLE _ps_rc
+        )
+        if(_ps_rc EQUAL 0 AND NOT _ps STREQUAL "")
+            list(APPEND _candidates "${_ps}")
+        endif()
+    endif()
+    set(_picked "")
+    foreach(_candidate IN LISTS _candidates)
+        get_filename_component(_crate "${_candidate}/../../../../crates/cbdesk-ffi/Cargo.toml" ABSOLUTE)
+        if(EXISTS "${_crate}")
+            set(_picked "${_candidate}")
+            break()
+        endif()
+    endforeach()
+    if(_picked STREQUAL "")
+        list(GET _candidates 0 _picked)
+    endif()
+    set("${out_var}" "${_picked}" PARENT_SCOPE)
+endfunction()
+
 SET(cargokit_cmake_root "${CMAKE_CURRENT_LIST_DIR}/..")
 
 # Workaround for https://github.com/dart-lang/pub/issues/4010
-get_filename_component(cargokit_cmake_root "${cargokit_cmake_root}" REALPATH)
-
-if(WIN32)
-    # REALPATH does not properly resolve symlinks on windows :-/
-    execute_process(COMMAND powershell -ExecutionPolicy Bypass -File "${CMAKE_CURRENT_LIST_DIR}/resolve_symlinks.ps1" "${cargokit_cmake_root}" OUTPUT_VARIABLE cargokit_cmake_root OUTPUT_STRIP_TRAILING_WHITESPACE)
-endif()
+# file(REAL_PATH) resolves the Flutter plugin symlink. The older
+# get_filename_component(REALPATH) leaves that link in place on Windows,
+# and a failed PowerShell print must not replace the directory with empty
+# (cmake -E env then fails to start run_build_tool.cmd and MSBuild reports -1).
+cbdesk_resolve_dir(cargokit_cmake_root "${cargokit_cmake_root}")
 
 # Arguments
 # - target: CMAKE target to which rust library is linked
@@ -55,9 +99,13 @@ function(apply_cargokit target manifest_dir lib_name any_symbol_name)
     if (WIN32)
         set(SCRIPT_EXTENSION ".cmd")
         set(IMPORT_LIB_EXTENSION ".lib")
+        # CreateProcess cannot start a .cmd. Without cmd.exe, cmake -E env
+        # returns -1 and MSBuild reports MSB8066 with no Cargo output.
+        set(_cargokit_tool cmd /C "${cargokit_cmake_root}/run_build_tool.cmd" build-cmake)
     else()
         set(SCRIPT_EXTENSION ".sh")
         set(IMPORT_LIB_EXTENSION "")
+        set(_cargokit_tool "${cargokit_cmake_root}/run_build_tool${SCRIPT_EXTENSION}" build-cmake)
         execute_process(COMMAND chmod +x "${cargokit_cmake_root}/run_build_tool${SCRIPT_EXTENSION}")
     endif()
 
@@ -69,7 +117,7 @@ function(apply_cargokit target manifest_dir lib_name any_symbol_name)
                 "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG}/${CARGOKIT_LIB_FULL_NAME}"
                 "${CMAKE_CURRENT_BINARY_DIR}/_phony_"
                 COMMAND ${CMAKE_COMMAND} -E env ${CARGOKIT_ENV}
-                "${cargokit_cmake_root}/run_build_tool${SCRIPT_EXTENSION}" build-cmake
+                ${_cargokit_tool}
                 VERBATIM
             )
         endforeach()
@@ -79,7 +127,7 @@ function(apply_cargokit target manifest_dir lib_name any_symbol_name)
             ${OUTPUT_LIB}
             "${CMAKE_CURRENT_BINARY_DIR}/_phony_"
             COMMAND ${CMAKE_COMMAND} -E env ${CARGOKIT_ENV}
-            "${cargokit_cmake_root}/run_build_tool${SCRIPT_EXTENSION}" build-cmake
+            ${_cargokit_tool}
             VERBATIM
         )
     endif()

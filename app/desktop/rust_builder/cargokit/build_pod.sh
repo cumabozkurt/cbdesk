@@ -29,6 +29,22 @@ case "$1" in
   /*) CARGOKIT_MANIFEST_DIR="$1" ;;
   *) CARGOKIT_MANIFEST_DIR="$PODS_TARGET_SRCROOT/$1" ;;
 esac
+# BASEDIR is the physical cargokit directory (pwd -P above). The podspec
+# argument can still name a path that climbed the ephemeral symlink.
+if [ ! -f "$CARGOKIT_MANIFEST_DIR/Cargo.toml" ]; then
+  _alt="$(cd "$BASEDIR/../../../.." && pwd -P)/crates/cbdesk-ffi"
+  if [ -f "$_alt/Cargo.toml" ]; then
+    CARGOKIT_MANIFEST_DIR="$_alt"
+  fi
+fi
+if [ -d "$CARGOKIT_MANIFEST_DIR" ]; then
+  CARGOKIT_MANIFEST_DIR="$(cd "$CARGOKIT_MANIFEST_DIR" && pwd -P)"
+fi
+echo "cbdesk_ffi crate: $CARGOKIT_MANIFEST_DIR"
+if [ ! -f "$CARGOKIT_MANIFEST_DIR/Cargo.toml" ]; then
+  echo "cbdesk_ffi: Cargo.toml not found at $CARGOKIT_MANIFEST_DIR" >&2
+  exit 1
+fi
 export CARGOKIT_MANIFEST_DIR
 
 # Temporary directory for build artifacts.

@@ -15,7 +15,15 @@ Pod::Spec.new do |s|
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
   s.swift_version = '5.0'
 
-  crate = File.expand_path('../../../../crates/cbdesk-ffi', __dir__)
+  # CocoaPods evaluates this file through
+  # macos/Flutter/ephemeral/.symlinks. File.expand_path does not resolve
+  # that link, so four `..` segments land in ephemeral/crates.
+  here = File.realpath(__dir__)
+  crate = File.expand_path('../../../../crates/cbdesk-ffi', here)
+  cargo = File.join(crate, 'Cargo.toml')
+  unless File.file?(cargo)
+    raise "cbdesk_ffi: #{cargo} is missing (podspec #{__dir__} resolved to #{here})"
+  end
   s.script_phase = {
     :name => 'Build Rust library',
     :script => "sh \"$PODS_TARGET_SRCROOT/../cargokit/build_pod.sh\" \"#{crate}\" cbdesk_ffi",

@@ -1,34 +1,52 @@
-function Resolve-Symlinks {
-    [CmdletBinding()]
-    [OutputType([string])]
-    param(
-        [Parameter(Position = 0, Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [string] $Path
-    )
+# Resolve a Flutter plugin symlink or junction to its physical path.
+# Windows PowerShell 5.1 has no LinkTarget, and Write-Host is not stdout
+# when CMake captures the process. Print exactly one path on the success stream.
+$ErrorActionPreference = 'Stop'
 
-    [string] $separator = '/'
-    [string[]] $parts = $Path.Split($separator)
+function Resolve-CbdeskPath {
+    param([Parameter(Mandatory = $true)][string] $InputPath)
 
-    [string] $realPath = ''
-    foreach ($part in $parts) {
-        if ($realPath -and !$realPath.EndsWith($separator)) {
-            $realPath += $separator
-        }
-
-        $realPath += $part.Replace('\', '/')
-
-        # The slash is important when using Get-Item on Drive letters in pwsh.
-        if (-not($realPath.Contains($separator)) -and $realPath.EndsWith(':')) {
-            $realPath += '/'
-        }
-
-        $item = Get-Item $realPath
-        if ($item.LinkTarget) {
-            $realPath = $item.LinkTarget.Replace('\', '/')
-        }
+    $full = [System.IO.Path]::GetFullPath($InputPath)
+    $root = [System.IO.Path]::GetPathRoot($full)
+    $rest = $full.Substring($root.Length)
+    $current = $root.TrimEnd('\')
+    if ($current.EndsWith(':')) {
+        $current = $current + '\'
     }
-    $realPath
+
+    foreach ($part in $rest.Split([char[]]@('\'), [System.StringSplitOptions]::RemoveEmptyEntries)) {
+        if ($current.EndsWith('\')) {
+            $current = $current + $part
+        } else {
+            $current = Join-Path $current $part
+        }
+        $item = Get-Item -LiteralPath $current -Force
+        $guard = 0
+        while (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -and ($guard -lt 8)) {
+            $guard++
+            $target = $null
+            if ($item.PSObject.Properties.Name -contains 'LinkTarget' -and $item.LinkTarget) {
+                $target = [string]$item.LinkTarget
+            } elseif ($item.PSObject.Properties.Name -contains 'Target' -and $item.Target) {
+                $raw = $item.Target
+                if ($raw -is [System.Array]) {
+                    $target = [string]$raw[0]
+                } else {
+                    $target = [string]$raw
+                }
+            }
+            if (-not $target) {
+                break
+            }
+            if (-not [System.IO.Path]::IsPathRooted($target)) {
+                $parent = Split-Path -Parent $item.FullName
+                $target = Join-Path $parent $target
+            }
+            $item = Get-Item -LiteralPath $target -Force
+        }
+        $current = $item.FullName
+    }
+    return $current
 }
 
-$path = Resolve-Symlinks -Path $args[0]
-Write-Host $path
+Write-Output (Resolve-CbdeskPath -InputPath $args[0])

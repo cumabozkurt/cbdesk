@@ -201,7 +201,16 @@ jobs:
         working-directory: app/desktop
         shell: bash
         run: |
-          flutter build windows --debug
+          set +e
+          flutter build windows --debug -v >"$RUNNER_TEMP/win-build.log" 2>&1
+          code=$?
+          set -e
+          if [ "$code" != 0 ]; then
+            grep -n -E -i "error|failed|severe|Cargo.toml|MSB[0-9]+|cbdesk_ffi crate" "$RUNNER_TEMP/win-build.log" | tail -n 80
+            echo "----- tail -----"
+            tail -n 120 "$RUNNER_TEMP/win-build.log"
+            exit "$code"
+          fi
           test -f build/windows/x64/runner/Debug/cbdesk.exe
           dll=$(find build/windows -name 'cbdesk_ffi.dll' -o -name 'libcbdesk_ffi.dll' | head -n 1)
           test -n "$dll"

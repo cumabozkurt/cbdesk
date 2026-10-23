@@ -49,6 +49,9 @@ flutter build macos --debug
 The macOS plugin is a CocoaPods podspec. Flutter 3.47's Swift package
 generator left that plugin's dependencies empty, so the macOS build turns
 Swift Package Manager off and links `libcbdesk_ffi.a` with `-force_load`.
+Flutter points the plugin directory at `rust_builder` through a symlink.
+The Windows and macOS builds resolve that link before they look up
+`crates/cbdesk-ffi`.
 
 Android, after the SDK and NDK 28.2.13676358 are installed:
 

@@ -81,11 +81,21 @@ if not exist "%PRECOMPILED%" (
     "%DART%" compile kernel bin/build_tool_runner.dart
 )
 
+echo cbdesk_ffi crate: %CARGOKIT_MANIFEST_DIR%
+if not exist "%CARGOKIT_MANIFEST_DIR%\Cargo.toml" (
+    echo cbdesk_ffi: Cargo.toml not found at %CARGOKIT_MANIFEST_DIR% 1>&2
+    exit /b 1
+)
+
 "%DART%" "%PRECOMPILED%" %*
+set "DART_EXIT=%ERRORLEVEL%"
 
 REM 253 means invalid snapshot version.
-If %ERRORLEVEL% equ 253 (
+if "%DART_EXIT%"=="253" (
     "%DART%" pub get --no-precompile
     "%DART%" compile kernel bin/build_tool_runner.dart
     "%DART%" "%PRECOMPILED%" %*
+    set "DART_EXIT=!ERRORLEVEL!"
 )
+
+exit /b %DART_EXIT%
