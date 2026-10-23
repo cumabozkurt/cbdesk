@@ -26,8 +26,6 @@ pub fn capture_screen() -> Result<Frame, CaptureError> {
 
 #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
 mod platform {
-    use std::time::Duration;
-
     use super::*;
 
     enum Source {
@@ -70,6 +68,8 @@ mod platform {
 
     #[cfg(target_os = "linux")]
     fn capture_portal() -> Result<Frame, CaptureError> {
+        use std::time::Duration;
+
         let monitor = primary_monitor()?;
         let (recorder, frames) = monitor.video_recorder().map_err(unavailable)?;
         recorder.start().map_err(unavailable)?;
