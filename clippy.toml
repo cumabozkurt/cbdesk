@@ -1,0 +1,4 @@
+# Selected tighter-than-default limits. CI denies warnings; pedantic lints
+# are enabled only where a crate opts in.
+cognitive-complexity-threshold = 30
+too-many-lines-threshold = 120

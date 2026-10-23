@@ -1,0 +1,249 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    name: fmt, policy, supply chain
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.0
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+
+      - name: rustfmt
+        run: cargo fmt --all -- --check
+
+      - name: cargo deny
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25
+
+      - name: RustSec audit
+        run: |
+          cargo install cargo-audit --version 0.22.2 --locked
+          cargo audit
+
+      - name: Rebrand scan
+        run: tools/rebrand-check.sh
+
+      - name: Catalog keys
+        run: tools/i18n/check.sh
+
+      - name: Netlab profile skeleton
+        run: tools/netlab/validate.sh
+
+      - name: DCO
+        run: |
+          git fetch origin main
+          tools/check-dco.sh origin/main
+
+  test:
+    name: clippy and test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022, macos-14]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.0
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+
+      - name: Linux capture libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            clang \
+            libclang-dev \
+            libxcb1-dev \
+            libxrandr-dev \
+            libx11-dev \
+            x11-utils \
+            libdbus-1-dev \
+            libpipewire-0.3-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libegl1-mesa-dev \
+            libgbm-dev \
+            libdrm-dev \
+            libasound2-dev \
+            xvfb
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test
+        # Windows defaults this step to PowerShell, which rejects the bash below.
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            Xvfb :99 -screen 0 1280x720x24 >/tmp/xvfb.log 2>&1 &
+            ready=0
+            for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+              if DISPLAY=:99 xdpyinfo >/dev/null 2>&1; then
+                ready=1
+                break
+              fi
+              sleep 0.25
+            done
+            if [ "$ready" != 1 ]; then
+              echo "Xvfb did not become ready" >&2
+              cat /tmp/xvfb.log >&2 || true
+              exit 1
+            fi
+            export DISPLAY=:99
+            export CBDESK_REQUIRE_DISPLAY=1
+          fi
+          cargo test --workspace --all-targets
+
+  flutter:
+    name: flutter (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022, macos-14]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.0
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+
+      - name: Linux desktop libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            clang \
+            libclang-dev \
+            libstdc++-14-dev \
+            libgtk-3-dev \
+            libasound2-dev \
+            libxcb1-dev \
+            libxrandr-dev \
+            libx11-dev \
+            libdbus-1-dev \
+            libpipewire-0.3-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libegl1-mesa-dev \
+            libgbm-dev \
+            libdrm-dev
+
+      - name: Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Analyze and test
+        working-directory: app/desktop
+        shell: bash
+        run: |
+          flutter config --no-analytics
+          flutter pub get --enforce-lockfile
+          flutter analyze
+          flutter test
+
+      - name: Linux debug bundle
+        if: runner.os == 'Linux'
+        working-directory: app/desktop
+        run: |
+          flutter build linux --debug
+          test -f build/linux/x64/debug/bundle/lib/libcbdesk_ffi.so
+
+      - name: Windows debug bundle
+        if: runner.os == 'Windows'
+        working-directory: app/desktop
+        shell: bash
+        run: |
+          set +e
+          flutter build windows --debug -v >"$RUNNER_TEMP/win-build.log" 2>&1
+          code=$?
+          set -e
+          if [ "$code" != 0 ]; then
+            grep -n -E -i "error|failed|severe|Cargo.toml|MSB[0-9]+|cbdesk_ffi crate" "$RUNNER_TEMP/win-build.log" | tail -n 80
+            echo "----- tail -----"
+            tail -n 120 "$RUNNER_TEMP/win-build.log"
+            exit "$code"
+          fi
+          test -f build/windows/x64/runner/Debug/cbdesk.exe
+          dll=$(find build/windows -name 'cbdesk_ffi.dll' -o -name 'libcbdesk_ffi.dll' | head -n 1)
+          test -n "$dll"
+          echo "linked $dll"
+
+      - name: macOS debug bundle
+        if: runner.os == 'macOS'
+        working-directory: app/desktop
+        run: |
+          flutter config --no-enable-swift-package-manager
+          flutter build macos --debug
+          app="build/macos/Build/Products/Debug/cbdesk.app/Contents/MacOS/cbdesk"
+          test -f "$app"
+          # Xcode 15.4 nm cannot read Rust 1.91 object files inside the static
+          # archive (LLVM 21 attributes). The linked framework is a Mach-O.
+          framework=$(find "build/macos/Build/Products/Debug/cbdesk.app" -type f -name 'cbdesk_ffi' -print -quit)
+          test -n "$framework"
+          echo "framework $framework"
+          nm "$framework" > "$RUNNER_TEMP/nm-framework.txt"
+          grep -q flutter_rust_bridge "$RUNNER_TEMP/nm-framework.txt"
+          echo "linked $framework"
+
+      - name: Android debug bundle
+        if: runner.os == 'Linux'
+        working-directory: app/desktop
+        run: |
+          sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          test -n "$sdk"
+          sdkmanager=$(find "$sdk/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)
+          test -n "$sdkmanager"
+          rustup target add aarch64-linux-android
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" "ndk;28.2.13676358" "platforms;android-36"
+          flutter config --android-sdk "$sdk"
+          flutter build apk --debug --target-platform android-arm64
+          unzip -l build/app/outputs/flutter-apk/app-debug.apk | grep 'libcbdesk_ffi.so'

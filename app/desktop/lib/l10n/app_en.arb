@@ -1,0 +1,132 @@
+{
+  "@@locale": "en",
+  "appTitle": "CBDesk",
+  "navHome": "Home",
+  "navConnect": "Connect",
+  "navRemote": "Remote",
+  "navFiles": "Files",
+  "navAddress": "Address book",
+  "navSettings": "Settings",
+  "thisDevice": "This device",
+  "deviceId": "Device id",
+  "shortFingerprint": "Fingerprint",
+  "shortCode": "Short code",
+  "shortCodeDoesNotAuthenticate": "The two words confirm pairing with this device. They do not locate a computer, and the host still has to approve.",
+  "ticketLocator": "Invite ticket",
+  "ticketIsNotAGrant": "A ticket is a locator, not a permission.",
+  "phaseLabel": "State: {phase}",
+  "@phaseLabel": {
+    "placeholders": {
+      "phase": {"type": "String"}
+    }
+  },
+  "connectTitle": "Connect",
+  "connectHint": "Paste the invite ticket",
+  "connectCodeHint": "Short code, after the ticket",
+  "connectButton": "Connect",
+  "errorShortCode": "A short code does not locate a computer. Paste the ticket, then the code.",
+  "errorBlocked": "That device is blocked.",
+  "errorNoPrompt": "There is no consent prompt.",
+  "errorLooseSeed": "The identity file is readable by other users.",
+  "errorMessage": "{detail}",
+  "@errorMessage": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "consentTitle": "Connection request",
+  "fraudWarning": "If someone called you and told you to install this program, reject the connection. Banks, government agencies, and support companies do not ask you for remote access.",
+  "consentDelay": "On a first contact, Accept stays off for a few seconds.",
+  "consentBody": "A device wants the permissions you tick. Be sure who is on the other side before you accept.",
+  "accept": "Accept",
+  "reject": "Reject",
+  "block": "Block",
+  "permView": "View the screen",
+  "permInput": "Mouse and keyboard",
+  "permClipboard": "Clipboard text",
+  "permAudio": "Audio",
+  "permFileRead": "Read files",
+  "permFileWrite": "Write files",
+  "highRiskOptIn": "I am opting in to the high-risk permissions I ticked.",
+  "indicatorTitle": "Session",
+  "indicatorCannotDisable": "This indicator cannot be turned off.",
+  "disconnect": "Disconnect",
+  "peerLabel": "Peer: {id}",
+  "@peerLabel": {
+    "placeholders": {
+      "id": {"type": "String"}
+    }
+  },
+  "remoteTitle": "Remote view",
+  "remoteHonest": "This picture is the frame the core decoded. A desktop host sends the operating-system capture after you accept. Android sends a frame only after the system capture consent.",
+  "pointerHint": "A click on the picture is sent after an Input grant.",
+  "sendEnter": "Send Enter",
+  "lastInputLabel": "Last input: {text}",
+  "@lastInputLabel": {
+    "placeholders": {
+      "text": {"type": "String"}
+    }
+  },
+  "clipboardHint": "Clipboard text",
+  "setClipboard": "Set clipboard",
+  "clipboardLabel": "Clipboard: {text}",
+  "@clipboardLabel": {
+    "placeholders": {
+      "text": {"type": "String"}
+    }
+  },
+  "micLabel": "Microphone",
+  "micHonest": "This switch opens the default microphone and sends packets after an Audio grant. A missing device does not fail the session. This build does not record that anyone heard the audio.",
+  "micDenied": "The microphone stays off until you allow it.",
+  "audioPacketsLabel": "Audio packets: {count}",
+  "@audioPacketsLabel": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "remoteEmpty": "No picture yet. The host still has to accept.",
+  "interFrame": "Inter frame",
+  "keyFrame": "Keyframe",
+  "filesTitle": "Files",
+  "fileHint": "Name inside the transfer folder",
+  "stageFile": "Stage",
+  "fileBodyHint": "Text to send as file bytes",
+  "sendFile": "Send",
+  "staged": "Staged",
+  "jailFiles": "In the folder",
+  "addressTitle": "Address book",
+  "contactName": "Name",
+  "contactId": "Device id",
+  "addContact": "Add",
+  "remove": "Remove",
+  "settingsTitle": "Settings",
+  "localeLabel": "Language",
+  "relayLabel": "Relay",
+  "relayHint": "Empty, or an https:// or relay:// URL you run",
+  "save": "Save",
+  "relayInvalid": "The relay must be empty or start with https:// or relay://.",
+  "audioInput": "Microphone: {name}",
+  "@audioInput": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "audioOutput": "Speaker: {name}",
+  "@audioOutput": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "audioHonest": "These are the default device names. The remote view switch sends microphone packets after an Audio grant.",
+  "desktopCaptureNote": "This desktop host captures the display inside the core after the other side connects and you accept.",
+  "shareScreen": "Share this screen",
+  "shareDenied": "Screen capture stays off until you accept the system dialog.",
+  "refreshAudio": "Refresh devices",
+  "loading": "Loading",
+  "grantedLabel": "Granted: {names}",
+  "@grantedLabel": {
+    "placeholders": {
+      "names": {"type": "String"}
+    }
+  }
+}

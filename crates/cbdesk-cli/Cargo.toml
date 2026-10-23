@@ -1,0 +1,39 @@
+[package]
+name = "cbdesk-cli"
+description = "Host and viewer for a consented color picture, file, and audio session."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "cbdesk"
+path = "src/main.rs"
+
+[dependencies]
+arboard.workspace = true
+blake3.workspace = true
+cbdesk-audio = { path = "../cbdesk-audio" }
+cbdesk-capture = { path = "../cbdesk-capture" }
+cbdesk-codec = { path = "../cbdesk-codec" }
+cbdesk-crypto = { path = "../cbdesk-crypto" }
+cbdesk-discovery = { path = "../cbdesk-discovery" }
+cbdesk-fs = { path = "../cbdesk-fs" }
+cbdesk-input = { path = "../cbdesk-input" }
+cbdesk-net = { path = "../cbdesk-net" }
+cbdesk-proto = { path = "../cbdesk-proto" }
+cbdesk-session = { path = "../cbdesk-session" }
+softbuffer.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+winit.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+cbdesk-capture = { path = "../cbdesk-capture" }
+
+[lints]
+workspace = true

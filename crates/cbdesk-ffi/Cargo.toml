@@ -1,0 +1,32 @@
+[package]
+name = "cbdesk_ffi"
+description = "Flutter bridge over the desktop core. Generated glue is the only unsafe code."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# Underscores, not a hyphen: cargokit and flutter_rust_bridge load libcbdesk_ffi.
+[lib]
+name = "cbdesk_ffi"
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+cbdesk-desk = { path = "../cbdesk-desk" }
+flutter_rust_bridge.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+# The workspace forbids unsafe and denies missing docs. Generated glue needs
+# both. api.rs tightens them again for the hand-written surface.
+[lints.rust]
+unsafe_code = "allow"
+missing_docs = "allow"
+unexpected_cfgs = { level = "allow", check-cfg = ["cfg(frb_expand)"] }
+
+[lints.clippy]
+all = { level = "allow", priority = -1 }

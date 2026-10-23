@@ -1,0 +1,10 @@
+{
+  "name": "CBDesk",
+  "image": "mcr.microsoft.com/devcontainers/rust:1-bookworm",
+  "customizations": {
+    "vscode": {
+      "extensions": ["rust-lang.rust-analyzer"]
+    }
+  },
+  "postCreateCommand": "rustup toolchain install 1.91.0 --profile minimal --component rustfmt,clippy && rustup default 1.91.0"
+}

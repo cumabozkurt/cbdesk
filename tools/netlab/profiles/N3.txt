@@ -1,0 +1,6 @@
+name: N3
+nat: port-restricted-cone
+mapping: endpoint-independent
+filter: address-and-port-dependent
+status: skeleton
+notes: No network namespace is created yet. Direct hole punching is the behavior this profile will exercise.

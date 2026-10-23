@@ -1,0 +1,20 @@
+[package]
+name = "cbdesk-input"
+description = "Remote keyboard and pointer injection behind an Input grant."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+cbdesk-proto = { path = "../cbdesk-proto" }
+thiserror.workspace = true
+
+[target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))'.dependencies]
+enigo.workspace = true
+
+[lints]
+workspace = true

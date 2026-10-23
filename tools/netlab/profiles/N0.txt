@@ -1,0 +1,6 @@
+name: N0
+nat: none
+mapping: endpoint-independent
+filter: none
+status: skeleton
+notes: No network namespace is created yet. A later run wires this profile to netns.
