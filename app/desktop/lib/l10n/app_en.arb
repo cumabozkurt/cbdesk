@@ -1,0 +1,101 @@
+{
+  "@@locale": "en",
+  "appTitle": "CBDesk",
+  "navHome": "Home",
+  "navConnect": "Connect",
+  "navRemote": "Remote",
+  "navFiles": "Files",
+  "navAddress": "Address book",
+  "navSettings": "Settings",
+  "thisDevice": "This device",
+  "deviceId": "Device id",
+  "shortFingerprint": "Fingerprint",
+  "shortCode": "Short code",
+  "shortCodeDoesNotAuthenticate": "This short code does not authenticate anyone. It is not a password.",
+  "ticketLocator": "Invite ticket",
+  "ticketIsNotAGrant": "A ticket is a locator, not a permission.",
+  "phaseLabel": "State: {phase}",
+  "@phaseLabel": {
+    "placeholders": {
+      "phase": {"type": "String"}
+    }
+  },
+  "connectTitle": "Connect",
+  "connectHint": "Paste an invite ticket",
+  "connectButton": "Connect",
+  "errorShortCode": "A short code does not authenticate anyone. Paste the ticket instead.",
+  "errorBlocked": "That device is blocked.",
+  "errorNoPrompt": "There is no consent prompt.",
+  "errorLooseSeed": "The identity file is readable by other users.",
+  "errorMessage": "{detail}",
+  "@errorMessage": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "consentTitle": "Connection request",
+  "fraudWarning": "If someone called you and told you to install this program, reject the connection. Banks, government agencies, and support companies do not ask you for remote access.",
+  "consentDelay": "On a first contact, Accept stays off for a few seconds.",
+  "consentBody": "A device wants the permissions you tick. Be sure who is on the other side before you accept.",
+  "accept": "Accept",
+  "reject": "Reject",
+  "block": "Block",
+  "permView": "View the screen",
+  "permInput": "Mouse and keyboard",
+  "permClipboard": "Clipboard text",
+  "permAudio": "Audio",
+  "permFileRead": "Read files",
+  "permFileWrite": "Write files",
+  "highRiskOptIn": "I am opting in to the high-risk permissions I ticked.",
+  "indicatorTitle": "Session",
+  "indicatorCannotDisable": "This indicator cannot be turned off.",
+  "disconnect": "Disconnect",
+  "peerLabel": "Peer: {id}",
+  "@peerLabel": {
+    "placeholders": {
+      "id": {"type": "String"}
+    }
+  },
+  "remoteTitle": "Remote view",
+  "remoteHonest": "This picture is a frame the core decoded. This shell does not show a full-screen capture.",
+  "remoteEmpty": "No picture yet. The host still has to accept.",
+  "interFrame": "Inter frame",
+  "keyFrame": "Keyframe",
+  "filesTitle": "Files",
+  "fileHint": "Name inside the transfer folder",
+  "stageFile": "Stage",
+  "staged": "Staged",
+  "jailFiles": "In the folder",
+  "addressTitle": "Address book",
+  "contactName": "Name",
+  "contactId": "Device id",
+  "addContact": "Add",
+  "remove": "Remove",
+  "settingsTitle": "Settings",
+  "localeLabel": "Language",
+  "relayLabel": "Relay",
+  "relayHint": "Empty, or an https:// or relay:// URL you run",
+  "save": "Save",
+  "relayInvalid": "The relay must be empty or start with https:// or relay://.",
+  "audioInput": "Microphone: {name}",
+  "@audioInput": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "audioOutput": "Speaker: {name}",
+  "@audioOutput": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "audioHonest": "This screen shows the device names. Microphone and speaker audio is the cbdesk host --mic and --speaker path.",
+  "refreshAudio": "Refresh devices",
+  "loading": "Loading",
+  "grantedLabel": "Granted: {names}",
+  "@grantedLabel": {
+    "placeholders": {
+      "names": {"type": "String"}
+    }
+  }
+}

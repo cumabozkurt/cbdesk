@@ -8,11 +8,13 @@ Version 0.0.0 is not a release.
 ### Added
 
 - VP8 inter frames and color. The first frame is a keyframe. A later frame
-  can be a zero-motion P-frame. A unit test still reads the barcode, and a
-  color sample survives a keyframe and an inter frame. The live path keeps
-  the capture's even size. The pacer targets 33 ms and raises the quantizer
-  when encode time, loss, or delay says so. This tree has no 1080p timing
-  measurement.
+  of the same size is a motion-compensated inter frame: oxideav-vp8 diamond
+  search (whole, half, and quarter pixel). A 48×16 test shifts a white block
+  by 16 pixels at quantizer 96 and checks the moved columns. The barcode
+  test at quantizer 0 still reads that barcode on an inter frame. The live
+  path keeps the capture's even size. The pacer targets 33 ms and raises the
+  quantizer when encode time, loss, or delay says so. This tree has no 1080p
+  timing measurement.
 - A scripted pointer and Enter travel over QUIC and the host prints them
   after an Input grant. The window uses that mapping. The host sends an
   empty acknowledgement so the last event is still read if the viewer then
@@ -20,9 +22,12 @@ Version 0.0.0 is not a release.
 - Resumable file transfer. Chunks are uncompressed BLAKE3 pieces with a
   bitmap in a sidecar. `file_write` stays high-risk. The CLI `--put` path
   reads at most 32 MiB. zstd is not linked.
-- Synthetic Opus audio through rusty-opus after an Audio grant. No
-  microphone or speaker device is opened. The library jitter buffer waits
-  for 40 ms and drops audio older than 120 ms.
+- Opus audio through rusty-opus after an Audio grant. `--tone` sends a
+  synthetic packet and does not open a device. `cbdesk host --mic` and
+  `--speaker`, and the matching view flags, open the default devices through
+  cpal 0.15.3. A missing device is an error. This tree does not record that
+  a person heard the stream. The jitter buffer waits for 40 ms and drops
+  audio older than 120 ms.
 - An operator-configured relay. Forbidden suffixes and n0 defaults still
   fail closed. The default endpoint still has an empty relay list. With a
   relay set, HTTPS net-report probes run only against that relay so a home
@@ -40,8 +45,23 @@ Version 0.0.0 is not a release.
   not grant a session.
 - LAN announce and browse on the tested mDNS TXT records and the `CBDS`
   broadcast body. Public networks and a disabled user send nothing.
-- GitHub Actions workflow for rustfmt, cargo-deny, RustSec audit, clippy, and
-  tests on Linux, Windows, and macOS.
+- A Flutter desktop shell in `app/desktop` (Flutter 3.47.7,
+  flutter_rust_bridge 2.12.0). Home shows the device id and the short code.
+  The other screens are connect, consent, a remote view, a file panel, an
+  address book, and settings, in Turkish and English. Consent shows the
+  fraud warning, waits on a first contact, and requires an explicit opt-in
+  for a high-risk permission. Reject starts focused. The session indicator
+  is an edge and a disconnect panel painted above the pages, and it has no
+  off switch. The remote view is the decoded 48×16 motion frame after
+  consent, not an operating-system capture. The file panel stages a name
+  through the jail; QUIC chunks stay on `cbdesk view --put`. Settings show
+  audio device names and do not start a stream. A short code does not
+  authenticate. A ticket is still only a locator. Widget tests use a fake
+  desk and do not load the native library.
+- GitHub Actions runs rustfmt, cargo-deny, RustSec audit, clippy, and tests
+  on Linux, Windows, and macOS, and runs Flutter analyze and widget tests on
+  those three. Ubuntu also builds the Linux debug bundle. Windows and macOS
+  Flutter bundles are not in this workflow.
 - ADRs 001–015, threat-model draft, and contribution documents.
 - Turkish and English message catalogs for the errors and consent strings that
   exist so far.

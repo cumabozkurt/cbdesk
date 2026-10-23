@@ -11,6 +11,8 @@ members = [
     "crates/cbdesk-input",
     "crates/cbdesk-fs",
     "crates/cbdesk-audio",
+    "crates/cbdesk-desk",
+    "crates/cbdesk-ffi",
     "crates/cbdesk-cli",
     "crates/cbdesk-testkit",
 ]
@@ -79,11 +81,15 @@ arboard = "=3.7.0"
 keyring = { version = "=4.2.0", default-features = false, features = ["v1"] }
 # SO_REUSEADDR / SO_REUSEPORT before an mDNS bind on port 5353.
 socket2 = "=0.6.5"
-# Pure-Rust Opus (BSD-3-Clause). No system libopus. Tests do not open a device.
+# Pure-Rust Opus (BSD-3-Clause). No system libopus.
 rusty-opus = "=1.0.2"
+# Microphone and speaker. Linux links libasound. Tests accept a missing device.
+cpal = "=0.15.3"
 # Same rustls as iroh 1.4.1. Used only to accept a self-signed certificate
 # from a relay whose host is a literal loopback address.
 rustls = { version = "=0.23.46", default-features = false }
+# Flutter glue. Exact pin. Generated code is the only unsafe in cbdesk-ffi.
+flutter_rust_bridge = "=2.12.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

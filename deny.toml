@@ -43,6 +43,12 @@ allow = [
 [licenses.private]
 ignore = false
 
+# allo-isolate ships Apache-2.0 in LICENSE and does not set `license`.
+[[licenses.clarify]]
+crate = "allo-isolate"
+expression = "Apache-2.0"
+license-files = [{ path = "LICENSE", hash = 0x0a6d4ed6 }]
+
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"

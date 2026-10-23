@@ -13,7 +13,9 @@ The workspace members are the crates that compile:
 | `crates/cbdesk-codec` | VP8 inter frames, color, and AV1 stills |
 | `crates/cbdesk-input` | Keyboard and pointer injection after an Input grant |
 | `crates/cbdesk-fs` | Jailed resumable file transfer, uncompressed |
-| `crates/cbdesk-audio` | Synthetic Opus tone and a jitter buffer |
+| `crates/cbdesk-audio` | Opus, cpal devices, and a jitter buffer |
+| `crates/cbdesk-desk` | Desktop session state behind the shell |
+| `crates/cbdesk-ffi` | flutter_rust_bridge surface over the desk |
 | `crates/cbdesk-cli` | `cbdesk host` and `cbdesk view`, including the window |
 | `crates/cbdesk-testkit` | Re-exported barcode frames, recording injector, fake DHT |
 
@@ -24,7 +26,8 @@ directory.
 | Path | Contents |
 | --- | --- |
 | `proto/cbdesk/v1/session.proto` | Readable schema. The Rust codec is what CI tests |
-| `app/i18n/` | Turkish and English catalogs |
+| `app/i18n/` | Turkish and English JSON catalogs |
+| `app/desktop/` | Flutter shell, ARB catalogs, and the cargokit plugin |
 | `docs/adr/` | Decision records |
 | `docs/protocol/` | Protocol note for the implemented messages |
 | `tools/netlab/profiles/` | N0, N3, N4 descriptions. No namespaces |

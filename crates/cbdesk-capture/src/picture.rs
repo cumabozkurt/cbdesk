@@ -46,6 +46,33 @@ impl Picture {
         })
     }
 
+    /// Tightly packed RGBA. Odd sizes are refused; crop first.
+    pub fn to_rgba(&self) -> Result<Vec<u8>, CaptureError> {
+        if !self.width.is_multiple_of(2) || !self.height.is_multiple_of(2) {
+            return Err(CaptureError::BadDimensions);
+        }
+        let luma = luma_len(self.width, self.height)?;
+        let chroma = chroma_len(self.width, self.height)?;
+        if self.y.len() != luma || self.u.len() != chroma || self.v.len() != chroma {
+            return Err(CaptureError::ShortFrame);
+        }
+        let row_stride = usize::try_from(self.width).map_err(|_| CaptureError::BadDimensions)?;
+        let chroma_stride = row_stride / 2;
+        let mut rgba = Vec::with_capacity(luma.saturating_mul(4));
+        for (index, luma_px) in self.y.iter().copied().enumerate() {
+            let x = index % row_stride;
+            let y = index / row_stride;
+            let chroma_index = (y / 2) * chroma_stride + (x / 2);
+            let (u, v) = match (self.u.get(chroma_index), self.v.get(chroma_index)) {
+                (Some(u), Some(v)) => (*u, *v),
+                _ => return Err(CaptureError::ShortFrame),
+            };
+            let rgb = yuv_to_rgb(luma_px, u, v);
+            rgba.extend_from_slice(&[rgb[0], rgb[1], rgb[2], 255]);
+        }
+        Ok(rgba)
+    }
+
     /// Grayscale view of the luma plane.
     pub fn to_luma(&self) -> Result<Frame, CaptureError> {
         let luma = luma_len(self.width, self.height)?;

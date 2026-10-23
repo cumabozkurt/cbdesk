@@ -4,7 +4,10 @@
 //!
 //! The crate is pure Rust. Its registry feature, which pulls another
 //! framework, stays off. [`encode_vp8`] still emits one keyframe.
-//! [`Vp8Encoder`] emits a keyframe and then zero-motion inter frames.
+//! [`Vp8Encoder`] emits a keyframe and then motion-compensated inter frames.
+//! The inter-frame search is oxideav-vp8's diamond search (whole, half, and
+//! quarter pixel). A macroblock may be coded NEWMV, NEARESTMV, NEARMV,
+//! ZEROMV, or SPLITMV.
 //! [`Vp8StreamDecoder`] keeps the reference state those inter frames need.
 //! The stateless [`decode_vp8_luma`] entry accepts keyframes only.
 
@@ -12,7 +15,7 @@ use cbdesk_capture::{Frame, Picture};
 use oxideav_vp8::frame::KeyframePlanes;
 use oxideav_vp8::state::Vp8DecoderState;
 use oxideav_vp8::{
-    decode_vp8, encode_keyframe, encode_keyframe_with_reconstruction, encode_p_frame_zero_mv,
+    decode_vp8, encode_keyframe, encode_keyframe_with_reconstruction, encode_p_frame_multi_ref,
     I420Frame, KeyframeParams, TrellisStrength,
 };
 
@@ -49,8 +52,8 @@ pub fn decode_vp8_luma(bytes: &[u8]) -> Result<Frame, CodecError> {
 /// Encoder state for one VP8 stream.
 ///
 /// The first picture, and any later picture whose size changed, is a keyframe.
-/// Later pictures of the same size are zero-motion inter frames. The frame tag's
-/// low bit is 1 on those packets.
+/// Later pictures of the same size are motion-compensated inter frames.
+/// The frame tag's low bit is 1 on those packets.
 #[derive(Debug)]
 pub struct Vp8Encoder {
     reference: Option<KeyframePlanes>,
@@ -82,7 +85,7 @@ impl Vp8Encoder {
                 .reference
                 .as_ref()
                 .ok_or_else(|| CodecError::Encode("inter frame has no reference".to_string()))?;
-            encode_p_frame_zero_mv(&packed, reference, &params)
+            encode_p_frame_multi_ref(&packed, reference, None, None, &params)
                 .map_err(|err| CodecError::Encode(err.to_string()))?
         };
         self.reference = Some(planes);
@@ -286,6 +289,60 @@ mod tests {
             read_barcode(&decoded.to_luma().expect("luma")).expect("read"),
             (7, 99)
         );
+    }
+
+    #[test]
+    fn a_translated_block_survives_a_coarse_quantizer() {
+        // A 16-pixel shift is one macroblock. At qindex 96 a zero-motion
+        // residual cannot rebuild a white block from black. Motion
+        // compensation copies it.
+        let mut encoder = Vp8Encoder::new();
+        let mut decoder = Vp8StreamDecoder::new();
+        let (key, keyframe) = encoder.encode(&band(0), 32).expect("key");
+        assert!(keyframe);
+        assert!(!vp8_is_inter(&key));
+        decoder.decode(&key).expect("decode key");
+        let (inter, keyframe) = encoder.encode(&band(16), 96).expect("inter");
+        assert!(!keyframe);
+        assert!(vp8_is_inter(&inter));
+        let decoded = decoder.decode(&inter).expect("decode inter");
+        let left = mean_columns(&decoded, 0, 16);
+        let moved = mean_columns(&decoded, 16, 32);
+        assert!(
+            moved > 180 && left < 80,
+            "moved block {moved}, vacated block {left}"
+        );
+    }
+
+    fn band(origin: u32) -> Picture {
+        let width = 48_u32;
+        let height = 16_u32;
+        let mut y = vec![0_u8; (width * height) as usize];
+        for row in 0..height {
+            for col in origin..origin + 16 {
+                y[(row * width + col) as usize] = 255;
+            }
+        }
+        let chroma = ((width / 2) * (height / 2)) as usize;
+        Picture {
+            width,
+            height,
+            y,
+            u: vec![128; chroma],
+            v: vec![128; chroma],
+        }
+    }
+
+    fn mean_columns(picture: &Picture, start: u32, end: u32) -> u32 {
+        let mut sum = 0_u32;
+        let mut count = 0_u32;
+        for row in 0..picture.height {
+            for col in start..end {
+                sum += u32::from(picture.y[(row * picture.width + col) as usize]);
+                count += 1;
+            }
+        }
+        sum / count
     }
 
     #[test]

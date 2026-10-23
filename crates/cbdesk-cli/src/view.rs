@@ -13,14 +13,15 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use cbdesk_audio::{CapturePump, PacketCodec, Speaker};
 use cbdesk_capture::Picture;
 use cbdesk_codec::{decode_luma, Vp8StreamDecoder};
 use cbdesk_crypto::Identity;
 use cbdesk_discovery::ReplayCache;
 use cbdesk_net::{
     connect_candidates, dial_verified_ticket, open_controller, recv_clipboard_text, recv_uni,
-    send_clipboard_text, send_feedback, send_input_event, ControllerGrant, ControllerSession,
-    EndpointConfig, QuicConn, QuicEndpoint, UniBody,
+    send_audio_packet, send_clipboard_text, send_feedback, send_input_event, ControllerGrant,
+    ControllerSession, EndpointConfig, QuicConn, QuicEndpoint, UniBody,
 };
 use cbdesk_proto::{
     local_capabilities, select_video_codec, AuthMethod, ClipboardText, Codec, Feedback, Hello,
@@ -46,6 +47,9 @@ struct LiveView {
     codec: Option<Codec>,
     decoder: Vp8StreamDecoder,
     _identity: Identity,
+    mic: Option<CapturePump>,
+    speaker: Option<Speaker>,
+    playback: Option<PacketCodec>,
 }
 
 /// Dial, show one frame or upload a file, then leave.
@@ -134,7 +138,10 @@ async fn drive_until_close(drive: &mut WindowDrive) -> Result<(), CliError> {
     let mut sent_script = false;
     let mut report = ReportClock::default();
     loop {
-        let pause = tokio::time::sleep(Duration::from_millis(400));
+        // A microphone has to be flushed while the window is open. Clipboard
+        // polling stays on the slower tick when there is no microphone.
+        let tick_ms = if drive.live.mic.is_some() { 20 } else { 400 };
+        let pause = tokio::time::sleep(Duration::from_millis(tick_ms));
         tokio::pin!(pause);
         tokio::select! {
             biased;
@@ -158,8 +165,11 @@ async fn drive_until_close(drive: &mut WindowDrive) -> Result<(), CliError> {
             clip = recv_clipboard_text(&drive.live.conn), if drive.allow_clip => {
                 apply_clip(&mut clips, clip.map_err(cli)?)?;
             }
-            _ = &mut pause, if drive.allow_clip => {
-                push_local_clip(&drive.live.conn, &mut clips).await?;
+            _ = &mut pause, if drive.live.mic.is_some() || drive.allow_clip => {
+                flush_mic(&drive.live).await?;
+                if drive.allow_clip {
+                    push_local_clip(&drive.live.conn, &mut clips).await?;
+                }
             }
         }
     }
@@ -202,9 +212,10 @@ async fn run_remote(live: &mut LiveView, args: &ViewArgs) -> Result<(), CliError
     if let Some(path) = args.put.as_ref() {
         send_while_reading(live, path, &mut seen_audio).await?;
     }
-    if args.audio && !seen_audio {
+    if (args.audio || args.speaker) && !seen_audio {
         wait_audio(live).await?;
     }
+    flush_mic(live).await?;
     Ok(())
 }
 
@@ -215,7 +226,13 @@ async fn next_picture(live: &mut LiveView, seen_audio: &mut bool) -> Result<Pict
         if remain.is_zero() {
             return Err(CliError::new("timed out waiting for a frame"));
         }
-        let body = tokio::time::timeout(remain, recv_uni(&live.conn))
+        flush_mic(live).await?;
+        let slice = if live.mic.is_some() {
+            remain.min(Duration::from_millis(20))
+        } else {
+            remain
+        };
+        let body = tokio::time::timeout(slice, recv_uni(&live.conn))
             .await
             .map_err(|_| CliError::new("timed out waiting for a frame"))?
             .map_err(cli)?;
@@ -270,7 +287,13 @@ async fn wait_audio(live: &mut LiveView) -> Result<(), CliError> {
         if remain.is_zero() {
             return Err(CliError::new("timed out waiting for audio"));
         }
-        let body = tokio::time::timeout(remain, recv_uni(&live.conn))
+        flush_mic(live).await?;
+        let slice = if live.mic.is_some() {
+            remain.min(Duration::from_millis(20))
+        } else {
+            remain
+        };
+        let body = tokio::time::timeout(slice, recv_uni(&live.conn))
             .await
             .map_err(|_| CliError::new("timed out waiting for audio"))?
             .map_err(cli)?;
@@ -297,6 +320,7 @@ fn take_uni(live: &mut LiveView, body: UniBody) -> Result<Option<Picture>, CliEr
         }
         UniBody::Audio(packet) => {
             println!("audio {}", packet.len());
+            play_incoming(live, &packet)?;
             Ok(None)
         }
         UniBody::File(_) | UniBody::Feedback(_) | UniBody::InputAck | UniBody::FileAck => Ok(None),
@@ -422,6 +446,7 @@ fn pointer_event(x: i32, y: i32) -> InputEvent {
 }
 
 async fn connect_view(args: &ViewArgs) -> Result<LiveView, CliError> {
+    let devices = open_view_devices(args)?;
     let (endpoint, identity) = bind_viewer(args).await?;
     let conn = if args.browse {
         let (peer, source) = browse_peer(&identity).await?;
@@ -445,7 +470,8 @@ async fn connect_view(args: &ViewArgs) -> Result<LiveView, CliError> {
     if args.put.is_some() && !grant.granted.perms.contains(&Permission::FileWrite) {
         return Err(CliError::new("host did not grant file_write"));
     }
-    if args.audio && !grant.granted.perms.contains(&Permission::Audio) {
+    if (args.audio || args.mic || args.speaker) && !grant.granted.perms.contains(&Permission::Audio)
+    {
         return Err(CliError::new("host did not grant audio"));
     }
     let codec = select_video_codec(&local_capabilities(), &grant.host_caps);
@@ -459,7 +485,70 @@ async fn connect_view(args: &ViewArgs) -> Result<LiveView, CliError> {
         codec,
         decoder: Vp8StreamDecoder::new(),
         _identity: identity,
+        mic: devices.mic,
+        speaker: devices.speaker,
+        playback: devices.playback,
     })
+}
+
+struct ViewDevices {
+    mic: Option<CapturePump>,
+    speaker: Option<Speaker>,
+    playback: Option<PacketCodec>,
+}
+
+fn open_view_devices(args: &ViewArgs) -> Result<ViewDevices, CliError> {
+    let mic = if args.mic {
+        Some(CapturePump::start().map_err(|err| CliError::new(err.to_string()))?)
+    } else {
+        None
+    };
+    let speaker = if args.speaker {
+        Some(Speaker::open_default().map_err(|err| CliError::new(err.to_string()))?)
+    } else {
+        None
+    };
+    let playback = if speaker.is_some() {
+        Some(PacketCodec::new().map_err(|err| CliError::new(err.to_string()))?)
+    } else {
+        None
+    };
+    Ok(ViewDevices {
+        mic,
+        speaker,
+        playback,
+    })
+}
+
+async fn flush_mic(live: &LiveView) -> Result<(), CliError> {
+    // Own the packets before the await. `pop` locks the queue for one try,
+    // and the send must not hold that lock.
+    let packets = match &live.mic {
+        Some(mic) => {
+            let mut packets = Vec::new();
+            while let Some(packet) = mic.pop() {
+                packets.push(packet);
+            }
+            packets
+        }
+        None => return Ok(()),
+    };
+    for packet in packets {
+        send_audio_packet(&live.conn, &packet).await.map_err(cli)?;
+    }
+    Ok(())
+}
+
+fn play_incoming(live: &mut LiveView, packet: &[u8]) -> Result<(), CliError> {
+    let (Some(playback), Some(speaker)) = (live.playback.as_mut(), live.speaker.as_ref()) else {
+        return Ok(());
+    };
+    let pcm = playback
+        .decode_packet(packet)
+        .map_err(|err| CliError::new(err.to_string()))?;
+    speaker
+        .play(&pcm)
+        .map_err(|err| CliError::new(err.to_string()))
 }
 
 async fn dial_ticket(endpoint: &QuicEndpoint, args: &ViewArgs) -> Result<QuicConn, CliError> {
@@ -541,7 +630,7 @@ fn hello(args: &ViewArgs) -> Hello {
     if args.put.is_some() {
         wanted.push(Permission::FileWrite);
     }
-    if args.audio {
+    if args.audio || args.mic || args.speaker {
         wanted.push(Permission::Audio);
     }
     Hello {

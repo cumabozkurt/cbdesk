@@ -7,7 +7,12 @@
   that is the `rust-version` of iroh 1.4.1.
 - A C toolchain (gcc, clang, or MSVC) is required. iroh's `tls-ring` feature
   compiles `ring`. BLAKE3 in this workspace still uses the `pure` feature.
-- Flutter is not required. There is no Dart package yet.
+- Flutter 3.47.7 (Dart 3.13.5) for the desktop shell in `app/desktop`. CI
+  pins that version. The shell links the Rust core, so Rust 1.91.0 is still
+  required. Linux also needs `cmake`, `ninja-build`, `libgtk-3-dev`,
+  `clang`, `libstdc++-14-dev`, `pkg-config`, `libasound2-dev`, and the
+  capture libraries listed below. Clang links the C++ standard library from
+  that GCC 14 package.
 
 ## Commands
 
@@ -18,6 +23,20 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace --all-targets
 ```
+
+Desktop shell, from `app/desktop`:
+
+```sh
+flutter config --no-analytics
+flutter pub get
+flutter analyze
+flutter test
+flutter build linux --debug
+```
+
+`flutter test` uses a fake desk and does not load `libcbdesk_ffi`. The debug
+bundle does. That bundle's remote view is the core's 48×16 motion frame.
+`cbdesk --screen` remains the operating-system capture path.
 
 `cargo test` includes an Argon2id vector at the backup parameters (64 MiB,
 3 passes). That test takes a fraction of a second on a desktop and longer on
@@ -36,8 +55,9 @@ Linux screen capture, the viewer window, and input compile against system
 libraries. Ubuntu CI installs `pkg-config`, `clang`, `libclang-dev`,
 `libxcb1-dev`, `libxrandr-dev`, `libx11-dev`, `x11-utils`, `libdbus-1-dev`,
 `libpipewire-0.3-dev`, `libwayland-dev`, `libxkbcommon-dev`,
-`libxkbcommon-x11-dev`, `libegl1-mesa-dev`, `libgbm-dev`, `libdrm-dev`, and
-`xvfb`. The test step starts Xvfb on `:99` and sets `DISPLAY` and
+`libxkbcommon-x11-dev`, `libegl1-mesa-dev`, `libgbm-dev`, `libdrm-dev`,
+`libasound2-dev`, and `xvfb`. The Flutter Linux job also installs `cmake`,
+`ninja-build`, `libgtk-3-dev`, and `libstdc++-14-dev`. The test step starts Xvfb on `:99` and sets `DISPLAY` and
 `CBDESK_REQUIRE_DISPLAY=1`, so a missing X11 frame or a viewer window that
 does not open fails that job. Windows and macOS compile the same capture and
 window crates. Their jobs leave `CBDESK_REQUIRE_DISPLAY` unset, so the window
@@ -68,7 +88,10 @@ until the viewer closes. `--pointer X,Y` and `--key NAME` send one event
 each after the first frame, and only if the host granted `input`. The
 window uses the same mapping for later pointer and key events. `--put FILE`
 uploads that file after `file_write`. `--tone` and `--audio` exchange one
-synthetic Opus stream after `audio`. `--relay URL` may be repeated. The
+synthetic Opus stream after `audio` and do not open a device. `--mic` opens
+the default microphone and `--speaker` opens the default speaker. A missing
+device is an error. `--tone` and `--mic` cannot both be set. `--relay URL`
+may be repeated. The
 ticket printed by the host is a locator. `--browse` does not use it.
 `--lan` does not read the OS network category; the library still sends
 nothing when a caller passes a public profile.
@@ -86,6 +109,9 @@ do not unify (`ed25519-dalek` 3, `getrandom` 0.4).
 Installers and mobile targets have no code in the workspace. Some plan
 directories still contain only a README and are not Cargo workspace
 members. Plain-text clipboard sync is in the CLI, not in
-`cbdesk-clipboard`. File bytes live in `cbdesk-fs`. Synthetic Opus lives
-in `cbdesk-audio`. Neither opens a microphone, and file chunks are
-uncompressed.
+`cbdesk-clipboard`. File bytes live in `cbdesk-fs` and chunks are
+uncompressed. Opus and the cpal devices live in `cbdesk-audio`. The Flutter
+shell does not start those devices. Mobile targets and installers are not
+in this tree. Windows and macOS Flutter bundles are not built in CI.
+The macOS plugin file is a CocoaPods podspec, and Flutter 3.47's generated
+Swift package did not list it.

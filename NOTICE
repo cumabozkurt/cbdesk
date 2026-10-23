@@ -19,6 +19,10 @@ Third-party material shipped beside the Rust crates:
 - Turkish short-code word list: derived from the MIT-licensed list published
   by BlockSight OÜ (osem23/bip39-wordlists-tzur). Eight entries were replaced
   so the list has no diacritic-fold collisions. See the same README.
+- Cargokit, under app/desktop/rust_builder/cargokit: MIT License, Copyright
+  2022 Matej Knopp. Two local patches select this repository's Rust toolchain
+  and an absolute crate path. The pod build script accepts an absolute crate
+  path as well. See app/desktop/rust_builder/README.md.
 
 SPDX headers in source files identify the license of that file. The full
 license text is LICENSE. Dependency license identifiers are checked by

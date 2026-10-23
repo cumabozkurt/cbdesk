@@ -39,6 +39,10 @@ pub struct HostArgs {
     pub files_root: Option<PathBuf>,
     /// Send a synthetic Opus tone when Audio is granted.
     pub tone: bool,
+    /// Capture the default microphone and send Opus when Audio is granted.
+    pub mic: bool,
+    /// Play received Opus on the default speaker.
+    pub speaker: bool,
 }
 
 /// Viewer options.
@@ -60,6 +64,10 @@ pub struct ViewArgs {
     pub put: Option<PathBuf>,
     /// Request Audio and print the length of packets the host sends.
     pub audio: bool,
+    /// Send the default microphone to the host when Audio is granted.
+    pub mic: bool,
+    /// Play received Opus on the default speaker.
+    pub speaker: bool,
     /// Relay URLs this process may use. A ticket cannot add one.
     pub relays: Vec<String>,
 }
@@ -79,9 +87,9 @@ pub fn parse(args: &[String]) -> Result<Command, CliError> {
 fn usage() -> CliError {
     CliError::new(
         "usage: cbdesk host --bind ADDR (--synthetic|--screen) [--approve view,input] \
-         [--frames N] [--lan] [--relay URL] [--files-root DIR] [--tone]\n       \
-         cbdesk view (--ticket HEX|--browse) (--ppm FILE|--window|--put FILE) \
-         [--pointer X,Y] [--key NAME] [--audio] [--relay URL]",
+         [--frames N] [--lan] [--relay URL] [--files-root DIR] [--tone|--mic] [--speaker]\n       \
+         cbdesk view (--ticket HEX|--browse) (--ppm FILE|--window|--put FILE|--audio|--mic|--speaker) \
+         [--pointer X,Y] [--key NAME] [--relay URL]",
     )
 }
 
@@ -95,6 +103,8 @@ struct HostDraft {
     relays: Vec<String>,
     files_root: Option<PathBuf>,
     tone: bool,
+    mic: bool,
+    speaker: bool,
 }
 
 fn parse_host(args: &[String]) -> Result<HostArgs, CliError> {
@@ -110,6 +120,8 @@ fn parse_host(args: &[String]) -> Result<HostArgs, CliError> {
         relays: Vec::new(),
         files_root: None,
         tone: false,
+        mic: false,
+        speaker: false,
     };
     let mut index = 0;
     while index < args.len() {
@@ -140,6 +152,8 @@ fn apply_host(draft: &mut HostDraft, args: &[String], index: &mut usize) -> Resu
             draft.files_root = Some(PathBuf::from(take(args, index, "files root")?));
         }
         "--tone" => draft.tone = true,
+        "--mic" => draft.mic = true,
+        "--speaker" => draft.speaker = true,
         _ => return Err(CliError::new(format!("unknown host argument {flag}"))),
     }
     Ok(())
@@ -157,6 +171,14 @@ fn finish_host(draft: HostDraft) -> Result<HostArgs, CliError> {
     if needs_files_root(&draft.approve) && draft.files_root.is_none() {
         return Err(CliError::new("file_read and file_write need --files-root"));
     }
+    if draft.tone && draft.mic {
+        return Err(CliError::new("host takes --tone or --mic, not both"));
+    }
+    if (draft.tone || draft.mic || draft.speaker) && !draft.approve.contains(&Permission::Audio) {
+        return Err(CliError::new(
+            "microphone, speaker, and tone need audio in --approve",
+        ));
+    }
     Ok(HostArgs {
         bind: draft.bind,
         approve: draft.approve,
@@ -167,6 +189,8 @@ fn finish_host(draft: HostDraft) -> Result<HostArgs, CliError> {
         relays: draft.relays,
         files_root: draft.files_root,
         tone: draft.tone,
+        mic: draft.mic,
+        speaker: draft.speaker,
     })
 }
 
@@ -179,6 +203,8 @@ struct ViewDraft {
     key: Option<String>,
     put: Option<PathBuf>,
     audio: bool,
+    mic: bool,
+    speaker: bool,
     relays: Vec<String>,
 }
 
@@ -192,6 +218,8 @@ fn parse_view(args: &[String]) -> Result<ViewArgs, CliError> {
         key: None,
         put: None,
         audio: false,
+        mic: false,
+        speaker: false,
         relays: Vec::new(),
     };
     let mut index = 0;
@@ -213,6 +241,8 @@ fn apply_view(draft: &mut ViewDraft, args: &[String], index: &mut usize) -> Resu
         "--key" => draft.key = Some(key_arg(&take(args, index, "key")?)?),
         "--put" => draft.put = Some(PathBuf::from(take(args, index, "file")?)),
         "--audio" => draft.audio = true,
+        "--mic" => draft.mic = true,
+        "--speaker" => draft.speaker = true,
         "--relay" => draft
             .relays
             .push(relay_arg(&take(args, index, "relay URL")?)?),
@@ -227,9 +257,15 @@ fn finish_view(draft: ViewDraft) -> Result<ViewArgs, CliError> {
             "view needs exactly one of --ticket or --browse",
         ));
     }
-    if draft.ppm.is_none() && !draft.window && draft.put.is_none() && !draft.audio {
+    if draft.ppm.is_none()
+        && !draft.window
+        && draft.put.is_none()
+        && !draft.audio
+        && !draft.mic
+        && !draft.speaker
+    {
         return Err(CliError::new(
-            "view needs --ppm, --window, --put, or --audio",
+            "view needs --ppm, --window, --put, --audio, --mic, or --speaker",
         ));
     }
     Ok(ViewArgs {
@@ -241,6 +277,8 @@ fn finish_view(draft: ViewDraft) -> Result<ViewArgs, CliError> {
         key: draft.key,
         put: draft.put,
         audio: draft.audio,
+        mic: draft.mic,
+        speaker: draft.speaker,
         relays: draft.relays,
     })
 }
@@ -351,6 +389,21 @@ mod tests {
             .expect_err("root")
             .to_string()
             .contains("files-root"));
+    }
+
+    #[test]
+    fn tone_and_microphone_are_not_combined() {
+        let both = parse(&strings(&[
+            "host",
+            "--synthetic",
+            "--approve",
+            "audio",
+            "--tone",
+            "--mic",
+        ]));
+        assert!(both.expect_err("both").to_string().contains("not both"));
+        let missing = parse(&strings(&["host", "--synthetic", "--tone"]));
+        assert!(missing.expect_err("audio").to_string().contains("audio"));
     }
 
     #[test]

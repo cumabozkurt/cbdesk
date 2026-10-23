@@ -42,23 +42,33 @@ future import would be a new decision, with upstream copyright notices and
 
 M0's exit criterion ("the fork builds on three desktops") stays unmet on
 purpose. CI builds this workspace on Linux, Windows, and macOS instead.
-Hardware codecs and a Flutter UI are still absent. The session indicator
-still cannot be disabled, and a ticket is still only a locator.
+Hardware codecs are still absent. The Flutter shell, motion inter frames,
+and device audio are recorded in the implementation note. The session
+indicator still cannot be disabled, and a ticket is still only a locator.
 
 ## Implementation note (2026-10-23)
 
 VP8 is oxideav-vp8 0.2.7. The license is MIT. Default features stay off, so
 the registry feature and its extra framework are not linked. The crate is
 pure Rust. This build does not link a system libvpx. The first frame, and
-any frame after a size change, is a keyframe. A later frame can be a
-zero-motion inter frame. A unit test checks the inter-frame tag and still
-reads the barcode at quantizer 0. Color is YUV. A gray barcode stays gray
-enough for that reader. When both peers offer VP8 and AV1, negotiation
-selects VP8. T-MED-001 is that both-sides-VP8 selection. T-MED-004 in this
-tree is a short barcode stream, including that inter frame. It is not a
-60-second soak and it is not a measured 1080p run. The live pacer targets
-33 ms.
+any frame after a size change, is a keyframe. A later frame of the same
+size is a motion-compensated inter frame. The encoder calls
+`encode_p_frame_multi_ref`, which runs that crate's diamond search and can
+emit NEWMV, NEARESTMV, NEARMV, ZEROMV, or SPLITMV. A unit test checks the
+inter-frame tag and still reads the barcode at quantizer 0. A second test
+shifts a 16-pixel white block by one macroblock at quantizer 96 on a 48×16
+picture and checks that the moved columns survive. Color is YUV. When both
+peers offer VP8 and AV1, negotiation selects VP8. T-MED-001 is that
+both-sides-VP8 selection. T-MED-004 in this tree is the short barcode stream
+plus that 48×16 shift. It is not a 60-second soak and it is not a measured
+1080p run. The live pacer targets 33 ms. Software encode at a display's
+native size can miss that target; the pacer then raises the quantizer.
 
-Audio in this tree is a synthetic Opus tone (rusty-opus), after an Audio
-grant. It does not open a microphone. File bytes are a separate crate and
-are not a codec.
+Audio is rusty-opus after an Audio grant. `--tone` is a synthetic packet
+and does not open a device. `--mic` and `--speaker` open the default
+devices through cpal 0.15.3. A missing device is an error. This tree does
+not record that a person heard the stream. The Flutter shell shows device
+names from a probe and does not start a capture. File bytes are a separate
+crate and are not a codec. The Flutter shell exists and shows the decoded
+48×16 motion frame after consent. It does not show an operating-system
+capture. Hardware codecs are still absent.

@@ -311,6 +311,11 @@ impl QuicConn {
     pub(crate) fn remote_key(&self) -> [u8; 32] {
         *self.inner.remote_id().as_bytes()
     }
+
+    /// The peer's Ed25519 public key. This is the device id, not a grant.
+    pub fn remote_device_id(&self) -> [u8; 32] {
+        self.remote_key()
+    }
 }
 
 const PROBE_MAX: usize = 64 * 1024;

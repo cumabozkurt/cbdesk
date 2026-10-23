@@ -25,6 +25,22 @@ widget tree. No Dart package is in this milestone, and CI does not run
 
 ## Consequences
 
-FFI and the Flutter version pin are future work. A temporary CLI or test
-harness may call `HostSession` directly before the Flutter shell exists.
-That harness must not grow a hidden session.
+The CLI still calls the session core directly. That path must not grow a
+hidden session. The shell, the version pins, and what CI runs are in the
+implementation note.
+
+## Implementation note (2026-10-23)
+
+The decision text above is unchanged. The shell now exists at `app/desktop`.
+Flutter is pinned to 3.47.7. The bridge is flutter_rust_bridge 2.12.0 over
+`cbdesk-ffi`. The hand-written API forbids unsafe; the generated glue is
+the unsafe file. Screens in this tree are home (device id and short code),
+connect, consent, remote view, file panel, address book, and settings, in
+Turkish and English. The session indicator is painted above the pages and
+has no off switch. The remote view shows the core's decoded 48×16 motion
+frame after consent. It does not show an operating-system capture. The file
+panel stages a name; `cbdesk view --put` is still the QUIC transfer. Settings
+show microphone and speaker names and do not start those devices. A short
+code does not authenticate. Widget tests use a fake desk. CI runs
+`flutter analyze` and `flutter test` on Linux, Windows, and macOS, and
+`flutter build linux --debug` on Ubuntu.

@@ -1,0 +1,5 @@
+rust_input: crate::api
+rust_root: ../../crates/cbdesk-ffi
+dart_output: lib/src/rust
+rust_preamble: "// SPDX-License-Identifier: AGPL-3.0-or-later\n"
+add_mod_to_lib: false

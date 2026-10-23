@@ -1,0 +1,32 @@
+[package]
+name = "cbdesk-desk"
+description = "Desktop session state for the Flutter shell. A ticket is still only a locator."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+cbdesk-audio = { path = "../cbdesk-audio" }
+cbdesk-capture = { path = "../cbdesk-capture" }
+cbdesk-codec = { path = "../cbdesk-codec" }
+cbdesk-crypto = { path = "../cbdesk-crypto" }
+cbdesk-discovery = { path = "../cbdesk-discovery" }
+cbdesk-fs = { path = "../cbdesk-fs" }
+cbdesk-net = { path = "../cbdesk-net" }
+cbdesk-proto = { path = "../cbdesk-proto" }
+cbdesk-session = { path = "../cbdesk-session" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

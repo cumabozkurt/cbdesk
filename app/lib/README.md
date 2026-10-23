@@ -1,1 +1,1 @@
-Flutter sources will live here. The directory is empty on purpose.
+The desktop shell lives in `app/desktop`. This directory is not that shell.

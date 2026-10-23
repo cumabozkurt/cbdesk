@@ -6,7 +6,7 @@ use std::io::{self, Write};
 use std::net::IpAddr;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use cbdesk_audio::ToneCodec;
+use cbdesk_audio::{CapturePump, PacketCodec, Speaker, ToneCodec};
 use cbdesk_capture::{capture_picture, crop_even, Picture, SyntheticCapturer, BARCODE_WIDTH};
 use cbdesk_codec::{encode_luma, BitrateControl, CodecError, EncodeQuality, Pace, Vp8Encoder};
 use cbdesk_crypto::Identity;
@@ -41,10 +41,20 @@ struct Stream {
     next_at: Instant,
     uploads: Option<Uploads>,
     tone: Option<ToneCodec>,
+    mic: Option<CapturePump>,
+    speaker: Option<Speaker>,
+    playback: Option<PacketCodec>,
+}
+
+struct HostDevices {
+    mic: Option<CapturePump>,
+    speaker: Option<Speaker>,
+    playback: Option<PacketCodec>,
 }
 
 /// Bind, print a ticket, and stream pictures until the viewer closes.
 pub async fn serve(args: &HostArgs) -> Result<(), CliError> {
+    let devices = open_host_devices(args)?;
     let (endpoint, identity) = bind_host(args).await?;
     if args.lan {
         start_announce(&endpoint, &identity).await?;
@@ -63,7 +73,30 @@ pub async fn serve(args: &HostArgs) -> Result<(), CliError> {
     let mut link = admit(conn, source, args).await?;
     let codec = select_video_codec(&local_capabilities(), link.peer_caps())
         .ok_or_else(|| CliError::new("no shared video codec"))?;
-    session_loop(&mut link, args, codec).await
+    session_loop(&mut link, args, codec, devices).await
+}
+
+fn open_host_devices(args: &HostArgs) -> Result<HostDevices, CliError> {
+    let mic = if args.mic {
+        Some(CapturePump::start().map_err(|err| CliError::new(err.to_string()))?)
+    } else {
+        None
+    };
+    let speaker = if args.speaker {
+        Some(Speaker::open_default().map_err(|err| CliError::new(err.to_string()))?)
+    } else {
+        None
+    };
+    let playback = if speaker.is_some() {
+        Some(PacketCodec::new().map_err(|err| CliError::new(err.to_string()))?)
+    } else {
+        None
+    };
+    Ok(HostDevices {
+        mic,
+        speaker,
+        playback,
+    })
 }
 
 async fn bind_host(args: &HostArgs) -> Result<(QuicEndpoint, Identity), CliError> {
@@ -149,12 +182,17 @@ async fn consent_answer(origin: Instant, perms: Vec<Permission>, high_risk: bool
     }
 }
 
-async fn session_loop(link: &mut HostLink, args: &HostArgs, codec: Codec) -> Result<(), CliError> {
-    let mut stream = Stream::prepare(args)?;
+async fn session_loop(
+    link: &mut HostLink,
+    args: &HostArgs,
+    codec: Codec,
+    devices: HostDevices,
+) -> Result<(), CliError> {
+    let mut stream = Stream::prepare(args, devices)?;
     let mut clips = ClipSync::new();
     let clip_ok = link.authorize(Permission::Clipboard).is_ok();
     let view_ok = link.authorize(Permission::View).is_ok();
-    let audio_ok = args.tone && link.authorize(Permission::Audio).is_ok();
+    let audio_ok = (args.tone || args.mic) && link.authorize(Permission::Audio).is_ok();
     loop {
         stream.pump(link, args, codec, view_ok, audio_ok).await?;
         if !wait_peer(
@@ -175,7 +213,7 @@ async fn session_loop(link: &mut HostLink, args: &HostArgs, codec: Codec) -> Res
 }
 
 impl Stream {
-    fn prepare(args: &HostArgs) -> Result<Self, CliError> {
+    fn prepare(args: &HostArgs, devices: HostDevices) -> Result<Self, CliError> {
         let uploads = match &args.files_root {
             Some(root) => Some(Uploads::create(root)?),
             None => None,
@@ -194,6 +232,9 @@ impl Stream {
             next_at: Instant::now(),
             uploads,
             tone,
+            mic: devices.mic,
+            speaker: devices.speaker,
+            playback: devices.playback,
         })
     }
 
@@ -209,7 +250,7 @@ impl Stream {
             return Ok(());
         }
         let send_video = view_ok && wants_frame(self.sent, args.frames);
-        let send_audio = audio_ok && self.tone.is_some();
+        let send_audio = audio_ok && (self.tone.is_some() || self.mic.is_some());
         if !send_video && !send_audio {
             return Ok(());
         }
@@ -284,14 +325,34 @@ impl Stream {
     }
 
     async fn send_tone(&mut self, link: &mut HostLink) -> Result<(), CliError> {
-        let Some(tone) = self.tone.as_mut() else {
+        if let Some(tone) = self.tone.as_mut() {
+            let packet = tone
+                .encode_frame()
+                .map_err(|err| CliError::new(err.to_string()))?;
+            return link
+                .send_audio(&packet)
+                .await
+                .map_err(|err| CliError::new(err.to_string()));
+        }
+        let packet = self.mic.as_ref().and_then(CapturePump::pop);
+        if let Some(packet) = packet {
+            link.send_audio(&packet)
+                .await
+                .map_err(|err| CliError::new(err.to_string()))?;
+        }
+        Ok(())
+    }
+
+    fn play_incoming(&mut self, packet: &[u8]) -> Result<(), CliError> {
+        let (Some(playback), Some(speaker)) = (self.playback.as_mut(), self.speaker.as_ref())
+        else {
             return Ok(());
         };
-        let packet = tone
-            .encode_frame()
+        let pcm = playback
+            .decode_packet(packet)
             .map_err(|err| CliError::new(err.to_string()))?;
-        link.send_audio(&packet)
-            .await
+        speaker
+            .play(&pcm)
             .map_err(|err| CliError::new(err.to_string()))
     }
 
@@ -376,6 +437,7 @@ async fn apply_event(
         PeerEvent::Audio(packet) => {
             println!("audio {}", packet.len());
             io::stdout().flush()?;
+            stream.play_incoming(&packet)?;
             Ok(true)
         }
         PeerEvent::Feedback(feedback) => {

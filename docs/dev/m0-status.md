@@ -15,7 +15,10 @@ sources is derived from that project.
 - Cargo workspace, Rust 1.91 pin (ADR-006), rustfmt, clippy, and `cargo-deny` policy.
 - GitHub Actions: rustfmt, cargo-deny, RustSec audit, DCO, catalog check,
   rebrand scan, and clippy plus tests on `ubuntu-24.04`, `windows-2022`, and
-  `macos-14`.
+  `macos-14`. Flutter analyze and widget tests run on those three. Ubuntu
+  also builds the Linux debug shell. Windows and macOS Flutter bundles are
+  not in this workflow. CI on `c01d0fb` is green on the three Rust jobs.
+  The jobs for the commit that adds this note have not finished.
 - Contribution documents: `CONTRIBUTING.md`, `GOVERNANCE.md`, `SECURITY.md`,
   `PRIVACY.md`, `TRADEMARK.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, `NOTICE`.
 - ADRs 001–015. ADR-015 declines a fork for capture, codec, and input.
@@ -43,17 +46,34 @@ sources is derived from that project.
 - `cbdesk-codec`: color VP8 via oxideav-vp8 0.2.7 (MIT, default features
   off, no system libvpx) and AV1 stills via rav1e (assembler and git tooling
   off) and rav1d-safe (AGPL-3.0-only). The first VP8 frame is a keyframe. A
-  later frame can be a zero-motion inter frame. Negotiation prefers VP8.
+  later frame of the same size is a motion-compensated inter frame
+  (`encode_p_frame_multi_ref`, diamond search). A 48×16 test checks a block
+  that moved 16 pixels at quantizer 96. Negotiation prefers VP8.
 - `cbdesk-fs`: resumable uncompressed files under a path jail. zstd is not
   linked.
-- `cbdesk-audio`: a synthetic Opus tone and a 40–120 ms jitter buffer. No
-  microphone is opened.
+- `cbdesk-audio`: Opus through rusty-opus and a 40–120 ms jitter buffer.
+  `--tone` does not open a device. `--mic` and `--speaker` open the default
+  devices through cpal 0.15.3. A missing device is an error. This tree does
+  not record that a person heard the stream.
 - `cbdesk-input`: enigo injection after the caller has granted Input, and
   `InputLog` for tests. Tests do not call `inject`.
 - `cbdesk-cli`: `cbdesk host` and `cbdesk view`. After consent, frames stream
   until the viewer closes. `--window` shows them. `--ppm` writes the first
   frame. `--lan` / `--browse` find each other on the LAN. `--screen` captures
-  the display. `--put`, `--tone`, `--audio`, and `--relay` are wired.
+  the display. `--put`, `--tone`, `--audio`, `--mic`, `--speaker`, and
+  `--relay` are wired. `--tone` and `--mic` cannot be combined.
+- `cbdesk-desk`: device id, short code, signed ticket locator, consent,
+  block list, address book, file-name jail, and the 48×16 motion frame after
+  consent. The short code does not authenticate. The address book does not
+  skip the first-contact delay. The manual clock is not exported.
+- `cbdesk-ffi`: flutter_rust_bridge 2.12.0. `api.rs` forbids unsafe.
+  Generated glue is the unsafe file.
+- `app/desktop`: Flutter 3.47.7 shell. Home, connect, consent, remote view,
+  file panel, address book, and settings, in Turkish and English. The
+  indicator is an edge and a disconnect panel above the pages and has no
+  off switch. The remote view is the decoded 48×16 motion frame, not an
+  operating-system capture. The file panel stages a name. Settings show
+  device names and do not start a stream. Widget tests use a fake desk.
 - `cbdesk-testkit`: re-exported barcode frames, recording injector,
   poisonable fake DHT.
 - Netlab profile files for N0, N3, and N4. They do not create namespaces.
@@ -124,20 +144,24 @@ substitute, not that exit.
 - Synthetic capturer, a VP8 barcode stream, and an AV1 fallback. The live
   path sends color YUV at the capture's even size. The pacer targets 33 ms
   and adapts the VP8 quantizer. This tree has no 1080p timing measurement.
+  The Flutter desk sends the 48×16 motion pair, not that live capture.
   Ubuntu CI proves the X11 path under Xvfb, including a viewer window that
   opens and paints one local frame. The Wayland ScreenCast path is compiled
   and selected when `WAYLAND_DISPLAY` is set; CI does not run it. Windows
   and macOS compile the capturer and the window. A missing display is
   `Unavailable` unless `CBDESK_REQUIRE_DISPLAY` is set. T-MED-001 selects
   VP8 when that is the only shared video codec. T-MED-004 here is the short
-  barcode, including one inter frame at quantizer 0. It is not a 60-second
-  soak.
+  barcode, including one inter frame at quantizer 0, and a 48×16 block that
+  moved at quantizer 96. It is not a 60-second soak.
 - A scripted pointer and Enter are host stdout lines after an Input grant.
   The window maps pointer and key events the same way. The check is that
   QUIC delivery, not an injected operating-system click.
 - File transfer resumes in `cbdesk-fs`. The CLI `--put` test stores
-  `hello` after `file_write` and `--allow-high-risk`. Audio `--tone` reaches
-  a viewer that passed `--audio`. Integration tests set
+  `hello` after `file_write` and `--allow-high-risk`. The Flutter file panel
+  stages a name through that jail and does not send the chunks. Audio
+  `--tone` reaches a viewer that passed `--audio`. `--mic` and `--speaker`
+  open real devices; the shell only displays the names `probe_defaults`
+  returns. Integration tests set
   `CBDESK_EPHEMERAL_IDENTITY=1` so two processes do not load one OS keychain
   identity and refuse to dial each other. Same-machine browse dials loopback
   before the multicast source address.
@@ -155,26 +179,43 @@ substitute, not that exit.
 | T-PERM-002 | `authorize` refuses a permission that was not granted | A file browser UI |
 | T-PERM-006 | Media and `authorize` fail before the grant. An echo probe is answered with `PROTOCOL_VIOLATION` and is not reflected. A unidirectional stream before the grant is the same close. After `authorize(View)`, frame streams are delivered. After `authorize(Input)`, an input event is returned and is not injected by the test. After `authorize(Clipboard)`, text is delivered. File and audio follow their grants and close the session without them. Clipboard, input, file, or audio without the grant closes the session | Moving the real pointer |
 | T-MED-001 | Both peers offering only VP8 select VP8. VP8 outranks AV1 when both are offered. AV1 is selected when VP8 is absent | VP9, H.264, and H.265 |
-| T-MED-004 | A short VP8 stream keeps the barcode readable at quantizer 0, including one zero-motion inter frame. Color sampling keeps a gray barcode gray | A 60-second soak, a hardware encoder, and a measured 1080p frame rate |
-| T-UI-004 | First contact cannot be approved before 3 seconds | A widget |
-| T-UI-005 | `indicator_can_be_disabled` is constant false | Settings UI, CLI |
-| T-UI-007 / T-I18N-001 | Catalog keys match across Turkish and English, including every known error | A rendered UI |
+| T-MED-004 | A short VP8 stream keeps the barcode readable at quantizer 0, including one inter frame. A 48×16 test shifts a white block by 16 pixels at quantizer 96. Color sampling keeps a solid color dominant | A 60-second soak, a hardware encoder, and a measured 1080p frame rate |
+| T-UI-004 | First contact cannot be approved before 3 seconds. The shell keeps Accept disabled until the desk says the delay has elapsed | A wall-clock widget that sleeps 3 seconds |
+| T-UI-005 | `indicator_can_be_disabled` is constant false. The shell has no hide control, paints the indicator above consent, and the settings page says it cannot be turned off | A tray icon on a logged-in desktop |
+| T-UI-007 / T-I18N-001 | JSON catalog keys and Flutter ARB keys match across Turkish and English | A spoken usability test |
 | T-I18N-004 | Turkish short-code casing | A spoken usability test |
+
+Widget tests in `app/desktop/test` drive the shell with a fake desk. They
+cover the home id and short code, a refused short code, the consent delay
+flag, the high-risk opt-in, Reject focus, the missing hide-indicator
+control, disconnect, the file-name jail, the address book, and the English
+settings strings. They do not load `libcbdesk_ffi`. The Rust bridge test
+refuses a short code and keeps `indicator_can_be_disabled` false.
+`flutter build linux --debug` on this machine produced a bundle that
+contains `libcbdesk_ffi.so`. Starting that binary under Xvfb loaded the
+library and wrote an identity file. That start is not a click-through of
+the screens and it is not a session to another computer.
 
 ## Recommended next run
 
-Measure the live pacer on a real display and record the frame interval.
-The target is 33 ms at the capture's even size. Wayland ScreenCast is
-compiled and untested in CI; a portal-capable lab would be the proof, not
-an Xvfb job. A symmetric NAT measurement needs two machines and a relay the
-operator runs outside this repository.
+Stream an operating-system capture through the Flutter desk. Today that
+desk sends the 48×16 motion pair after consent, and `cbdesk --screen` is
+the capture path. Pipe the microphone through the Flutter session. Today
+`--mic` and `--speaker` are CLI flags, and the shell only shows device
+names. Wayland ScreenCast is compiled and untested in CI; a portal-capable
+lab would be the proof, not an Xvfb job. A symmetric NAT measurement needs
+two machines and a relay the operator runs outside this repository.
+Windows and macOS Flutter bundles are not built in CI yet. The macOS
+plugin file is a CocoaPods podspec. Flutter 3.47's generated Swift package
+on this machine did not list that plugin, so a macOS bundle is not proven.
 
-Commit `baef235` is red on macOS and Windows: the OS keychain made the two
-CLI processes the same device, and LAN browse dialed the multicast source
-address. This tree sets `CBDESK_EPHEMERAL_IDENTITY=1` in those tests and
-dials loopback first. Those jobs have not run on this commit yet.
+CI on `c01d0fb` is green on Ubuntu 24.04, Windows 2022, and macOS 14.
+The commit that adds the shell, device audio, and the motion test is not
+green until Actions finishes.
 
-Still out of that run: hardware codecs, a microphone, the Flutter UI,
-compressed file chunks, SPAKE2, OPAQUE, and DHT blinding. ADR-007 and
-ADR-008 are still Proposed. The fork import stays closed for capture,
-codec, and input (ADR-015). M0's fork-builds exit stays unmet.
+Still out of this run: hardware codecs, Flutter mobile, compressed file
+chunks, SPAKE2, OPAQUE, and DHT blinding. ADR-007 and ADR-008 are still
+Proposed. The fork import stays closed for capture, codec, and input
+(ADR-015). M0's fork-builds exit stays unmet. T-MED-004 is not a
+60-second soak. The pacer targets 33 ms. A 1080p frame interval has not
+been measured. Nobody has confirmed they heard the microphone path.
