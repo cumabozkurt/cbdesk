@@ -224,10 +224,17 @@ jobs:
           flutter build macos --debug
           app="build/macos/Build/Products/Debug/cbdesk.app/Contents/MacOS/cbdesk"
           test -f "$app"
-          lib=$(find build/macos -name 'libcbdesk_ffi.a' | head -n 1)
+          # find | head and nm | grep -q die under pipefail: llvm-nm reports
+          # "write on a pipe with no reader" when grep exits on the first hit.
+          lib=$(find build/macos -name 'libcbdesk_ffi.a' -print -quit)
           test -n "$lib"
-          nm "$lib" | grep -q flutter_rust_bridge
-          nm "$app" | grep -q flutter_rust_bridge
+          framework=$(find "build/macos/Build/Products/Debug/cbdesk.app" -type f -name 'cbdesk_ffi' -print -quit)
+          test -n "$framework"
+          nm "$lib" > "$RUNNER_TEMP/nm-lib.txt"
+          nm "$framework" > "$RUNNER_TEMP/nm-framework.txt"
+          grep -q flutter_rust_bridge "$RUNNER_TEMP/nm-lib.txt"
+          grep -q flutter_rust_bridge "$RUNNER_TEMP/nm-framework.txt"
+          echo "linked $lib and $framework"
 
       - name: Android debug bundle
         if: runner.os == 'Linux'

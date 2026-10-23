@@ -26,8 +26,11 @@ sources is derived from that project.
   ephemeral directory. `46337c5` resolves that link. Flutter on Windows
   then linked `cbdesk_ffi.dll`. Flutter on macOS built the static archive
   and the link failed for CoreAudio, AudioToolbox, CoreMedia,
-  SystemConfiguration, and Carbon. The following commit names those
-  frameworks on the pod. It is not green until Actions finishes.
+  SystemConfiguration, and Carbon. `b01e162` names those frameworks and
+  the app builds. The following symbol check then exits because `nm` is
+  piped to `grep -q` and llvm-nm reports a closed pipe. The following
+  commit reads `nm` into a file and checks the framework inside the app.
+  It is not green until Actions finishes.
 - Contribution documents: `CONTRIBUTING.md`, `GOVERNANCE.md`, `SECURITY.md`,
   `PRIVACY.md`, `TRADEMARK.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, `NOTICE`.
 - ADRs 001–015. ADR-015 declines a fork for capture, codec, and input.
@@ -222,10 +225,11 @@ the screens and it is not a session to another computer.
 machine produced an APK whose `lib/arm64-v8a/libcbdesk_ffi.so` is the Rust
 bridge. That APK was not installed on a device, and the system capture
 dialog was not accepted. Windows and macOS bundles are in the workflow.
-`46337c5` linked the Windows DLL. The macOS archive built, and the link
-failed on AudioToolbox, CoreAudio, CoreMedia, SystemConfiguration, and
-Carbon. The following commit names those frameworks on the pod. That link
-is not proven until Actions finishes.
+`46337c5` linked the Windows DLL. `b01e162` built `cbdesk.app` after the
+pod linked AudioToolbox, CoreAudio, CoreMedia, SystemConfiguration, and
+Carbon. The symbol check then failed because `nm` was piped into `grep -q`.
+The following commit checks the framework inside the app from a file. That
+check is not proven until Actions finishes.
 
 ## Recommended next run
 
@@ -241,9 +245,9 @@ MediaProjection after the system dialog and is scaled so the longer side
 is at most 960. It has not been clicked through on a device in this run.
 
 `c01d0fb` is green on Ubuntu 24.04, Windows 2022, and macOS 14. `80534bf`
-and `2febc4d` are not. `46337c5` failed only the macOS Flutter bundle, at
-the framework link described above. The commit after it is not green until
-Actions finishes.
+and `2febc4d` are not. `46337c5` failed the macOS link. `b01e162` built
+the macOS app and failed the piped `nm` check. The commit after it is not
+green until Actions finishes.
 
 Still out of this run: hardware codecs, an iOS shell, compressed file
 chunks, OPAQUE, and DHT blinding. ADR-007 stays Proposed. ADR-008 is
