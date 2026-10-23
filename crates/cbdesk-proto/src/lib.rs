@@ -5,9 +5,9 @@
 //! CBDesk session protocol, version `cbdesk/1`.
 //!
 //! This crate is the implemented subset of the protocol: handshake messages,
-//! grants, invite tickets, DHT address records, and the size limits parsers
-//! must enforce. Media payloads and the full channel set come later. The
-//! readable schema is `proto/cbdesk/v1/session.proto`.
+//! grants, invite tickets, DHT address records, input events, and the size
+//! limits parsers must enforce. Encoded video bytes are not a protobuf field.
+//! The readable schema is `proto/cbdesk/v1/session.proto`.
 //!
 //! # Consent
 //!
@@ -19,6 +19,7 @@
 mod control;
 mod enums;
 mod error;
+mod input;
 mod limits;
 mod messages;
 mod wire;
@@ -26,6 +27,7 @@ mod wire;
 pub use control::{Control, ControlBody};
 pub use enums::{AuthMethod, Capability, Codec, ErrorCode, InvitePurpose, Permission, Platform};
 pub use error::ProtoError;
+pub use input::{InputBody, InputEvent, KeyEvent, PointerEvent};
 pub use limits::{
     check_payload, PayloadKind, CLIPBOARD_ABSOLUTE_MAX_BYTES, CLIPBOARD_DEFAULT_MAX_BYTES,
     CONTROL_MAX_BYTES, MAX_DIRECT_ADDRS, VIDEO_FRAME_MAX_BYTES,

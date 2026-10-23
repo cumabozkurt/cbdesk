@@ -6,6 +6,10 @@ members = [
     "crates/cbdesk-discovery",
     "crates/cbdesk-net",
     "crates/cbdesk-session",
+    "crates/cbdesk-capture",
+    "crates/cbdesk-codec",
+    "crates/cbdesk-input",
+    "crates/cbdesk-cli",
     "crates/cbdesk-testkit",
 ]
 
@@ -50,6 +54,15 @@ tracing = "=0.1.40"
 base64ct = { version = "=1.7.3", default-features = false }
 hashbrown = { version = "=0.16.1", default-features = false }
 indexmap = { version = "=2.13.1", default-features = false }
+# Software AV1. rav1e asm/nasm and git2 stay off. rav1d-safe is the pure-Rust
+# decoder (AGPL-3.0-only). VP8 is not linked: those crates need a system libvpx.
+rav1e = { version = "=0.8.1", default-features = false }
+rav1d-safe = { version = "=0.6.0", default-features = false, features = ["bitdepth_8"] }
+# Screen capture. 0.9.5 is the last release whose Linux deps are all on crates.io.
+xcap = "=0.9.5"
+# Pointer and keyboard injection. x11rb is the X11 path; wayland is the
+# compositor path. Neither feature is used unless a grant includes Input.
+enigo = { version = "=0.6.1", default-features = false, features = ["x11rb", "wayland"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

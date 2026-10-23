@@ -21,8 +21,21 @@ Version 0.0.0 is not a release.
   broadcast body. Public networks and a disabled user send nothing.
 - GitHub Actions workflow for rustfmt, cargo-deny, RustSec audit, clippy, and
   tests on Linux, Windows, and macOS.
-- ADRs 001–014, threat-model draft, and contribution documents.
+- ADRs 001–015, threat-model draft, and contribution documents.
 - Turkish and English message catalogs for the errors and consent strings that
   exist so far.
+- One unidirectional QUIC stream per video frame, opened only after
+  `authorize(View)`. A side stream before the grant is `PROTOCOL_VIOLATION`.
+  An input event uses its own unidirectional stream and is accepted only
+  after `authorize(Input)`.
+- Software AV1 (rav1e, assembler and git tooling off; rav1d-safe under
+  AGPL-3.0-only) for one grayscale still. VP8 is not linked.
+- Operating-system screen capture through xcap 0.9.5, and keyboard/pointer
+  injection through enigo after an Input grant. Tests record input events
+  and do not move the pointer.
+- `cbdesk host` and `cbdesk view`: after consent, one synthetic AV1 frame
+  can be written to a PPM. `--screen` captures the display. The ticket is
+  still only a locator.
+- ADR-015 keeps the clean-room core. The M0 fork exit stays unmet on purpose.
 
-This tree is not derived from RustDesk. See ADR-002.
+This tree is not derived from RustDesk. See ADR-002 and ADR-015.

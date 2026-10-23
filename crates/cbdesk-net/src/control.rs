@@ -69,4 +69,8 @@ impl ControlChannel {
             .finish()
             .map_err(|err| NetError::Quic(err.to_string()))
     }
+
+    pub(crate) async fn until_stopped(&mut self) {
+        let _ = self.send.stopped().await;
+    }
 }

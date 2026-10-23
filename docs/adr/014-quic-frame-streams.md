@@ -33,3 +33,14 @@ Implementing video means opening streams, not stuffing frames into the memory
 `Conn` as a side effect. The 16 MiB frame cap in `cbdesk-proto` applies to
 that payload. The memory transport is a byte pipe for tests and does not model
 stream isolation.
+
+## Implementation note (2026-10-23)
+
+The direct QUIC endpoint now opens one unidirectional stream per frame. The
+bytes are a big-endian `u32` length, a `VideoFrameHeader`, a big-endian `u32`
+length, and the payload. The lengths plus both bodies stay within 16 MiB.
+`HostLink::send_view_frame` calls `authorize(View)` before `open_uni`. A
+unidirectional stream, or an extra bidirectional stream, opened before the
+grant is `PROTOCOL_VIOLATION` and the session closes. Input uses a separate
+unidirectional stream (a length and one `InputEvent`) and is accepted only
+after `authorize(Input)`. The original decision above is unchanged.

@@ -71,6 +71,26 @@ message Close {
   string detail = 2;
 }
 
+message KeyEvent {
+  uint32 keycode = 1;
+  bool down = 2;
+  uint32 modifiers = 3;
+}
+
+message PointerEvent {
+  int32 x = 1;
+  int32 y = 2;
+  uint32 buttons = 3;
+  int32 wheel = 4;
+}
+
+// One input event on its own unidirectional stream.
+// Exactly one of key or pointer is set. A grant is still required.
+message InputEvent {
+  KeyEvent key = 1;
+  PointerEvent pointer = 2;
+}
+
 // One control-channel message. Exactly one body is set.
 // A QUIC control stream frames this as a big-endian u32 length plus these
 // bytes. The length counts only this message and is at most 64 KiB.

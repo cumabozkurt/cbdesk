@@ -9,7 +9,11 @@ The workspace members are the crates that compile:
 | `crates/cbdesk-discovery` | Tickets, short codes, LAN records, DHT signatures |
 | `crates/cbdesk-net` | Transport trait, memory hub, path and relay policy |
 | `crates/cbdesk-session` | Host consent, grants, rate limits |
-| `crates/cbdesk-testkit` | Synthetic frames, recording injector, fake DHT |
+| `crates/cbdesk-capture` | Synthetic barcode and operating-system screen capture |
+| `crates/cbdesk-codec` | Software AV1 encode and decode for one grayscale still |
+| `crates/cbdesk-input` | Keyboard and pointer injection after an Input grant |
+| `crates/cbdesk-cli` | `cbdesk host` and `cbdesk view` |
+| `crates/cbdesk-testkit` | Re-exported barcode frames, recording injector, fake DHT |
 
 Other crate directories match the master plan and are not members. Adding one
 to `[workspace].members` is part of implementing it, not part of creating the

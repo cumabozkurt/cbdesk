@@ -235,6 +235,20 @@ impl QuicConn {
             .map_err(|err| NetError::Quic(err.to_string()))
     }
 
+    pub(crate) async fn open_uni_stream(&self) -> Result<iroh::endpoint::SendStream, NetError> {
+        self.inner
+            .open_uni()
+            .await
+            .map_err(|err| NetError::Quic(err.to_string()))
+    }
+
+    pub(crate) async fn accept_uni_stream(&self) -> Result<iroh::endpoint::RecvStream, NetError> {
+        self.inner
+            .accept_uni()
+            .await
+            .map_err(|err| NetError::Quic(err.to_string()))
+    }
+
     /// Ed25519 public key of the peer that completed the QUIC handshake.
     pub(crate) fn remote_key(&self) -> [u8; 32] {
         *self.inner.remote_id().as_bytes()

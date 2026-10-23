@@ -42,4 +42,7 @@ pub enum ProtoError {
     /// A control message did not contain exactly one body.
     #[error("control message must contain exactly one body")]
     ControlBody,
+    /// An input message did not contain exactly one body.
+    #[error("input message must contain exactly one body")]
+    InputBody,
 }

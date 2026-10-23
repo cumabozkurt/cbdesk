@@ -79,8 +79,48 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
 
+      - name: Linux capture libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            clang \
+            libclang-dev \
+            libxcb1-dev \
+            libxrandr-dev \
+            libx11-dev \
+            x11-utils \
+            libdbus-1-dev \
+            libpipewire-0.3-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libegl1-mesa-dev \
+            libgbm-dev \
+            libdrm-dev \
+            xvfb
+
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Test
-        run: cargo test --workspace --all-targets
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            Xvfb :99 -screen 0 1280x720x24 >/tmp/xvfb.log 2>&1 &
+            ready=0
+            for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+              if DISPLAY=:99 xdpyinfo >/dev/null 2>&1; then
+                ready=1
+                break
+              fi
+              sleep 0.25
+            done
+            if [ "$ready" != 1 ]; then
+              echo "Xvfb did not become ready" >&2
+              cat /tmp/xvfb.log >&2 || true
+              exit 1
+            fi
+            export DISPLAY=:99
+            export CBDESK_REQUIRE_DISPLAY=1
+          fi
+          cargo test --workspace --all-targets

@@ -8,6 +8,7 @@ cd "$root"
 allow='
 docs/MASTER_PLAN.md
 docs/adr/002-fork-sequencing.md
+docs/adr/015-clean-room-media.md
 README.md
 NOTICE
 CHANGELOG.md

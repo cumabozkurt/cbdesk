@@ -10,6 +10,7 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+cbdesk-capture = { path = "../cbdesk-capture" }
 cbdesk-crypto = { path = "../cbdesk-crypto" }
 cbdesk-discovery = { path = "../cbdesk-discovery" }
 cbdesk-proto = { path = "../cbdesk-proto" }

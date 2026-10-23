@@ -39,3 +39,8 @@ M0's exit criterion ("the fork builds on three desktops") is not met.
 CI builds this workspace instead. Screen capture and input will lag the
 protocol work. The benefit is that identity, consent, and the relay policy
 are reviewable without a large unrelated diff.
+
+## Later
+
+ADR-015 (2026-10-23) closes the import option for capture, codec, and input.
+The historical decision in this record is unchanged.

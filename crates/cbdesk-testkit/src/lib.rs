@@ -4,8 +4,9 @@
 
 //! Test doubles for later media and network tests.
 //!
-//! [`SyntheticCapturer`] does not touch a display. [`FakeDht`] does not send
-//! packets. Nothing in this crate enables a hidden session.
+//! [`SyntheticCapturer`] does not touch a display. It is the barcode capturer
+//! from `cbdesk-capture`. [`FakeDht`] does not send packets. Nothing in this
+//! crate enables a hidden session.
 
 mod capture;
 mod dht;

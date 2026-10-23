@@ -11,6 +11,9 @@
   duplicates stay.
 - `CDLA-Permissive-2.0` is allowed for the `webpki-roots` CA bundle that
   iroh pulls in. It is a permissive data license, not a copyleft exception.
+- `AGPL-3.0-only` is allowed for rav1d-safe. The crate's SPDX expression is
+  `AGPL-3.0-only OR LicenseRef-Imazen-Commercial`. This tree uses the AGPL
+  side (ADR-015). Assembler features of rav1e and rav1d-safe stay off.
 
 CI runs EmbarkStudios/cargo-deny-action, pinned to a commit, and
 `cargo audit` from cargo-audit 0.22.2. The RustSec GitHub Action installs

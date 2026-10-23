@@ -43,6 +43,9 @@ pub enum NetError {
     /// The control stream did not carry one `cbdesk/1` frame.
     #[error("control frame was rejected")]
     BadControl,
+    /// A video or input frame was the wrong size or could not be parsed.
+    #[error("media frame was rejected")]
+    BadMedia,
     /// The path state machine rejected this event.
     #[error("path cannot apply {event} while {state}")]
     InvalidTransition {

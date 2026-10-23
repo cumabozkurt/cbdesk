@@ -4,8 +4,10 @@ This note is the status of the master plan. The plan text in
 `docs/MASTER_PLAN.md` is unchanged, including its checkboxes.
 
 The repository is not a RustDesk fork. ADR-002 records why the empty tree
-starts at the modular crate layout instead of importing that history in this
-pass. Nothing in the Rust sources is derived from that project.
+starts at the modular crate layout instead of importing that history.
+ADR-015 keeps capture, the codec, and input in this clean-room core and
+closes that later-import option for those three pieces. Nothing in the Rust
+sources is derived from that project.
 
 ## Done in this pass
 
@@ -16,7 +18,7 @@ pass. Nothing in the Rust sources is derived from that project.
   `macos-14`.
 - Contribution documents: `CONTRIBUTING.md`, `GOVERNANCE.md`, `SECURITY.md`,
   `PRIVACY.md`, `TRADEMARK.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, `NOTICE`.
-- ADRs 001–014.
+- ADRs 001–015. ADR-015 declines a fork for capture, codec, and input.
 - Threat model v0.1 and a protocol note for the messages that exist.
 - Turkish and English catalogs for consent, the fraud warning, and every
   `ErrorCode` string.
@@ -30,12 +32,21 @@ pass. Nothing in the Rust sources is derived from that project.
   do not send.
 - `cbdesk-net`: `Transport` trait, in-memory connections, candidate ranking,
   reconnect backoff, path state machine, relay suffix policy, direct QUIC,
-  ticket dial, and the consent handshake.
+  ticket dial, the consent handshake, and grant-gated view and input streams.
 - `cbdesk-session`: consent delay, 30 second approval timeout, unattended
   rules, quick-support ban, high-risk opt-in, indicator that cannot be
   disabled, auth rate limits.
-- `cbdesk-testkit`: synthetic barcode frames, recording injector, poisonable
-  fake DHT.
+- `cbdesk-capture`: synthetic barcode frames, and an operating-system
+  capturer (X11, Wayland ScreenCast plus PipeWire when `WAYLAND_DISPLAY` is
+  set, Windows, macOS). A missing display is an error, not a barcode.
+- `cbdesk-codec`: one grayscale AV1 still via rav1e (assembler and git
+  tooling off) and rav1d-safe (AGPL-3.0-only). VP8 is not linked.
+- `cbdesk-input`: enigo injection after the caller has granted Input, and
+  `InputLog` for tests. Tests do not call `inject`.
+- `cbdesk-cli`: `cbdesk host` and `cbdesk view`. After consent, one synthetic
+  AV1 frame can be written to a PPM. `--screen` captures the display.
+- `cbdesk-testkit`: re-exported barcode frames, recording injector,
+  poisonable fake DHT.
 - Netlab profile files for N0, N3, and N4. They do not create namespaces.
 - Crate directories from the layout that have no code yet contain a README
   and are not workspace members.
@@ -67,7 +78,10 @@ substitute, not that exit.
 ## M1 items started
 
 - Device-id generation in process. No OS keychain.
-- Session messages for hello, grant, ticket, and DHT. No video or input path.
+- Session messages for hello, grant, ticket, DHT, and input events. A view
+  frame is a unidirectional QUIC stream opened only after `authorize(View)`.
+  An input event is a separate unidirectional stream accepted only after
+  `authorize(Input)`. A side stream before the grant is `PROTOCOL_VIOLATION`.
 - `QuicEndpoint` on iroh 1.4.1 via `presets::Minimal` and
   `RelayMode::Disabled`. No n0 discovery service is installed. T-NET-001 is a
   loopback echo; the endpoint resolver must record no DNS names. It is not a
@@ -81,8 +95,13 @@ substitute, not that exit.
 - Consent policy in the library, including the 30 second approval timeout.
   No window. The production wait is `wait_for_approval`. Loopback tests fire
   that same close path without sleeping 30 wall-clock seconds.
-- Synthetic capturer. No VP8 encoder and no Linux/Windows end-to-end run.
-  A grant still does not send a frame.
+- Synthetic capturer and an AV1 barcode round trip. The CLI can view that
+  frame end to end after consent. `--screen` is real capture. Ubuntu CI
+  proves the X11 path under Xvfb. The Wayland ScreenCast path is compiled
+  and selected when `WAYLAND_DISPLAY` is set; CI does not run it. Windows
+  and macOS compile the capturer and treat a missing display as
+  `Unavailable` unless `CBDESK_REQUIRE_DISPLAY` is set. T-MED-001 and
+  T-MED-004 ask for VP8 and are not met.
 
 ## Test ids this pass actually locks
 
@@ -95,7 +114,7 @@ substitute, not that exit.
 | T-AUTH-015 | A known trusted key can skip the prompt when the policy says so, and the grant is the safe set | A real trust store |
 | T-AUTH-019 | One consent prompt per minute; three rejects silence the peer for 24 hours | A real window |
 | T-PERM-002 | `authorize` refuses a permission that was not granted | File messages |
-| T-PERM-006 | Media and `authorize` fail before the grant. An echo probe is answered with `PROTOCOL_VIOLATION` and is not reflected | A video stream |
+| T-PERM-006 | Media and `authorize` fail before the grant. An echo probe is answered with `PROTOCOL_VIOLATION` and is not reflected. A unidirectional stream before the grant is the same close. After `authorize(View)`, one frame stream is delivered. After `authorize(Input)`, one input event is returned and is not injected by the test | VP8, a window, and moving the real pointer |
 | T-UI-004 | First contact cannot be approved before 3 seconds | A widget |
 | T-UI-005 | `indicator_can_be_disabled` is constant false | Settings UI, CLI |
 | T-UI-007 / T-I18N-001 | Catalog keys match across Turkish and English, including every known error | A rendered UI |
@@ -103,11 +122,13 @@ substitute, not that exit.
 
 ## Recommended next run
 
-Keep the fork import as its own reviewable change. Next, after `authorize(View)`
-succeeds, send one synthetic barcode frame on its own QUIC stream. Before the
-grant, that stream is `PROTOCOL_VIOLATION`. No operating-system capture, no
-encoder, and no RustDesk import in that run.
+Keep the session up and send a sequence of frames until the viewer closes,
+still only after `authorize(View)`, and decode more than the first picture.
+A window is still a later slice. Wayland ScreenCast is compiled and untested
+in CI; a portal-capable lab would be the proof, not an Xvfb job.
 
-Still out of that run: SPAKE2, OPAQUE, DHT blinding, and the fork import.
-ADR-007 and ADR-008 are still Proposed. The OS keychain and a multicast join
-on port 5353 can follow the synthetic frame.
+Still out of that run: VP8 (T-MED-001 / T-MED-004), hardware codecs, audio,
+Flutter, SPAKE2, OPAQUE, and DHT blinding. ADR-007 and ADR-008 are still
+Proposed. The OS keychain and a multicast join on port 5353 are the other
+open M1 pieces. The fork import stays closed for capture, codec, and input
+(ADR-015). M0's fork-builds exit stays unmet.

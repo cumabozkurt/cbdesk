@@ -27,11 +27,13 @@ packed or unpacked encoding.
 ## Messages implemented
 
 `Hello`, `HelloAck`, `Granted`, `PermissionChanged`, `DisplayInfo`,
-`VideoFrameHeader`, `Feedback`, `Close`, `Control`, `InviteTicket`,
-`DhtAddressRecord`, `SignedDhtRecord`.
+`VideoFrameHeader`, `Feedback`, `Close`, `KeyEvent`, `PointerEvent`,
+`InputEvent`, `Control`, `InviteTicket`, `DhtAddressRecord`,
+`SignedDhtRecord`.
 
-Video bytes are not carried inside `VideoFrameHeader`. The header is only the
-metadata a later media crate will put beside a frame.
+Video bytes are not a protobuf field. They follow `VideoFrameHeader` on a
+unidirectional stream, described below. `InputEvent` sets exactly one of
+`key` or `pointer`.
 
 ## Authorization
 
@@ -63,7 +65,37 @@ window. No answer becomes `Close` with `TIMEOUT_USER_RESPONSE`. Allow is
 still refused until the first-contact delay has elapsed. `Granted` is sent
 only after `HostSession::approve` or an explicit unattended policy. This
 slice's controller offers interactive approval, so the unattended path is not
-taken. No video stream is opened.
+taken.
+
+## View frames
+
+After `authorize(View)`, the host opens one unidirectional QUIC stream per
+frame. The bytes are:
+
+1. big-endian `u32` length of the `VideoFrameHeader`
+2. that header
+3. big-endian `u32` length of the payload
+4. the payload
+
+An empty header or an empty payload is rejected. The two lengths plus both
+bodies must be at most 16 MiB. This slice's payload is one AV1 still
+(`Codec::Av1`, `keyframe` true). The capability advertised for that path is
+`VideoAv1`. VP8 is not produced. A unidirectional stream, or a second
+bidirectional stream, opened before the grant is `PROTOCOL_VIOLATION`. The
+session closes and no permission is granted. After the frame is sent, the
+host reads the control stream until the controller finishes it. The
+controller does that only after it has read the frame. Closing the
+connection first discards a frame that is still inside QUIC.
+
+## Input events
+
+An input event is its own unidirectional stream: a big-endian `u32` length
+and one `InputEvent`. The host reads it only after `authorize(Input)`.
+Without that grant the event is not injected, the host sends `Close` with
+`PROTOCOL_VIOLATION`, and the session closes. Key codes are printable ASCII
+code points, or the private-use names in `cbdesk-input` (`KEY_ENTER` is
+`0xE000` through `KEY_DOWN` at `0xE007`). Modifier bits are shift 1, ctrl 2,
+alt 4, meta 8. Pointer buttons are left 1, right 2, middle 4.
 
 ## Errors
 

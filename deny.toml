@@ -32,6 +32,9 @@ allow = [
     # CA certificate bundle shipped by webpki-roots, a transitive dependency of iroh.
     "CDLA-Permissive-2.0",
     "AGPL-3.0-or-later",
+    # rav1d-safe is dual-licensed AGPL-3.0-only OR a commercial grant.
+    # This tree uses the AGPL side. See ADR-015.
+    "AGPL-3.0-only",
     "GPL-3.0-or-later",
 ]
 

@@ -7,6 +7,7 @@
 //! after [`HostSession::approve`] or closes it. An echo probe is not a hello:
 //! it is rejected with `PROTOCOL_VIOLATION` and the session stays idle.
 //! The production wait is [`wait_for_approval`], which is 30 seconds.
+//! A unidirectional stream opened before the grant is `PROTOCOL_VIOLATION`.
 
 use std::future::Future;
 use std::net::IpAddr;
@@ -76,7 +77,7 @@ pub enum AdmitError {
 /// A host session that owns its QUIC connection.
 ///
 /// The connection is not a grant by itself. [`Self::authorize`] follows the
-/// session phase. Media is not opened here.
+/// session phase. [`Self::send_view_frame`] opens a stream only after View.
 #[derive(Debug)]
 pub struct HostLink {
     session: HostSession,
@@ -110,6 +111,56 @@ impl HostLink {
     /// Whether `perm` is in the grant. Fails before the person approves.
     pub fn authorize(&self, perm: Permission) -> Result<(), SessionError> {
         self.session.authorize(perm)
+    }
+
+    /// Send one encoded frame. The stream is not opened when View is absent.
+    pub async fn send_view_frame(
+        &mut self,
+        header: &cbdesk_proto::VideoFrameHeader,
+        payload: &[u8],
+    ) -> Result<(), AdmitError> {
+        self.authorize(Permission::View)?;
+        crate::media::validate_view_frame(header, payload).map_err(AdmitError::Net)?;
+        let mut send = self.conn.open_uni_stream().await.map_err(AdmitError::Net)?;
+        crate::media::write_view_frame(&mut send, header, payload)
+            .await
+            .map_err(AdmitError::Net)?;
+        self.session.open_media().map_err(AdmitError::Session)?;
+        Ok(())
+    }
+
+    /// Read the next control message. A finished controller stream is an error.
+    ///
+    /// The host waits here after sending a frame so the connection stays up
+    /// until [`ControllerGrant::release`].
+    pub async fn read_control(&mut self) -> Result<cbdesk_proto::Control, NetError> {
+        self.control.read().await
+    }
+
+    /// Read one input event. Without Input, the event is dropped and the
+    /// session closes with `PROTOCOL_VIOLATION`. Nothing is injected here.
+    pub async fn recv_input_event(&mut self) -> Result<cbdesk_proto::InputEvent, AdmitError> {
+        let mut recv = self
+            .conn
+            .accept_uni_stream()
+            .await
+            .map_err(AdmitError::Net)?;
+        if self.authorize(Permission::Input).is_err() {
+            return Err(self.violate().await);
+        }
+        match crate::media::read_input(&mut recv).await {
+            Ok(event) => Ok(event),
+            Err(error) => {
+                let _ = self.violate().await;
+                Err(AdmitError::Net(error))
+            }
+        }
+    }
+
+    async fn violate(&mut self) -> AdmitError {
+        let _ = self.session.close_with(CloseReason::LocalClose);
+        send_close(&mut self.control, ErrorCode::ProtocolViolation).await;
+        AdmitError::Closed(ErrorCode::ProtocolViolation)
     }
 }
 
@@ -216,6 +267,7 @@ where
     }
     let result = {
         let mut ctx = Ctx {
+            conn: &conn,
             channel: &mut channel,
             session: &mut session,
             limits: &mut limits,
@@ -242,20 +294,90 @@ where
 /// Send `hello` and read either `Granted` or `Close`.
 ///
 /// `HelloAck` must ask for interactive approval. Anything else is refused,
-/// so a probe or a surprise grant cannot skip consent.
+/// so a probe or a surprise grant cannot skip consent. The control stream is
+/// dropped with the outcome. Use [`open_controller`] to keep it open for a
+/// later frame.
 pub async fn request_grant(conn: &QuicConn, hello: &Hello) -> Result<ControllerOutcome, NetError> {
+    match open_controller(conn, hello).await? {
+        ControllerSession::Granted(grant) => {
+            let granted = grant.granted.clone();
+            Ok(ControllerOutcome::Granted(granted))
+        }
+        ControllerSession::Closed(close) => Ok(ControllerOutcome::Closed(close)),
+    }
+}
+
+/// Controller half of a handshake that keeps the control stream.
+///
+/// A granted session still has to `authorize` each action on the host. This
+/// value does not capture the screen.
+#[derive(Debug)]
+pub struct ControllerGrant {
+    /// The grant the host sent.
+    pub granted: cbdesk_proto::Granted,
+    control: ControlChannel,
+}
+
+impl ControllerGrant {
+    /// Read the next control message, usually a `Close`.
+    pub async fn read(&mut self) -> Result<Control, NetError> {
+        self.control.read().await
+    }
+
+    /// Finish the control stream after the frame has been read.
+    ///
+    /// The host keeps the connection until this finish arrives. Dropping the
+    /// connection earlier discards a frame the viewer has not read yet.
+    pub async fn release(mut self) -> Result<(), NetError> {
+        self.control.finish_send()?;
+        self.control.until_stopped().await;
+        Ok(())
+    }
+}
+
+impl Drop for ControllerGrant {
+    fn drop(&mut self) {
+        let _ = self.control.finish_send();
+    }
+}
+
+/// What [`open_controller`] received after `Hello`.
+#[derive(Debug)]
+pub enum ControllerSession {
+    /// The host granted a session.
+    Granted(ControllerGrant),
+    /// The host closed instead of granting.
+    Closed(Close),
+}
+
+/// Send `hello` and keep the control stream when the host grants.
+pub async fn open_controller(
+    conn: &QuicConn,
+    hello: &Hello,
+) -> Result<ControllerSession, NetError> {
     let mut channel = ControlChannel::open(conn).await?;
     channel
         .write(&wrap(ControlBody::Hello(hello.clone())))
         .await?;
     match channel.read().await?.body {
-        ControlBody::Close(close) => Ok(ControllerOutcome::Closed(close)),
-        ControlBody::HelloAck(ack) if interactive_ack(&ack) => read_decision(&mut channel).await,
+        ControlBody::Close(close) => Ok(ControllerSession::Closed(close)),
+        ControlBody::HelloAck(ack) if interactive_ack(&ack) => {
+            match read_decision(&mut channel).await? {
+                ControllerOutcome::Granted(granted) => {
+                    Ok(ControllerSession::Granted(ControllerGrant {
+                        granted,
+                        control: channel,
+                    }))
+                }
+                ControllerOutcome::Closed(close) => Ok(ControllerSession::Closed(close)),
+            }
+        }
         _ => Err(NetError::BadControl),
     }
 }
 
 struct Ctx<'a> {
+    conn: &'a QuicConn,
     channel: &'a mut ControlChannel,
     session: &'a mut HostSession,
     limits: &'a mut RateLimiter,
@@ -271,15 +393,46 @@ where
     W: Future<Output = ()> + Send,
 {
     prepare(ctx).await?;
-    tokio::select! {
+    wait_for_decision(ctx, waits).await
+}
+
+async fn wait_for_decision<A, W>(
+    ctx: &mut Ctx<'_>,
+    waits: ConsentWait<A, W>,
+) -> Result<(), AdmitError>
+where
+    A: Future<Output = ConsentAnswer> + Send,
+    W: Future<Output = ()> + Send,
+{
+    let conn = ctx.conn;
+    let decision = tokio::select! {
         biased;
-        answer = waits.answer => apply_answer(ctx, answer).await,
-        () = waits.timeout => apply_timeout(ctx).await,
+        result = conn.accept_uni_stream() => {
+            drop(result);
+            Decision::Side
+        }
+        result = conn.accept_bi_streams() => {
+            drop(result);
+            Decision::Side
+        }
+        answer = waits.answer => Decision::Answer(answer),
+        () = waits.timeout => Decision::Timeout,
+    };
+    match decision {
+        Decision::Side => Err(refuse_side(ctx).await),
+        Decision::Answer(answer) => apply_answer(ctx, answer).await,
+        Decision::Timeout => apply_timeout(ctx).await,
     }
 }
 
+enum Decision<T> {
+    Side,
+    Answer(T),
+    Timeout,
+}
+
 async fn prepare(ctx: &mut Ctx<'_>) -> Result<(), AdmitError> {
-    let hello = match read_hello(ctx.channel).await {
+    let hello = match read_hello_or_side(ctx).await {
         Ok(hello) => hello,
         Err(error) => {
             ctx.limits
@@ -389,6 +542,39 @@ async fn read_decision(channel: &mut ControlChannel) -> Result<ControllerOutcome
         ControlBody::Close(close) => Ok(ControllerOutcome::Closed(close)),
         _ => Err(NetError::BadControl),
     }
+}
+
+async fn read_hello_or_side(ctx: &mut Ctx<'_>) -> Result<Hello, AdmitError> {
+    let conn = ctx.conn;
+    let incoming = tokio::select! {
+        biased;
+        result = conn.accept_uni_stream() => {
+            drop(result);
+            Incoming::Side
+        }
+        result = conn.accept_bi_streams() => {
+            drop(result);
+            Incoming::Side
+        }
+        hello = read_hello(ctx.channel) => Incoming::Hello(hello),
+    };
+    match incoming {
+        Incoming::Side => Err(refuse_side(ctx).await),
+        Incoming::Hello(hello) => hello,
+    }
+}
+
+enum Incoming {
+    Side,
+    Hello(Result<Hello, AdmitError>),
+}
+
+async fn refuse_side(ctx: &mut Ctx<'_>) -> AdmitError {
+    let _ = ctx.session.close_with(CloseReason::LocalClose);
+    ctx.limits
+        .record_failure(ctx.remote, ctx.source, ctx.now_ms);
+    send_close(ctx.channel, ErrorCode::ProtocolViolation).await;
+    AdmitError::Closed(ErrorCode::ProtocolViolation)
 }
 
 async fn read_hello(channel: &mut ControlChannel) -> Result<Hello, AdmitError> {
