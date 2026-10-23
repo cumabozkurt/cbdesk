@@ -9,6 +9,11 @@ Version 0.0.0 is not a release.
 
 - Workspace layout and the first crates: protocol codec, identity, discovery
   records, in-memory transport, host session policy, and test doubles.
+- Direct QUIC endpoint on iroh 1.4.1 with n0 relays and n0 discovery left
+  uninstalled. Rust is pinned to 1.91.0, the `rust-version` of that release.
+  T-NET-001 is a loopback echo whose resolver must not be asked for a name.
+- LAN announce and browse on the tested mDNS TXT records and the `CBDS`
+  broadcast body. Public networks and a disabled user send nothing.
 - GitHub Actions workflow for rustfmt, cargo-deny, RustSec audit, clippy, and
   tests on Linux, Windows, and macOS.
 - ADRs 001–014, threat-model draft, and contribution documents.

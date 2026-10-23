@@ -15,6 +15,7 @@ cbdesk-crypto = { path = "../cbdesk-crypto" }
 cbdesk-proto = { path = "../cbdesk-proto" }
 getrandom.workspace = true
 thiserror.workspace = true
+tokio = { workspace = true, features = ["net"] }
 
 [lints]
 workspace = true

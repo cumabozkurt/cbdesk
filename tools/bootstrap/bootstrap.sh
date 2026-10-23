@@ -3,15 +3,15 @@
 # Check the local toolchain. This script does not install services.
 set -eu
 if ! command -v rustc >/dev/null 2>&1; then
-    echo "rustc is not installed. Install Rust 1.83 with rustup, then re-run." >&2
+    echo "rustc is not installed. Install Rust 1.91 with rustup, then re-run." >&2
     exit 1
 fi
 version=$(rustc --version)
 echo "$version"
 case "$version" in
-    *" 1.83."*) ;;
+    *" 1.91."*) ;;
     *)
-        echo "warning: rust-toolchain.toml pins 1.83. rustup will download it on the next cargo command if rustup is installed." >&2
+        echo "warning: rust-toolchain.toml pins 1.91. rustup will download it on the next cargo command if rustup is installed." >&2
         ;;
 esac
 echo "Next: cargo test --workspace --all-targets"

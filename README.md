@@ -6,9 +6,9 @@ CBDesk is a decentralized, serverless, open-source remote desktop application un
 
 ## Bu depo şu an ne değildir / What this repository is not yet
 
-Bu ağaç çalışan bir uzak masaüstü değildir. Ekran yakalama, girdi, gerçek bir QUIC yığını, mDNS çalışması ve arayüz yoktur. `cargo test` kimlik, protokol, keşif kayıtları, bellek içi taşıma ve onay politikasını sınar.
+Bu ağaç çalışan bir uzak masaüstü değildir. Ekran yakalama, girdi ve arayüz yoktur. `cargo test` kimlik, protokol, onay politikası, döngüsel bir QUIC yankısı ve aynı makinede LAN duyurusu/tarama sınar. NAT deliği, aktarıcı ve internet üzerinden keşif yoktur.
 
-This tree is not a usable remote desktop. There is no screen capture, input injection, QUIC stack, running mDNS, or UI. `cargo test` covers identity, the protocol codec, discovery records, an in-memory transport, and the consent policy.
+This tree is not a usable remote desktop. There is no screen capture, input injection, or UI. `cargo test` covers identity, the protocol codec, the consent policy, a loopback QUIC echo, and LAN announce/browse between sockets on the same machine. There is no NAT traversal, no relay, and no discovery across the internet.
 
 Bu kod RustDesk'ten türetilmemiştir. Çatal ve marka temizliği bu turda yapılmadı. Sıralama kararı [ADR-002](docs/adr/002-fork-sequencing.md) içindedir. `tools/rebrand-check.sh`, ileride içeri alınacak kodda o adın yalnız atıf dosyalarında kalmasını denetler.
 
@@ -34,7 +34,7 @@ A session cannot be hidden. The session indicator has no off switch. An invite t
 
 ## Derleme / Build
 
-Rust 1.83.0 (`rust-toolchain.toml`).
+Rust 1.91.0 (`rust-toolchain.toml`). iroh 1.4.1 needs that compiler. See [ADR-006](docs/adr/006-transport-iroh.md).
 
 ```sh
 cargo fmt --all -- --check

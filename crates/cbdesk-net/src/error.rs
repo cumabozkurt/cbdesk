@@ -31,6 +31,12 @@ pub enum NetError {
         /// The host that matched a forbidden suffix.
         host: String,
     },
+    /// The direct endpoint does not install operator relays.
+    #[error("operator relays are not installed on the direct QUIC endpoint")]
+    RelaysNotInstalled,
+    /// The QUIC stack refused to bind or to move bytes.
+    #[error("QUIC endpoint failed: {0}")]
+    Quic(String),
     /// The path state machine rejected this event.
     #[error("path cannot apply {event} while {state}")]
     InvalidTransition {

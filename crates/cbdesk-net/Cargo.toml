@@ -12,6 +12,8 @@ publish.workspace = true
 [dependencies]
 cbdesk-crypto = { path = "../cbdesk-crypto" }
 cbdesk-proto = { path = "../cbdesk-proto" }
+iroh.workspace = true
+n0-error.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 

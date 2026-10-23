@@ -2,11 +2,10 @@
 
 //! Relay endpoint policy.
 //!
-//! This is the configuration half of T-NET-001. The default endpoint has an
-//! empty relay list and `use_n0_defaults` is false. Hosts that match the
-//! known n0 suffixes on a DNS label boundary are rejected before a connection
-//! is offered. Packet capture of a live endpoint is not part of this build:
-//! the QUIC stack is not linked yet. See ADR-006.
+//! The default endpoint has an empty relay list and `use_n0_defaults` is
+//! false. Hosts that match the known n0 suffixes on a DNS label boundary are
+//! rejected before a connection is offered. [`crate::QuicEndpoint`] is built
+//! without those relays or their discovery servers. See ADR-006.
 
 use crate::error::NetError;
 
@@ -80,7 +79,8 @@ pub fn relay_host(input: &str) -> Option<String> {
     Some(without_path.to_string())
 }
 
-fn host_forbidden(host: &str) -> bool {
+/// True when `host` matches a forbidden relay suffix on a label boundary.
+pub(crate) fn host_forbidden(host: &str) -> bool {
     let normalized = host.trim().trim_end_matches('.').to_ascii_lowercase();
     FORBIDDEN_RELAY_SUFFIXES
         .iter()

@@ -229,8 +229,8 @@ mod tests {
         assert_eq!(english[2047], "zoo");
         assert!(turkish.contains(&"çınar"));
         assert!(turkish.contains(&"acı"));
-        assert!(!turkish.iter().any(|word| *word == "açı"));
-        assert!(!turkish.iter().any(|word| *word == "âlem"));
+        assert!(!turkish.contains(&"açı"));
+        assert!(!turkish.contains(&"âlem"));
     }
 
     #[test]

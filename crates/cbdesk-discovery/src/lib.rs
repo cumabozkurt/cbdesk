@@ -11,6 +11,8 @@
 mod dht;
 mod error;
 mod lan;
+mod mdns;
+mod presence;
 mod slot;
 mod ticket;
 mod words;
@@ -19,7 +21,13 @@ pub use dht::{sign_dht_record, verify_dht_record, DhtKeyMode};
 pub use error::DiscoveryError;
 pub use lan::{
     lan_should_announce, LanPacket, MdnsTxt, NetworkProfile, GENERIC_DEVICE_NAME,
-    LAN_BROADCAST_PORT, MDNS_SERVICE_TYPE,
+    LAN_BROADCAST_PORT, MDNS_IPV4, MDNS_PORT, MDNS_SERVICE_TYPE,
+};
+pub use mdns::{
+    decode_mdns, encode_announcement, encode_browse_query, MdnsAnnouncement, MdnsMessage,
+};
+pub use presence::{
+    DiscoveredPeer, DiscoveryPath, Incoming, LanPresence, LanPresenceConfig, LanSocketPlan,
 };
 pub use slot::{slot_epoch, slot_key, SLOT_EPOCH_SECS};
 pub use ticket::{

@@ -17,6 +17,12 @@ pub const LAN_BROADCAST_PORT: u16 = 22118;
 /// DNS-SD service type, including the trailing dot used by most resolvers.
 pub const MDNS_SERVICE_TYPE: &str = "_cbdesk._udp.local.";
 
+/// Standard mDNS UDP port. This is not a CBDesk allocation.
+pub const MDNS_PORT: u16 = 5353;
+
+/// IPv4 mDNS group.
+pub const MDNS_IPV4: std::net::Ipv4Addr = std::net::Ipv4Addr::new(224, 0, 0, 251);
+
 /// Name used when the user has not allowed the real device name to be broadcast.
 pub const GENERIC_DEVICE_NAME: &str = "CBDesk device";
 
@@ -133,6 +139,72 @@ impl MdnsTxt {
         }
         pairs
     }
+
+    /// DNS TXT character-strings, `key=value`, in [`Self::pairs`] order.
+    pub fn character_strings(&self) -> Vec<String> {
+        self.pairs()
+            .into_iter()
+            .map(|(key, value)| format!("{key}={value}"))
+            .collect()
+    }
+
+    /// Parse TXT character-strings produced by [`Self::character_strings`].
+    ///
+    /// Keys other than `v`, `pk`, `port`, and `name` are rejected. `pk` is 32
+    /// lowercase hex characters. An empty name is rejected.
+    pub fn from_character_strings<I, S>(items: I) -> Result<Self, DiscoveryError>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut version = None;
+        let mut pk_hex16 = None;
+        let mut port = None;
+        let mut name = None;
+        for item in items {
+            let (key, value) = item
+                .as_ref()
+                .split_once('=')
+                .ok_or(DiscoveryError::BadMdns)?;
+            match key {
+                "v" if version.is_none() => {
+                    if value != "1" {
+                        return Err(DiscoveryError::BadMdns);
+                    }
+                    version = Some(1u8);
+                }
+                "pk" if pk_hex16.is_none() => {
+                    if !is_pk_hex(value) {
+                        return Err(DiscoveryError::BadMdns);
+                    }
+                    pk_hex16 = Some(value.to_string());
+                }
+                "port" if port.is_none() => {
+                    port = Some(value.parse().map_err(|_| DiscoveryError::BadMdns)?);
+                }
+                "name" if name.is_none() => {
+                    if value.is_empty() || value.len() > MAX_NAME_LEN {
+                        return Err(DiscoveryError::BadMdns);
+                    }
+                    name = Some(value.to_string());
+                }
+                _ => return Err(DiscoveryError::BadMdns),
+            }
+        }
+        Ok(Self {
+            version: version.ok_or(DiscoveryError::BadMdns)?,
+            pk_hex16: pk_hex16.ok_or(DiscoveryError::BadMdns)?,
+            port: port.ok_or(DiscoveryError::BadMdns)?,
+            name,
+        })
+    }
+}
+
+fn is_pk_hex(value: &str) -> bool {
+    value.len() == 32
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }
 
 fn hex16(bytes: &[u8]) -> String {
@@ -158,6 +230,8 @@ mod tests {
         assert!(!lan_should_announce(false, NetworkProfile::Private));
         assert_eq!(LAN_BROADCAST_PORT, 22118);
         assert!(!(21115..=21119).contains(&LAN_BROADCAST_PORT));
+        assert_eq!(MDNS_PORT, 5353);
+        assert_eq!(MDNS_IPV4, std::net::Ipv4Addr::new(224, 0, 0, 251));
     }
 
     #[test]
@@ -180,5 +254,20 @@ mod tests {
             .pairs()
             .iter()
             .any(|(key, value)| key == "name" && value == "Ofis"));
+        assert_eq!(
+            MdnsTxt::from_character_strings(named.character_strings()).expect("txt"),
+            named
+        );
+        assert_eq!(
+            MdnsTxt::from_character_strings(txt.character_strings()).expect("txt"),
+            txt
+        );
+        assert!(MdnsTxt::from_character_strings(["v=1", "pk=abcd", "port=1"]).is_err());
+        assert!(MdnsTxt::from_character_strings([
+            "v=2",
+            "pk=00112233445566778899aabbccddeeff",
+            "port=1"
+        ])
+        .is_err());
     }
 }

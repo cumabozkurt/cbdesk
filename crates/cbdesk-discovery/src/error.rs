@@ -46,6 +46,12 @@ pub enum DiscoveryError {
     /// The LAN announcement bytes were not a CBDesk packet.
     #[error("LAN announcement is invalid")]
     BadLanPacket,
+    /// An mDNS message was not a CBDesk query or announcement.
+    #[error("mDNS message is invalid")]
+    BadMdns,
+    /// A UDP socket could not be opened or used.
+    #[error("LAN socket failed: {0}")]
+    LanIo(String),
     /// DHT publishing under a blinded key is not available yet.
     #[error("DHT public-key blinding is not enabled until ADR-007 is accepted")]
     BlindingPendingReview,

@@ -6,5 +6,5 @@
       "extensions": ["rust-lang.rust-analyzer"]
     }
   },
-  "postCreateCommand": "rustup toolchain install 1.83.0 --profile minimal --component rustfmt,clippy && rustup default 1.83.0"
+  "postCreateCommand": "rustup toolchain install 1.91.0 --profile minimal --component rustfmt,clippy && rustup default 1.91.0"
 }

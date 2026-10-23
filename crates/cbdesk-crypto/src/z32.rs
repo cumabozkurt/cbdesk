@@ -26,11 +26,7 @@ pub const DEVICE_ID_LEN: usize = 52;
 /// Encode bytes as z-base-32.
 pub fn encode(buf: &[u8]) -> Result<String, CryptoError> {
     let bits = buf.len().saturating_mul(8);
-    let capacity = if bits % 5 == 0 {
-        bits / 5
-    } else {
-        bits / 5 + 1
-    };
+    let capacity = bits.div_ceil(5);
     let mut out = Vec::with_capacity(capacity);
     let mut position = 0;
     while position < bits {

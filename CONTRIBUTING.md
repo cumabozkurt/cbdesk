@@ -22,7 +22,7 @@ git commit -s
 
 ## Setup
 
-Rust 1.83.0 is pinned in `rust-toolchain.toml`. See `docs/dev/building.md`.
+Rust 1.91.0 is pinned in `rust-toolchain.toml`. See `docs/dev/building.md`.
 
 ```sh
 cargo fmt --all
@@ -36,9 +36,9 @@ cargo test --workspace --all-targets
 - Public items need documentation. `missing_docs` is denied.
 - `unsafe` is forbidden in the workspace.
 - Library code denies `unwrap` and `expect` outside tests.
-- Do not add a dependency that needs a newer Rust than 1.83 without an ADR.
-  The crates.io ecosystem has moved on; versions in the workspace `Cargo.toml`
-  are exact on purpose.
+- Do not add a dependency that needs a newer Rust than 1.91 without an ADR.
+  Versions in the workspace `Cargo.toml` are exact on purpose. ADR-006 records
+  why the pin is 1.91.
 - Do not invent a cryptographic construction. Use the crates named in ADR-005,
   or write a Proposed ADR first.
 - Secrets use `Redacted` or an equivalent that does not implement `Display`.

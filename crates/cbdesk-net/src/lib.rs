@@ -7,10 +7,9 @@
 //! The [`Transport`] trait returns the concrete [`Conn`] used by the in-memory
 //! hub. It is an `async fn` in a trait (stable since Rust 1.75) rather than a
 //! trait object, and it does not pull in the `async-trait` crate, so this
-//! workspace can keep `forbid(unsafe_code)`. A later QUIC adapter can wrap
-//! its socket in [`Conn`] or replace the memory hub behind the same method
-//! names. iroh is intentionally not a dependency of this milestone: T-NET-001
-//! is enforced on [`EndpointConfig`] before any packet can be sent.
+//! workspace can keep `forbid(unsafe_code)`. [`QuicEndpoint`] is the direct
+//! QUIC adapter. It is not the memory [`Conn`]: iroh's connection type stays
+//! inside this crate.
 
 mod addr;
 mod backoff;
@@ -18,6 +17,7 @@ mod error;
 mod memory;
 mod path;
 mod policy;
+mod quic;
 
 pub use addr::{address_rank, rank_candidates, MAX_CANDIDATES};
 pub use backoff::{next_delay_ms, BACKOFF_MS, GIVE_UP_MS};
@@ -27,6 +27,7 @@ pub use path::{apply, PathEvent, PathState};
 pub use policy::{
     check_hints, relay_host, validate_endpoint, EndpointConfig, RelayHint, FORBIDDEN_RELAY_SUFFIXES,
 };
+pub use quic::{QuicConn, QuicEndpoint};
 
 use cbdesk_crypto::DeviceId;
 

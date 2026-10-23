@@ -21,9 +21,15 @@ the final numbers to this ADR.
 - QUIC listen port: 22116/udp (`QUIC_PORT`).
 - LAN broadcast fallback: 22118/udp (`LAN_BROADCAST_PORT`).
 
-mDNS service type: `_cbdesk._udp.local.` No TCP rendezvous port is allocated.
-Nothing listens on these ports yet. The constants exist so later sockets and
-the rebrand tests agree.
+mDNS service type: `_cbdesk._udp.local.` The mDNS socket uses the standard
+port 5353/udp and group `224.0.0.251`. That port is not a CBDesk allocation.
+No TCP rendezvous port is allocated.
+
+`QuicEndpoint` binds whatever address the caller passes. Tests use an
+ephemeral loopback port. A fixed listener uses 22116/udp. LAN announce and
+browse send the tested mDNS and `CBDS` encodings; tests aim those datagrams
+at ephemeral loopback sockets because 5353 is often already taken. Calling
+`LanSocketPlan::ipv4_defaults` selects the standard group and 22118.
 
 ## Consequences
 
