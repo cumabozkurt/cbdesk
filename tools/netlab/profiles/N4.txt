@@ -1,0 +1,6 @@
+name: N4
+nat: symmetric
+mapping: endpoint-dependent
+filter: address-and-port-dependent
+status: skeleton
+notes: No network namespace is created yet. Relay fallback is the expected path when both peers are symmetric.

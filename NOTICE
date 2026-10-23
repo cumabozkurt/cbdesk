@@ -1,0 +1,25 @@
+CBDesk
+Copyright (C) 2026 CBDesk contributors
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+This repository is not a fork and is not derived from RustDesk. ADR-002 records
+that a later milestone may import AGPL-covered code from that project. Any such
+import must keep the original copyright notices and must pass
+tools/rebrand-check.sh. No such import is present in this tree.
+
+Third-party material shipped beside the Rust crates:
+
+- English short-code word list: BIP-39 English wordlist, MIT License.
+  Copyright for that BIP is held by its authors. See
+  crates/cbdesk-discovery/wordlists/README.md.
+- Turkish short-code word list: derived from the MIT-licensed list published
+  by BlockSight OÜ (osem23/bip39-wordlists-tzur). Eight entries were replaced
+  so the list has no diacritic-fold collisions. See the same README.
+
+SPDX headers in source files identify the license of that file. The full
+license text is LICENSE. Dependency license identifiers are checked by
+cargo-deny; see THIRD_PARTY_LICENSES.md.

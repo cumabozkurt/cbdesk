@@ -1,0 +1,191 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// Readable schema for the messages implemented in `cbdesk-proto`.
+// The Rust codec is what CI tests. Field numbers here and in
+// `crates/cbdesk-proto/src/messages.rs` must stay in lockstep.
+
+syntax = "proto3";
+
+package cbdesk.v1;
+
+message Hello {
+  uint32 proto_major = 1;
+  uint32 proto_minor = 2;
+  string app_version = 3;
+  Platform platform = 4;
+  repeated Capability caps = 5;
+  repeated Permission wanted_perms = 6;
+  repeated AuthMethod auth_offer = 7;
+  bytes device_name_enc = 8;
+}
+
+message HelloAck {
+  uint32 proto_major = 1;
+  uint32 proto_minor = 2;
+  repeated Capability caps = 3;
+  repeated AuthMethod auth_required = 4;
+}
+
+message Granted {
+  repeated Permission perms = 1;
+  uint64 expires_at = 2;
+  bytes session_id = 3;
+  repeated DisplayInfo displays = 4;
+  bytes reconnect_token = 5;
+}
+
+message PermissionChanged {
+  repeated Permission perms = 1;
+  string reason = 2;
+}
+
+message DisplayInfo {
+  uint32 id = 1;
+  string name = 2;
+  int32 x = 3;
+  int32 y = 4;
+  uint32 width = 5;
+  uint32 height = 6;
+  float scale = 7;
+  bool primary = 8;
+  bool hdr = 9;
+}
+
+message VideoFrameHeader {
+  uint32 display_id = 1;
+  Codec codec = 2;
+  uint64 frame_no = 3;
+  uint64 capture_ts_us = 4;
+  bool keyframe = 5;
+}
+
+message Feedback {
+  uint32 recv_kbps = 1;
+  float loss = 2;
+  uint32 frame_delay_ms = 3;
+  uint64 last_frame_no = 4;
+}
+
+message Close {
+  ErrorCode code = 1;
+  string detail = 2;
+}
+
+// A ticket locates a peer. It does not authorize a session.
+message InviteTicket {
+  uint32 version = 1;
+  bytes peer_pk = 2;
+  repeated string direct_addrs = 3;
+  repeated string relay_urls = 4;
+  uint64 expires_at = 5;
+  InvitePurpose purpose = 6;
+  bytes pake_hint = 7;
+  bytes sig = 8;
+}
+
+message DhtAddressRecord {
+  repeated string direct_addrs = 1;
+  repeated string relay_urls = 2;
+  uint32 protocol_version = 3;
+  uint64 timestamp = 4;
+  bool publish_ip = 5;
+}
+
+message SignedDhtRecord {
+  bytes signer_pk = 1;
+  bytes record = 2;
+  bytes sig = 3;
+}
+
+enum Platform {
+  PLATFORM_UNSPECIFIED = 0;
+  PLATFORM_WINDOWS = 1;
+  PLATFORM_MACOS = 2;
+  PLATFORM_LINUX = 3;
+  PLATFORM_ANDROID = 4;
+  PLATFORM_IOS = 5;
+  PLATFORM_WEB = 6;
+}
+
+enum Capability {
+  CAPABILITY_UNSPECIFIED = 0;
+  CAPABILITY_VIDEO_VP8 = 1;
+  CAPABILITY_VIDEO_VP9 = 2;
+  CAPABILITY_VIDEO_AV1 = 3;
+  CAPABILITY_VIDEO_H264 = 4;
+  CAPABILITY_VIDEO_H265 = 5;
+  CAPABILITY_AUDIO_OPUS = 6;
+  CAPABILITY_INPUT = 7;
+  CAPABILITY_CLIPBOARD = 8;
+  CAPABILITY_FILE = 9;
+  CAPABILITY_CHAT = 10;
+  CAPABILITY_MULTI_DISPLAY = 11;
+  CAPABILITY_IPV6 = 12;
+  CAPABILITY_RELAY = 13;
+}
+
+enum AuthMethod {
+  AUTH_UNSPECIFIED = 0;
+  AUTH_TRUSTED_KEY = 1;
+  AUTH_PAKE_CODE = 2;
+  AUTH_ONE_TIME_PASSWORD = 3;
+  AUTH_OPAQUE_PASSWORD = 4;
+  AUTH_ORG_CERT = 5;
+  AUTH_TOTP = 6;
+  AUTH_INTERACTIVE = 7;
+}
+
+enum Permission {
+  PERM_UNSPECIFIED = 0;
+  PERM_VIEW = 1;
+  PERM_INPUT = 2;
+  PERM_CLIPBOARD = 3;
+  PERM_FILE_READ = 4;
+  PERM_FILE_WRITE = 5;
+  PERM_AUDIO = 6;
+  PERM_MIC = 7;
+  PERM_RESTART = 8;
+  PERM_POWER = 9;
+  PERM_TERMINAL = 10;
+  PERM_TUNNEL = 11;
+  PERM_RECORD = 12;
+  PERM_PRIVACY_MODE = 13;
+  PERM_BLOCK_INPUT = 14;
+  PERM_PRINT = 15;
+  PERM_SYSINFO = 16;
+  PERM_SCRIPT = 17;
+}
+
+enum ErrorCode {
+  ERROR_UNSPECIFIED = 0;
+  ERROR_AUTH_FAILED = 1;
+  ERROR_AUTH_RATE_LIMITED = 2;
+  ERROR_REJECTED_BY_USER = 3;
+  ERROR_TIMEOUT_USER_RESPONSE = 4;
+  ERROR_PEER_BLOCKED = 5;
+  ERROR_POLICY_DENIED = 6;
+  ERROR_CERT_REVOKED = 7;
+  ERROR_PROTO_UNSUPPORTED = 8;
+  ERROR_HOST_BUSY = 9;
+  ERROR_PERMISSION_REVOKED = 10;
+  ERROR_SESSION_EXPIRED = 11;
+  ERROR_HOST_SHUTDOWN = 12;
+  ERROR_SESSION_LOCKED = 13;
+  ERROR_PROTOCOL_VIOLATION = 14;
+}
+
+enum Codec {
+  CODEC_UNSPECIFIED = 0;
+  CODEC_VP8 = 1;
+  CODEC_VP9 = 2;
+  CODEC_AV1 = 3;
+  CODEC_H264 = 4;
+  CODEC_H265 = 5;
+}
+
+enum InvitePurpose {
+  PURPOSE_UNSPECIFIED = 0;
+  PURPOSE_SESSION = 1;
+  PURPOSE_PAIR_DEVICE = 2;
+  PURPOSE_JOIN_ORG = 3;
+}

@@ -1,0 +1,24 @@
+[package]
+name = "cbdesk-testkit"
+description = "Synthetic capture, recording injection, and a fake DHT for tests."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+cbdesk-crypto = { path = "../cbdesk-crypto" }
+cbdesk-discovery = { path = "../cbdesk-discovery" }
+cbdesk-proto = { path = "../cbdesk-proto" }
+thiserror.workspace = true
+
+[dev-dependencies]
+cbdesk-net = { path = "../cbdesk-net" }
+cbdesk-session = { path = "../cbdesk-session" }
+tokio.workspace = true
+
+[lints]
+workspace = true
