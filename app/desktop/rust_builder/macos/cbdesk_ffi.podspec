@@ -31,9 +31,14 @@ Pod::Spec.new do |s|
     :input_files => ['${BUILT_PRODUCTS_DIR}/cargokit_phony'],
     :output_files => ["${BUILT_PRODUCTS_DIR}/libcbdesk_ffi.a"],
   }
+  # cargo links these when it builds a test binary. The static archive does
+  # not carry them, so the pod link has to name them. CoreAudio and
+  # AudioToolbox are cpal. CoreMedia is screen capture. SystemConfiguration
+  # is the DNS resolver. Carbon is the keyboard layout used by input injection.
+  s.frameworks = 'AudioToolbox', 'CoreAudio', 'CoreMedia', 'Carbon', 'SystemConfiguration'
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
-    'OTHER_LDFLAGS' => '-force_load ${BUILT_PRODUCTS_DIR}/libcbdesk_ffi.a',
+    'OTHER_LDFLAGS' => '-force_load ${BUILT_PRODUCTS_DIR}/libcbdesk_ffi.a -framework AudioToolbox -framework CoreAudio -framework CoreMedia -framework Carbon -framework SystemConfiguration',
   }
 end

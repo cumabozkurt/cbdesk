@@ -25,10 +25,11 @@ Version 0.0.0 is not a release.
 - CI builds the Windows and macOS debug shells and an arm64 Android debug
   APK, and checks that each links `libcbdesk_ffi`. The Flutter plugin
   directory is a symlink. The crate path is resolved to the physical
-  directory before the build looks up `crates/cbdesk-ffi`. On `2febc4d` the
-  Ubuntu Linux bundle and the arm64 APK succeeded, and the Windows and
-  macOS bundle jobs failed on that symlink. Those two are not proven until
-  Actions finishes.
+  directory before the build looks up `crates/cbdesk-ffi`. The macOS pod
+  links AudioToolbox, CoreAudio, CoreMedia, SystemConfiguration, and Carbon
+  with that archive. On `46337c5` the Windows bundle linked the DLL and the
+  macOS link failed before those frameworks were named. The macOS bundle is
+  not proven until Actions finishes.
 - VP8 inter frames and color. The first frame is a keyframe. A later frame
   of the same size is a motion-compensated inter frame: oxideav-vp8 diamond
   search (whole, half, and quarter pixel). A 48×16 test shifts a white block
