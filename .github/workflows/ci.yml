@@ -105,6 +105,8 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Test
+        # Windows defaults this step to PowerShell, which rejects the bash below.
+        shell: bash
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then
             Xvfb :99 -screen 0 1280x720x24 >/tmp/xvfb.log 2>&1 &
