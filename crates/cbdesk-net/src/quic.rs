@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Direct QUIC using iroh without n0 defaults.
+//! QUIC using iroh without n0 defaults.
 //!
 //! iroh 1.4.1 has no `Endpoint::empty_builder`. The equivalent is
 //! [`iroh::endpoint::presets::Minimal`], which sets only the TLS provider,
-//! plus [`iroh::RelayMode::Disabled`], an empty address-lookup list, a
-//! disabled port mapper, and a DNS resolver that never leaves the process.
-//! `presets::N0` is not used: that preset publishes to and resolves from
-//! `iroh.link`. See ADR-006.
+//! plus an empty address-lookup list, a disabled port mapper, and a DNS
+//! resolver that never leaves the process. The default relay mode is
+//! [`iroh::RelayMode::Disabled`]. A non-empty operator list installs
+//! [`iroh::RelayMode::Custom`] after the forbidden-suffix check.
+//! `presets::N0`, `RelayMode::Default`, and `RelayMode::Staging` are not
+//! used. See ADR-006.
 //!
 //! T-NET-001 for this build is a loopback echo. The resolver records every
 //! name it is asked for and answers NXDOMAIN, so a query for a forbidden
 //! suffix fails the test. This is not a capture of every packet on the
-//! machine.
+//! machine. A user-run relay is a separate test and is not an n0 server.
 
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
@@ -21,7 +23,8 @@ use std::sync::{Arc, Mutex};
 use cbdesk_proto::ALPN;
 use iroh::dns::{BoxIter, DnsError, DnsResolver, Resolver, TxtRecordData};
 use iroh::endpoint::{presets, PortmapperConfig};
-use iroh::{Endpoint, EndpointAddr, EndpointId, NetReportConfig, RelayMode, SecretKey};
+use iroh::tls::CaTlsConfig;
+use iroh::{Endpoint, EndpointAddr, EndpointId, NetReportConfig, RelayMode, RelayUrl, SecretKey};
 
 use crate::error::NetError;
 use crate::policy::{validate_endpoint, EndpointConfig};
@@ -31,6 +34,7 @@ use crate::policy::{validate_endpoint, EndpointConfig};
 pub struct QuicEndpoint {
     inner: Endpoint,
     dns_queries: Arc<Mutex<Vec<String>>>,
+    relays: Vec<String>,
 }
 
 /// One accepted or dialed QUIC connection.
@@ -62,35 +66,48 @@ impl QuicEndpoint {
     /// `seed` is the 32-byte Ed25519 seed. iroh's endpoint id is that key's
     /// public half. `addr` is the only socket the endpoint binds; pass
     /// `127.0.0.1:0` in tests and `0.0.0.0:22116` when a fixed QUIC port is
-    /// required. Operator relays are rejected: this builder cannot install
-    /// them without also growing a relay allow-list, which this slice does
-    /// not have.
+    /// required. An empty relay list stays direct. A non-empty list must
+    /// already have passed [`validate_endpoint`]. `RelayMode::Default` and
+    /// `RelayMode::Staging` are not selected. Loopback relays skip certificate
+    /// verification because a user-run relay on this machine presents a
+    /// certificate this process did not obtain from a public authority.
     pub async fn bind(
         config: &EndpointConfig,
         addr: SocketAddr,
         seed: &[u8; 32],
     ) -> Result<Self, NetError> {
         validate_endpoint(config)?;
-        if !config.relays.is_empty() {
-            return Err(NetError::RelaysNotInstalled);
+        if config.relay_only && config.relays.is_empty() {
+            return Err(NetError::RelayOnlyNeedsRelay);
         }
+        let mode = relay_mode(config)?;
         let (resolver, dns_queries) = recording_resolver();
-        let builder = Endpoint::builder(presets::Minimal)
+        let mut builder = Endpoint::builder(presets::Minimal)
             .secret_key(SecretKey::from_bytes(seed))
             .clear_address_lookup()
-            .relay_mode(RelayMode::Disabled)
+            .relay_mode(mode)
             .portmapper_config(PortmapperConfig::Disabled)
-            .net_report_config(NetReportConfig::minimal())
+            .net_report_config(net_report_config(config))
             .dns_resolver(resolver)
             .alpns(vec![ALPN.as_bytes().to_vec()])
-            .clear_ip_transports()
-            .bind_addr(addr.to_string())
-            .map_err(|err| NetError::Quic(err.to_string()))?;
+            .clear_ip_transports();
+        if relays_are_loopback(&config.relays) {
+            builder = builder.ca_tls_config(loopback_tls_config());
+        }
+        if !config.relay_only {
+            builder = builder
+                .bind_addr(addr.to_string())
+                .map_err(|err| NetError::Quic(err.to_string()))?;
+        }
         let inner = builder
             .bind()
             .await
             .map_err(|err| NetError::Quic(err.to_string()))?;
-        Ok(Self { inner, dns_queries })
+        Ok(Self {
+            inner,
+            dns_queries,
+            relays: config.relays.clone(),
+        })
     }
 
     /// Ed25519 public key bytes for this endpoint.
@@ -107,13 +124,28 @@ impl QuicEndpoint {
             .ok_or_else(|| NetError::Quic("endpoint has no IPv4 socket".to_string()))
     }
 
-    /// Relay URLs currently advertised. Empty for this builder.
+    /// Relay URLs this endpoint was built with. Empty unless the operator set them.
     pub fn relay_urls(&self) -> Vec<String> {
-        self.inner
-            .addr()
-            .relay_urls()
-            .map(ToString::to_string)
-            .collect()
+        self.relays.clone()
+    }
+
+    /// Whether `url` is one of the relays passed to [`Self::bind`].
+    pub fn allows_relay(&self, url: &str) -> bool {
+        let Ok(wanted) = url.parse::<RelayUrl>() else {
+            return false;
+        };
+        self.relays
+            .iter()
+            .any(|item| item.parse::<RelayUrl>().ok().as_ref() == Some(&wanted))
+    }
+
+    /// Wait until a configured relay is connected.
+    ///
+    /// iroh chooses that relay from the HTTPS probe in the net report. This
+    /// waits indefinitely when every configured relay is unreachable. An
+    /// endpoint with an empty relay list has nothing to connect to.
+    pub async fn online(&self) {
+        self.inner.online().await;
     }
 
     /// DNS names the endpoint's resolver was asked to look up.
@@ -125,18 +157,44 @@ impl QuicEndpoint {
     }
 
     /// Dial `peer` at `addr` over the direct IP path.
-    ///
-    /// No relay URL is added. A forbidden suffix cannot appear because the
-    /// address is an IP socket, not a hostname.
     pub async fn connect(&self, peer: &[u8; 32], addr: SocketAddr) -> Result<QuicConn, NetError> {
+        self.connect_path(peer, Some(addr), None).await
+    }
+
+    /// Dial `peer` at an optional direct address and an optional user relay.
+    ///
+    /// `relay` must be one of the URLs passed to [`Self::bind`]. A forbidden
+    /// suffix still fails. Passing neither address nor relay is
+    /// [`NetError::NoCandidate`].
+    pub async fn connect_path(
+        &self,
+        peer: &[u8; 32],
+        addr: Option<SocketAddr>,
+        relay: Option<&str>,
+    ) -> Result<QuicConn, NetError> {
         if peer == &self.public_key() {
             return Err(NetError::SelfDial);
         }
+        if addr.is_none() && relay.is_none() {
+            return Err(NetError::NoCandidate);
+        }
         let id = EndpointId::from_bytes(peer)
             .map_err(|_| NetError::Quic("peer key is not a valid Ed25519 point".to_string()))?;
-        let endpoint_addr = EndpointAddr::new(id).with_ip_addr(addr);
-        if endpoint_addr.relay_urls().next().is_some() {
-            return Err(NetError::RelaysNotInstalled);
+        let mut endpoint_addr = EndpointAddr::new(id);
+        if let Some(addr) = addr {
+            endpoint_addr = endpoint_addr.with_ip_addr(addr);
+        }
+        if let Some(relay) = relay {
+            if !self.allows_relay(relay) {
+                return Err(NetError::RelaysNotInstalled);
+            }
+            crate::policy::check_hints(&[crate::policy::RelayHint {
+                url: relay.to_string(),
+            }])?;
+            let url: RelayUrl = relay
+                .parse()
+                .map_err(|_| NetError::BadRelay(relay.to_string()))?;
+            endpoint_addr = endpoint_addr.with_relay_url(url);
         }
         let inner = self
             .inner
@@ -264,6 +322,96 @@ fn check_probe(payload_len: usize, limit: usize) -> Result<(), NetError> {
     Ok(())
 }
 
+fn net_report_config(config: &EndpointConfig) -> NetReportConfig {
+    if config.relays.is_empty() {
+        // Nothing to measure. Leave the probes off so a direct endpoint does
+        // not open report traffic.
+        return NetReportConfig::minimal();
+    }
+    // A home relay is chosen from this probe. The probe list is the operator's
+    // relays. The captive-portal check dials port 80 on the relay host, which
+    // is not the relay port, so it stays off.
+    let mut report = NetReportConfig::default();
+    report.captive_portal_check = false;
+    report
+}
+
+fn relay_mode(config: &EndpointConfig) -> Result<RelayMode, NetError> {
+    if config.relays.is_empty() {
+        return Ok(RelayMode::Disabled);
+    }
+    let mut urls = Vec::with_capacity(config.relays.len());
+    for text in &config.relays {
+        let url = text
+            .parse::<RelayUrl>()
+            .map_err(|_| NetError::BadRelay(text.clone()))?;
+        urls.push(url);
+    }
+    Ok(RelayMode::custom(urls))
+}
+
+fn loopback_tls_config() -> CaTlsConfig {
+    CaTlsConfig::custom_server_cert_verifier(Arc::new(|provider| {
+        Ok(Arc::new(LoopbackRelayCerts { provider }))
+    }))
+}
+
+/// Accepts any certificate. Installed only when every configured relay host
+/// is a literal loopback address, which is how a user-run relay on this
+/// machine presents a certificate this process did not obtain from a public
+/// authority.
+#[derive(Debug)]
+struct LoopbackRelayCerts {
+    provider: Arc<rustls::crypto::CryptoProvider>,
+}
+
+impl rustls::client::danger::ServerCertVerifier for LoopbackRelayCerts {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &rustls::pki_types::CertificateDer<'_>,
+        _intermediates: &[rustls::pki_types::CertificateDer<'_>],
+        _server_name: &rustls::pki_types::ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: rustls::pki_types::UnixTime,
+    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+        Ok(rustls::client::danger::ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        _message: &[u8],
+        _cert: &rustls::pki_types::CertificateDer<'_>,
+        _dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        _message: &[u8],
+        _cert: &rustls::pki_types::CertificateDer<'_>,
+        _dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        self.provider
+            .signature_verification_algorithms
+            .supported_schemes()
+    }
+}
+
+fn relays_are_loopback(relays: &[String]) -> bool {
+    !relays.is_empty()
+        && relays.iter().all(|text| {
+            crate::policy::relay_host(text).is_some_and(|host| {
+                host.parse::<std::net::IpAddr>()
+                    .is_ok_and(|ip| ip.is_loopback())
+            })
+        })
+}
+
 fn recording_resolver() -> (DnsResolver, Arc<Mutex<Vec<String>>>) {
     let seen = Arc::new(Mutex::new(Vec::new()));
     let resolver = DnsResolver::custom(RecordingResolver {
@@ -339,6 +487,7 @@ mod tests {
         let defaults = EndpointConfig {
             relays: Vec::new(),
             use_n0_defaults: true,
+            relay_only: false,
         };
         assert_eq!(
             QuicEndpoint::bind(&defaults, addr, &seed(1))
@@ -349,21 +498,26 @@ mod tests {
         let forbidden = EndpointConfig {
             relays: vec!["https://foo.iroh.link:443".to_string()],
             use_n0_defaults: false,
+            relay_only: false,
         };
         assert!(matches!(
             QuicEndpoint::bind(&forbidden, addr, &seed(1)).await,
             Err(NetError::ForbiddenRelay { .. })
         ));
         let operator = EndpointConfig {
-            relays: vec!["https://relay.example.test:443".to_string()],
+            relays: vec!["https://203.0.113.9:443".to_string()],
             use_n0_defaults: false,
+            relay_only: false,
         };
+        let bound = QuicEndpoint::bind(&operator, addr, &seed(1))
+            .await
+            .expect("operator relay");
         assert_eq!(
-            QuicEndpoint::bind(&operator, addr, &seed(1))
-                .await
-                .expect_err("relay"),
-            NetError::RelaysNotInstalled
+            bound.relay_urls(),
+            vec!["https://203.0.113.9:443".to_string()]
         );
+        assert!(bound.dns_queries().is_empty(), "{:?}", bound.dns_queries());
+        bound.close().await;
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -413,5 +567,75 @@ mod tests {
         }
         server.close().await;
         client.close().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn user_relay_carries_a_probe_without_a_udp_socket() {
+        let (_map, url, server) = iroh::test_utils::run_relay_server().await.expect("relay");
+        let text = url.to_string();
+        let config = EndpointConfig {
+            relays: vec![text.clone()],
+            use_n0_defaults: false,
+            relay_only: true,
+        };
+        let host_seed = seed(71);
+        let client_seed = seed(72);
+        let addr = "127.0.0.1:0".parse().expect("addr");
+        let host = QuicEndpoint::bind(&config, addr, &host_seed)
+            .await
+            .expect("host relay");
+        let client = QuicEndpoint::bind(&config, addr, &client_seed)
+            .await
+            .expect("client relay");
+        let identity = Identity::from_seed(&host_seed).expect("identity");
+        assert_eq!(host.public_key(), *identity.device_id().as_bytes());
+        let ready = tokio::time::timeout(Duration::from_secs(8), async {
+            tokio::join!(host.online(), client.online());
+        })
+        .await;
+        assert!(ready.is_ok(), "user relay did not connect");
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_secs();
+        let ticket = cbdesk_discovery::sign_ticket(
+            cbdesk_proto::InviteTicket {
+                relay_urls: vec![text],
+                expires_at: now.saturating_add(600),
+                purpose: cbdesk_proto::InvitePurpose::Session,
+                ..cbdesk_proto::InviteTicket::default()
+            },
+            &identity,
+        )
+        .expect("ticket");
+        let mut replay = cbdesk_discovery::ReplayCache::new();
+        let reflect = async {
+            let conn = host.accept().await?;
+            conn.probe_reflect(64).await
+        };
+        let dial = async {
+            let conn = crate::dial::dial_verified_ticket(&client, &ticket, now, &mut replay)
+                .await
+                .map_err(|err| NetError::Quic(err.to_string()))?;
+            conn.probe_send(b"relay", 64).await
+        };
+        let (reflected, echoed) = tokio::join!(
+            tokio::time::timeout(Duration::from_secs(8), reflect),
+            tokio::time::timeout(Duration::from_secs(8), dial),
+        );
+        let echoed = echoed.expect("relay echo timed out").expect("echo");
+        reflected
+            .expect("relay reflect timed out")
+            .expect("reflect");
+        assert_eq!(echoed, b"relay");
+        assert!(host.dns_queries().is_empty(), "{:?}", host.dns_queries());
+        assert!(
+            client.dns_queries().is_empty(),
+            "{:?}",
+            client.dns_queries()
+        );
+        host.close().await;
+        client.close().await;
+        drop(server);
     }
 }

@@ -19,6 +19,8 @@ This build only accepts major 1 (`session_supports`). The helper
 | Clipboard text in `ClipboardText` | 60 KiB |
 | Clipboard reassembly ceiling | 64 MiB default and absolute cap |
 | Video frame | 16 MiB |
+| File chunk message | 4 MiB plus 64 KiB |
+| Opus packet on a side stream | 4 KiB |
 | Direct addresses on a ticket | 8 |
 
 Non-finite floats are rejected. Field number 0 is rejected. A truncated length
@@ -29,8 +31,8 @@ packed or unpacked encoding.
 
 `Hello`, `HelloAck`, `Granted`, `PermissionChanged`, `DisplayInfo`,
 `VideoFrameHeader`, `Feedback`, `Close`, `KeyEvent`, `PointerEvent`,
-`InputEvent`, `ClipboardText`, `Control`, `InviteTicket`, `DhtAddressRecord`,
-`SignedDhtRecord`.
+`InputEvent`, `ClipboardText`, `FileChunk`, `Control`, `InviteTicket`,
+`DhtAddressRecord`, `SignedDhtRecord`.
 
 Video bytes are not a protobuf field. They follow `VideoFrameHeader` on a
 unidirectional stream, described below. `InputEvent` sets exactly one of
@@ -79,17 +81,46 @@ frame. The bytes are:
 4. the payload
 
 An empty header or an empty payload is rejected. The two lengths plus both
-bodies must be at most 16 MiB. The payload is one grayscale keyframe.
+bodies must be at most 16 MiB. The payload is one VP8 or AV1 picture.
 Negotiation selects VP8 when both peers offer it (`Codec::Vp8`) and falls
-back to AV1 (`Codec::Av1`). `keyframe` is true. A unidirectional stream, or
-an extra bidirectional stream, opened before the grant is
-`PROTOCOL_VIOLATION`. The session closes and no permission is granted. After
-a frame is sent, the host keeps the connection up until the controller
-finishes the control stream or the frame budget is exhausted and the
-controller leaves. The controller reads each frame before it releases the
-grant. Closing the connection first discards a frame that is still inside
-QUIC. `--frames 0` keeps sending until that close. A positive count stops
-after that many frames and then waits for the controller.
+back to AV1 (`Codec::Av1`). `keyframe` is true for the first VP8 frame and
+for every AV1 still. A later VP8 frame may clear that flag when it is an
+inter frame. A unidirectional stream, or an extra bidirectional stream,
+opened before the grant is `PROTOCOL_VIOLATION`. The session closes and no
+permission is granted. After a frame is sent, the host keeps the connection
+up until the controller finishes the control stream or the frame budget is
+exhausted and the controller leaves. The controller reads each frame before
+it releases the grant. Closing the connection first discards a frame that
+is still inside QUIC. `--frames 0` keeps sending until that close. A
+positive count stops after that many frames and then waits for the
+controller.
+
+The picture is YUV. The live host sends the capture cropped to even
+dimensions. The synthetic host sends a gray barcode. Unchanged YUV is not
+sent again. Feedback from the viewer can lower or raise the VP8 quantizer
+on a live screen. The synthetic barcode stays at quantizer 0.
+
+## Side streams
+
+File chunks, Opus packets, feedback, and two empty acknowledgements share a
+unidirectional framing that cannot be mistaken for a length prefix. The
+first word is the big-endian magic `0x43424446` (`CBDF`). Then one kind
+byte, a big-endian `u32` body length, and the body. An empty body is
+allowed.
+
+| Kind | Value | Body | Grant |
+| --- | --- | --- | --- |
+| File | 1 | one `FileChunk` | `FileWrite` toward the host, `FileRead` toward the viewer |
+| Audio | 2 | one Opus packet, at most 4 KiB | `Audio` |
+| Feedback | 3 | one `Feedback` | `View` |
+| Input acknowledgement | 4 | empty | sent by the host after it accepts one input event |
+| File acknowledgement | 5 | empty | sent by the host after one file is renamed into place |
+
+`FileChunk.compressed` must be false. zstd is not linked. `hash` is 32
+bytes. `root` is 32 bytes on the last chunk and empty otherwise. The CLI
+stores the file under the directory given to `--files-root`. A missing
+grant closes the session with `PROTOCOL_VIOLATION`. The viewer waits for
+the matching acknowledgement before it drops the connection.
 
 ## Input events
 

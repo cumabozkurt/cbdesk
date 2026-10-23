@@ -9,7 +9,8 @@
 //! trait object, and it does not pull in the `async-trait` crate, so this
 //! workspace can keep `forbid(unsafe_code)`. [`QuicEndpoint`] is the direct
 //! QUIC adapter. It is not the memory [`Conn`]: iroh's connection type stays
-//! inside this crate. [`dial_verified_ticket`] uses direct addresses only.
+//! inside this crate. [`dial_verified_ticket`] tries direct addresses, then a
+//! relay this endpoint was already configured to use.
 //! [`admit_invited`] then hands that connection to a [`cbdesk_session::HostSession`].
 //! The ticket is not an input to admission.
 
@@ -24,6 +25,7 @@ mod memory;
 mod path;
 mod policy;
 mod quic;
+mod side;
 
 pub use addr::{address_rank, rank_candidates, MAX_CANDIDATES};
 pub use admit::{
@@ -40,6 +42,7 @@ pub use policy::{
     check_hints, relay_host, validate_endpoint, EndpointConfig, RelayHint, FORBIDDEN_RELAY_SUFFIXES,
 };
 pub use quic::{QuicConn, QuicEndpoint};
+pub use side::{recv_uni, send_audio_packet, send_feedback, send_file_chunk, UniBody};
 
 #[cfg(test)]
 mod link_test;

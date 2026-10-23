@@ -32,24 +32,28 @@ sources is derived from that project.
   do not send.
 - `cbdesk-net`: `Transport` trait, in-memory connections, candidate ranking,
   reconnect backoff, path state machine, relay suffix policy, direct QUIC,
-  ticket dial, the consent handshake, and grant-gated view, input, and
-  clipboard streams.
+  ticket dial, an optional operator relay, the consent handshake, and
+  grant-gated view, input, clipboard, file, and audio streams.
 - `cbdesk-session`: consent delay, 30 second approval timeout, unattended
   rules, quick-support ban, high-risk opt-in, indicator that cannot be
   disabled, auth rate limits.
 - `cbdesk-capture`: synthetic barcode frames, and an operating-system
   capturer (X11, Wayland ScreenCast plus PipeWire when `WAYLAND_DISPLAY` is
   set, Windows, macOS). A missing display is an error, not a barcode.
-- `cbdesk-codec`: grayscale VP8 keyframes via oxideav-vp8 0.2.7 (MIT,
-  default features off, no system libvpx) and AV1 stills via rav1e (assembler
-  and git tooling off) and rav1d-safe (AGPL-3.0-only). Each frame is its own
-  keyframe. Negotiation prefers VP8.
+- `cbdesk-codec`: color VP8 via oxideav-vp8 0.2.7 (MIT, default features
+  off, no system libvpx) and AV1 stills via rav1e (assembler and git tooling
+  off) and rav1d-safe (AGPL-3.0-only). The first VP8 frame is a keyframe. A
+  later frame can be a zero-motion inter frame. Negotiation prefers VP8.
+- `cbdesk-fs`: resumable uncompressed files under a path jail. zstd is not
+  linked.
+- `cbdesk-audio`: a synthetic Opus tone and a 40–120 ms jitter buffer. No
+  microphone is opened.
 - `cbdesk-input`: enigo injection after the caller has granted Input, and
   `InputLog` for tests. Tests do not call `inject`.
 - `cbdesk-cli`: `cbdesk host` and `cbdesk view`. After consent, frames stream
   until the viewer closes. `--window` shows them. `--ppm` writes the first
   frame. `--lan` / `--browse` find each other on the LAN. `--screen` captures
-  the display.
+  the display. `--put`, `--tone`, `--audio`, and `--relay` are wired.
 - `cbdesk-testkit`: re-exported barcode frames, recording injector,
   poisonable fake DHT.
 - Netlab profile files for N0, N3, and N4. They do not create namespaces.
@@ -94,13 +98,19 @@ substitute, not that exit.
   stream accepted only after `authorize(Clipboard)`. A side stream before the
   grant, or a clipboard or input stream without its grant, is
   `PROTOCOL_VIOLATION`.
-- `QuicEndpoint` on iroh 1.4.1 via `presets::Minimal` and
-  `RelayMode::Disabled`. No n0 discovery service is installed. T-NET-001 is a
-  loopback echo; the endpoint resolver must record no DNS names. It is not a
-  packet capture of the whole machine.
-- A verified invite ticket dials `direct_addrs` through that endpoint. Relay
-  URLs on the ticket are not contacted. The connection is handed to
-  `HostSession`. The ticket is not a grant.
+- `QuicEndpoint` on iroh 1.4.1 via `presets::Minimal`. The default relay
+  list is empty, which selects `RelayMode::Disabled`. No n0 discovery
+  service is installed. T-NET-001 is a loopback echo; the endpoint resolver
+  must record no DNS names. It is not a packet capture of the whole machine.
+  A URL the operator configured, and that is not a forbidden suffix, can be
+  installed. `RelayMode::Default` is not selected. A relay named only on a
+  ticket is ignored. HTTPS net-report probes run only when that list is
+  non-empty, and only against those relays. A loopback relay test echoes
+  one probe with UDP transports cleared. Symmetric NAT is unmeasured. The
+  test relay is iroh's test helper, not a process this project ships.
+- A verified invite ticket dials `direct_addrs` through that endpoint, then
+  a relay this endpoint was already configured to use. The connection is
+  handed to `HostSession`. The ticket is not a grant.
 - LAN announce and browse. Public networks do not send. The datagrams are the
   tested mDNS TXT record and the `CBDS` broadcast body. `bind_multicast`
   joins `224.0.0.251` and binds port 5353 when that port can be shared.
@@ -111,29 +121,41 @@ substitute, not that exit.
   The production wait is `wait_for_approval`. Loopback tests fire that same
   close path without sleeping 30 wall-clock seconds. The CLI still waits 3
   seconds on a first contact before `--approve` can grant.
-- Synthetic capturer, a VP8 barcode stream, and an AV1 fallback. Ubuntu CI
-  proves the X11 path under Xvfb, including a viewer window that opens and
-  paints one local frame. The Wayland ScreenCast path is compiled and
-  selected when `WAYLAND_DISPLAY` is set; CI does not run it. Windows and
-  macOS compile the capturer and the window. A missing display is
+- Synthetic capturer, a VP8 barcode stream, and an AV1 fallback. The live
+  path sends color YUV at the capture's even size. The pacer targets 33 ms
+  and adapts the VP8 quantizer. This tree has no 1080p timing measurement.
+  Ubuntu CI proves the X11 path under Xvfb, including a viewer window that
+  opens and paints one local frame. The Wayland ScreenCast path is compiled
+  and selected when `WAYLAND_DISPLAY` is set; CI does not run it. Windows
+  and macOS compile the capturer and the window. A missing display is
   `Unavailable` unless `CBDESK_REQUIRE_DISPLAY` is set. T-MED-001 selects
   VP8 when that is the only shared video codec. T-MED-004 here is the short
-  keyframe barcode, not a 60-second soak.
+  barcode, including one inter frame at quantizer 0. It is not a 60-second
+  soak.
+- A scripted pointer and Enter are host stdout lines after an Input grant.
+  The window maps pointer and key events the same way. The check is that
+  QUIC delivery, not an injected operating-system click.
+- File transfer resumes in `cbdesk-fs`. The CLI `--put` test stores
+  `hello` after `file_write` and `--allow-high-risk`. Audio `--tone` reaches
+  a viewer that passed `--audio`. Integration tests set
+  `CBDESK_EPHEMERAL_IDENTITY=1` so two processes do not load one OS keychain
+  identity and refuse to dial each other. Same-machine browse dials loopback
+  before the multicast source address.
 
 ## Test ids this pass actually locks
 
 | Id | What the test covers | What it does not cover |
 | --- | --- | --- |
-| T-NET-001 | Loopback QUIC echo on an endpoint with no n0 relays, no n0 discovery, and a resolver that recorded no names. Forbidden relay suffixes still fail before bind. A verified ticket dial does not query DNS for its relay URL | A capture of every packet the runner sends, including traffic to GitHub |
+| T-NET-001 | Loopback QUIC echo on an endpoint with no n0 relays, no n0 discovery, and a resolver that recorded no names. Forbidden relay suffixes still fail before bind. A verified ticket dial does not query DNS for its relay URL. A separate test installs one operator URL and, on loopback only, echoes a probe with UDP off | A capture of every packet the runner sends, including traffic to GitHub. Symmetric NAT. A relay process shipped by this project |
 | T-AUTH-018 | An unanswered approval closes at 30 seconds and the controller receives `TIMEOUT_USER_RESPONSE`. The 30 second sleep is the production wait; the loopback test uses that close path with a ready deadline | A visible approval window |
 | T-AUTH-011 | Fifth failure locks 60 seconds, later failures double up to one hour | Password UI |
 | T-AUTH-012 | Counters are per device id and per IPv4 /24 or IPv6 /56 | Distributed clients |
 | T-AUTH-015 | A known trusted key can skip the prompt when the policy says so, and the grant is the safe set | A real trust store |
 | T-AUTH-019 | One consent prompt per minute; three rejects silence the peer for 24 hours | A real window |
-| T-PERM-002 | `authorize` refuses a permission that was not granted | File messages |
-| T-PERM-006 | Media and `authorize` fail before the grant. An echo probe is answered with `PROTOCOL_VIOLATION` and is not reflected. A unidirectional stream before the grant is the same close. After `authorize(View)`, frame streams are delivered. After `authorize(Input)`, an input event is returned and is not injected by the test. After `authorize(Clipboard)`, text is delivered. Clipboard or input without the grant closes the session | File messages, and moving the real pointer |
+| T-PERM-002 | `authorize` refuses a permission that was not granted | A file browser UI |
+| T-PERM-006 | Media and `authorize` fail before the grant. An echo probe is answered with `PROTOCOL_VIOLATION` and is not reflected. A unidirectional stream before the grant is the same close. After `authorize(View)`, frame streams are delivered. After `authorize(Input)`, an input event is returned and is not injected by the test. After `authorize(Clipboard)`, text is delivered. File and audio follow their grants and close the session without them. Clipboard, input, file, or audio without the grant closes the session | Moving the real pointer |
 | T-MED-001 | Both peers offering only VP8 select VP8. VP8 outranks AV1 when both are offered. AV1 is selected when VP8 is absent | VP9, H.264, and H.265 |
-| T-MED-004 | A short VP8 keyframe stream keeps the barcode readable at quantizer 0 | A 60-second soak, inter frames, and a hardware encoder |
+| T-MED-004 | A short VP8 stream keeps the barcode readable at quantizer 0, including one zero-motion inter frame. Color sampling keeps a gray barcode gray | A 60-second soak, a hardware encoder, and a measured 1080p frame rate |
 | T-UI-004 | First contact cannot be approved before 3 seconds | A widget |
 | T-UI-005 | `indicator_can_be_disabled` is constant false | Settings UI, CLI |
 | T-UI-007 / T-I18N-001 | Catalog keys match across Turkish and English, including every known error | A rendered UI |
@@ -141,16 +163,18 @@ substitute, not that exit.
 
 ## Recommended next run
 
-Send VP8 inter frames, and raise the live preview above a 480 by 270
-keyframe every 125 ms, still only after `authorize(View)`. Add an end-to-end
-check that pointer events from the window arrive as host input lines. The
-window smoke test paints a local frame; the LAN proof so far is `--browse`
-writing a PPM.
+Measure the live pacer on a real display and record the frame interval.
+The target is 33 ms at the capture's even size. Wayland ScreenCast is
+compiled and untested in CI; a portal-capable lab would be the proof, not
+an Xvfb job. A symmetric NAT measurement needs two machines and a relay the
+operator runs outside this repository.
 
-Wayland ScreenCast is compiled and untested in CI; a portal-capable lab
-would be the proof, not an Xvfb job.
+Commit `baef235` is red on macOS and Windows: the OS keychain made the two
+CLI processes the same device, and LAN browse dialed the multicast source
+address. This tree sets `CBDESK_EPHEMERAL_IDENTITY=1` in those tests and
+dials loopback first. Those jobs have not run on this commit yet.
 
-Still out of that run: hardware codecs, audio, Flutter, file transfer, NAT
-traversal, SPAKE2, OPAQUE, and DHT blinding. ADR-007 and ADR-008 are still
-Proposed. The fork import stays closed for capture, codec, and input
-(ADR-015). M0's fork-builds exit stays unmet.
+Still out of that run: hardware codecs, a microphone, the Flutter UI,
+compressed file chunks, SPAKE2, OPAQUE, and DHT blinding. ADR-007 and
+ADR-008 are still Proposed. The fork import stays closed for capture,
+codec, and input (ADR-015). M0's fork-builds exit stays unmet.

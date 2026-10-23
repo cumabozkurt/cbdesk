@@ -21,6 +21,7 @@ mod clipboard;
 mod control;
 mod enums;
 mod error;
+mod file;
 mod input;
 mod limits;
 mod messages;
@@ -31,6 +32,7 @@ pub use clipboard::{ClipboardText, CLIPBOARD_TEXT_MAX_BYTES};
 pub use control::{Control, ControlBody};
 pub use enums::{AuthMethod, Capability, Codec, ErrorCode, InvitePurpose, Permission, Platform};
 pub use error::ProtoError;
+pub use file::{FileChunk, FILE_CHUNK_MAX_BYTES, FILE_MESSAGE_MAX_BYTES};
 pub use input::{InputBody, InputEvent, KeyEvent, PointerEvent};
 pub use limits::{
     check_payload, PayloadKind, CLIPBOARD_ABSOLUTE_MAX_BYTES, CLIPBOARD_DEFAULT_MAX_BYTES,

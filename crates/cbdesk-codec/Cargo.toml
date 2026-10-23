@@ -1,6 +1,6 @@
 [package]
 name = "cbdesk-codec"
-description = "Software VP8 and AV1 encode and decode for one grayscale frame."
+description = "Software VP8 inter frames and AV1 stills for a color picture."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

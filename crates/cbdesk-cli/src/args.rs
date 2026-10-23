@@ -33,6 +33,12 @@ pub struct HostArgs {
     pub frames: u32,
     /// Announce on the LAN. The operator asked for this; the profile is private.
     pub lan: bool,
+    /// Relay URLs this process may use. Empty stays direct.
+    pub relays: Vec<String>,
+    /// Directory that jailed file transfers may touch.
+    pub files_root: Option<PathBuf>,
+    /// Send a synthetic Opus tone when Audio is granted.
+    pub tone: bool,
 }
 
 /// Viewer options.
@@ -48,6 +54,14 @@ pub struct ViewArgs {
     pub window: bool,
     /// Optional pointer sample to send after the first frame, if Input was granted.
     pub pointer: Option<(i32, i32)>,
+    /// Optional key name to send after the first frame, if Input was granted.
+    pub key: Option<String>,
+    /// Upload this file after the grant, if FileWrite was granted.
+    pub put: Option<PathBuf>,
+    /// Request Audio and print the length of packets the host sends.
+    pub audio: bool,
+    /// Relay URLs this process may use. A ticket cannot add one.
+    pub relays: Vec<String>,
 }
 
 /// Parse `args`, which does not include the program name.
@@ -64,88 +78,177 @@ pub fn parse(args: &[String]) -> Result<Command, CliError> {
 
 fn usage() -> CliError {
     CliError::new(
-        "usage: cbdesk host --bind ADDR (--synthetic|--screen) [--approve view,input] [--frames N] [--lan]\n       cbdesk view (--ticket HEX|--browse) (--ppm FILE|--window) [--pointer X,Y]",
+        "usage: cbdesk host --bind ADDR (--synthetic|--screen) [--approve view,input] \
+         [--frames N] [--lan] [--relay URL] [--files-root DIR] [--tone]\n       \
+         cbdesk view (--ticket HEX|--browse) (--ppm FILE|--window|--put FILE) \
+         [--pointer X,Y] [--key NAME] [--audio] [--relay URL]",
     )
 }
 
+struct HostDraft {
+    bind: SocketAddr,
+    approve: Vec<Permission>,
+    allow_high_risk: bool,
+    screen: Option<bool>,
+    frames: u32,
+    lan: bool,
+    relays: Vec<String>,
+    files_root: Option<PathBuf>,
+    tone: bool,
+}
+
 fn parse_host(args: &[String]) -> Result<HostArgs, CliError> {
-    let mut bind = "127.0.0.1:22116"
-        .parse()
-        .map_err(|_| CliError::new("default bind address is invalid"))?;
-    let mut approve = Vec::new();
-    let mut allow_high_risk = false;
-    let mut screen = None;
-    let mut frames = 0_u32;
-    let mut lan = false;
+    let mut draft = HostDraft {
+        bind: "127.0.0.1:22116"
+            .parse()
+            .map_err(|_| CliError::new("default bind address is invalid"))?,
+        approve: Vec::new(),
+        allow_high_risk: false,
+        screen: None,
+        frames: 0,
+        lan: false,
+        relays: Vec::new(),
+        files_root: None,
+        tone: false,
+    };
     let mut index = 0;
     while index < args.len() {
-        let flag = args[index].as_str();
-        match flag {
-            "--bind" => {
-                bind = take(args, &mut index, "bind address")?
-                    .parse()
-                    .map_err(|_| CliError::new("bind address is invalid"))?
-            }
-            "--approve" => approve = permissions(&take(args, &mut index, "permissions")?)?,
-            "--allow-high-risk" => allow_high_risk = true,
-            "--synthetic" => screen = Some(false),
-            "--screen" => screen = Some(true),
-            "--frames" => frames = frames_arg(&take(args, &mut index, "frame count")?)?,
-            "--lan" => lan = true,
-            _ => return Err(CliError::new(format!("unknown host argument {flag}"))),
-        }
+        apply_host(&mut draft, args, &mut index)?;
         index += 1;
     }
-    let screen = screen.ok_or_else(|| CliError::new("host needs --synthetic or --screen"))?;
-    if approve.iter().any(|perm| perm.is_high_risk()) && !allow_high_risk {
+    finish_host(draft)
+}
+
+fn apply_host(draft: &mut HostDraft, args: &[String], index: &mut usize) -> Result<(), CliError> {
+    let flag = args[*index].as_str();
+    match flag {
+        "--bind" => {
+            draft.bind = take(args, index, "bind address")?
+                .parse()
+                .map_err(|_| CliError::new("bind address is invalid"))?;
+        }
+        "--approve" => draft.approve = permissions(&take(args, index, "permissions")?)?,
+        "--allow-high-risk" => draft.allow_high_risk = true,
+        "--synthetic" => draft.screen = Some(false),
+        "--screen" => draft.screen = Some(true),
+        "--frames" => draft.frames = frames_arg(&take(args, index, "frame count")?)?,
+        "--lan" => draft.lan = true,
+        "--relay" => draft
+            .relays
+            .push(relay_arg(&take(args, index, "relay URL")?)?),
+        "--files-root" => {
+            draft.files_root = Some(PathBuf::from(take(args, index, "files root")?));
+        }
+        "--tone" => draft.tone = true,
+        _ => return Err(CliError::new(format!("unknown host argument {flag}"))),
+    }
+    Ok(())
+}
+
+fn finish_host(draft: HostDraft) -> Result<HostArgs, CliError> {
+    let screen = draft
+        .screen
+        .ok_or_else(|| CliError::new("host needs --synthetic or --screen"))?;
+    if draft.approve.iter().any(|perm| perm.is_high_risk()) && !draft.allow_high_risk {
         return Err(CliError::new(
             "high-risk permissions need --allow-high-risk on first contact",
         ));
     }
+    if needs_files_root(&draft.approve) && draft.files_root.is_none() {
+        return Err(CliError::new("file_read and file_write need --files-root"));
+    }
     Ok(HostArgs {
-        bind,
-        approve,
-        allow_high_risk,
+        bind: draft.bind,
+        approve: draft.approve,
+        allow_high_risk: draft.allow_high_risk,
         screen,
-        frames,
-        lan,
+        frames: draft.frames,
+        lan: draft.lan,
+        relays: draft.relays,
+        files_root: draft.files_root,
+        tone: draft.tone,
     })
 }
 
+struct ViewDraft {
+    ticket_hex: Option<String>,
+    browse: bool,
+    ppm: Option<PathBuf>,
+    window: bool,
+    pointer: Option<(i32, i32)>,
+    key: Option<String>,
+    put: Option<PathBuf>,
+    audio: bool,
+    relays: Vec<String>,
+}
+
 fn parse_view(args: &[String]) -> Result<ViewArgs, CliError> {
-    let mut ticket_hex = None;
-    let mut browse = false;
-    let mut ppm = None;
-    let mut window = false;
-    let mut pointer = None;
+    let mut draft = ViewDraft {
+        ticket_hex: None,
+        browse: false,
+        ppm: None,
+        window: false,
+        pointer: None,
+        key: None,
+        put: None,
+        audio: false,
+        relays: Vec::new(),
+    };
     let mut index = 0;
     while index < args.len() {
-        let flag = args[index].as_str();
-        match flag {
-            "--ticket" => ticket_hex = Some(take(args, &mut index, "ticket")?),
-            "--browse" => browse = true,
-            "--ppm" => ppm = Some(PathBuf::from(take(args, &mut index, "ppm path")?)),
-            "--window" => window = true,
-            "--pointer" => pointer = Some(pointer_arg(&take(args, &mut index, "pointer")?)?),
-            _ => return Err(CliError::new(format!("unknown view argument {flag}"))),
-        }
+        apply_view(&mut draft, args, &mut index)?;
         index += 1;
     }
-    if ticket_hex.is_some() == browse {
+    finish_view(draft)
+}
+
+fn apply_view(draft: &mut ViewDraft, args: &[String], index: &mut usize) -> Result<(), CliError> {
+    let flag = args[*index].as_str();
+    match flag {
+        "--ticket" => draft.ticket_hex = Some(take(args, index, "ticket")?),
+        "--browse" => draft.browse = true,
+        "--ppm" => draft.ppm = Some(PathBuf::from(take(args, index, "ppm path")?)),
+        "--window" => draft.window = true,
+        "--pointer" => draft.pointer = Some(pointer_arg(&take(args, index, "pointer")?)?),
+        "--key" => draft.key = Some(key_arg(&take(args, index, "key")?)?),
+        "--put" => draft.put = Some(PathBuf::from(take(args, index, "file")?)),
+        "--audio" => draft.audio = true,
+        "--relay" => draft
+            .relays
+            .push(relay_arg(&take(args, index, "relay URL")?)?),
+        _ => return Err(CliError::new(format!("unknown view argument {flag}"))),
+    }
+    Ok(())
+}
+
+fn finish_view(draft: ViewDraft) -> Result<ViewArgs, CliError> {
+    if draft.ticket_hex.is_some() == draft.browse {
         return Err(CliError::new(
             "view needs exactly one of --ticket or --browse",
         ));
     }
-    if ppm.is_none() && !window {
-        return Err(CliError::new("view needs --ppm or --window"));
+    if draft.ppm.is_none() && !draft.window && draft.put.is_none() && !draft.audio {
+        return Err(CliError::new(
+            "view needs --ppm, --window, --put, or --audio",
+        ));
     }
     Ok(ViewArgs {
-        ticket_hex,
-        browse,
-        ppm,
-        window,
-        pointer,
+        ticket_hex: draft.ticket_hex,
+        browse: draft.browse,
+        ppm: draft.ppm,
+        window: draft.window,
+        pointer: draft.pointer,
+        key: draft.key,
+        put: draft.put,
+        audio: draft.audio,
+        relays: draft.relays,
     })
+}
+
+fn needs_files_root(perms: &[Permission]) -> bool {
+    perms
+        .iter()
+        .any(|perm| matches!(perm, Permission::FileRead | Permission::FileWrite))
 }
 
 fn take(args: &[String], index: &mut usize, name: &str) -> Result<String, CliError> {
@@ -203,4 +306,72 @@ fn pointer_arg(text: &str) -> Result<(i32, i32), CliError> {
         .parse()
         .map_err(|_| CliError::new("pointer y is invalid"))?;
     Ok((x, y))
+}
+
+fn key_arg(text: &str) -> Result<String, CliError> {
+    crate::window::scripted_key(text)?;
+    Ok(text.to_string())
+}
+
+fn relay_arg(text: &str) -> Result<String, CliError> {
+    if text.starts_with("https://") || text.starts_with("relay://") {
+        Ok(text.to_string())
+    } else {
+        Err(CliError::new("relay URL needs an https or relay scheme"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn strings(args: &[&str]) -> Vec<String> {
+        args.iter().map(|text| (*text).to_string()).collect()
+    }
+
+    #[test]
+    fn file_grant_needs_a_root_and_the_high_risk_flag() {
+        let missing_flag = parse(&strings(&[
+            "host",
+            "--synthetic",
+            "--approve",
+            "file_write",
+            "--files-root",
+            "/tmp/cbdesk-files",
+        ]));
+        assert!(missing_flag.is_err());
+        let missing_root = parse(&strings(&[
+            "host",
+            "--synthetic",
+            "--approve",
+            "file_read",
+            "--allow-high-risk",
+        ]));
+        assert!(missing_root
+            .expect_err("root")
+            .to_string()
+            .contains("files-root"));
+    }
+
+    #[test]
+    fn put_counts_as_a_view_action() {
+        let command = parse(&strings(&[
+            "view",
+            "--ticket",
+            "aa",
+            "--put",
+            "note.txt",
+            "--relay",
+            "https://203.0.113.9:443",
+        ]))
+        .expect("parse");
+        match command {
+            Command::View(view) => {
+                assert!(view.ppm.is_none());
+                assert!(view.put.is_some());
+                assert_eq!(view.relays, vec!["https://203.0.113.9:443".to_string()]);
+            }
+            Command::Host(_) => panic!("host"),
+        }
+    }
 }

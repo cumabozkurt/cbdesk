@@ -220,6 +220,20 @@ enum Codec {
   CODEC_H265 = 5;
 }
 
+// One BLAKE3-addressed slice. compressed is rejected by this build.
+message FileChunk {
+  uint64 transfer = 1;
+  string path = 2;
+  uint64 offset = 3;
+  bytes data = 4;
+  bytes hash = 5;
+  uint64 total = 6;
+  bool last = 7;
+  bytes root = 8;
+  bool compressed = 9;
+  uint64 chunk_size = 10;
+}
+
 enum InvitePurpose {
   PURPOSE_UNSPECIFIED = 0;
   PURPOSE_SESSION = 1;

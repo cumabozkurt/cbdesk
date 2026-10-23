@@ -2,14 +2,15 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used))]
 #![cfg_attr(not(test), deny(clippy::expect_used))]
 
-//! Software video for one grayscale picture.
+//! Software video for one picture.
 //!
 //! AV1 uses rav1e with assembler and git tooling disabled, and rav1d-safe
 //! under AGPL-3.0-only. VP8 uses oxideav-vp8, which is pure Rust and does
-//! not need a system libvpx. Each call encodes one still picture, so the
-//! payload is a keyframe. A live stream is a sequence of those keyframes.
+//! not need a system libvpx. A stream is a keyframe followed by inter frames.
+//! AV1 in this tree is still one still picture.
 
 mod error;
+mod rate;
 mod vp8;
 
 use cbdesk_capture::Frame as Picture;
@@ -17,7 +18,8 @@ use rav1d_safe::src::managed::{Decoder, Planes};
 use rav1e::prelude::*;
 
 pub use error::CodecError;
-pub use vp8::{decode_vp8_luma, encode_vp8};
+pub use rate::{BitrateControl, Pace};
+pub use vp8::{decode_vp8_luma, encode_vp8, vp8_is_inter, Vp8Encoder, Vp8StreamDecoder};
 
 /// How hard the encoder should try.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

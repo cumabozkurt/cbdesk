@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! A window that shows grayscale frames and, after an Input grant, forwards
+//! A window that shows color frames and, after an Input grant, forwards
 //! the pointer and keyboard.
 //!
 //! The event loop runs on the caller thread. macOS requires that thread to
@@ -11,7 +11,7 @@ use std::num::NonZeroU32;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use cbdesk_capture::Frame;
+use cbdesk_capture::{yuv_to_rgb, Picture};
 use cbdesk_input::{
     BUTTON_LEFT, BUTTON_MIDDLE, BUTTON_RIGHT, KEY_BACKSPACE, KEY_DOWN, KEY_ENTER, KEY_ESCAPE,
     KEY_LEFT, KEY_RIGHT, KEY_TAB, KEY_UP, MOD_ALT, MOD_CTRL, MOD_META, MOD_SHIFT,
@@ -40,7 +40,7 @@ pub struct WindowOptions {
 
 /// Show frames until the window closes or `options.close_after` elapses.
 pub fn run(
-    frames: Arc<Mutex<Option<Frame>>>,
+    frames: Arc<Mutex<Option<Picture>>>,
     input_tx: tokio::sync::mpsc::UnboundedSender<InputEvent>,
     stop_tx: tokio::sync::watch::Sender<bool>,
     options: WindowOptions,
@@ -118,14 +118,14 @@ struct Gfx {
 }
 
 struct ViewerApp {
-    frames: Arc<Mutex<Option<Frame>>>,
+    frames: Arc<Mutex<Option<Picture>>>,
     input_tx: tokio::sync::mpsc::UnboundedSender<InputEvent>,
     allow_input: bool,
     gfx: Option<Gfx>,
     buttons: u32,
     modifiers: u32,
     cursor: (f64, f64),
-    current: Option<Frame>,
+    current: Option<Picture>,
     failed: Option<String>,
 }
 
@@ -269,7 +269,7 @@ fn open_gfx(window: Window) -> Result<Gfx, String> {
     Ok(Gfx { context, surface })
 }
 
-fn paint_frame(gfx: &mut Gfx, frame: &Frame) -> Result<(), String> {
+fn paint_frame(gfx: &mut Gfx, frame: &Picture) -> Result<(), String> {
     let size = gfx.surface.window().inner_size();
     let width =
         NonZeroU32::new(size.width.max(1)).ok_or_else(|| "window width is zero".to_string())?;
@@ -284,7 +284,7 @@ fn paint_frame(gfx: &mut Gfx, frame: &Frame) -> Result<(), String> {
     Ok(())
 }
 
-fn fill_xrgb(buffer: &mut [u32], dst_w: u32, dst_h: u32, frame: &Frame) {
+fn fill_xrgb(buffer: &mut [u32], dst_w: u32, dst_h: u32, frame: &Picture) {
     let src_w = frame.width.max(1);
     let src_h = frame.height.max(1);
     for y in 0..dst_h {
@@ -293,15 +293,28 @@ fn fill_xrgb(buffer: &mut [u32], dst_w: u32, dst_h: u32, frame: &Frame) {
         for x in 0..dst_w {
             let src_x = ((u64::from(x) * u64::from(src_w)) / u64::from(dst_w.max(1))) as u32;
             let src_x = src_x.min(src_w - 1);
-            let index = (src_y as usize).saturating_mul(src_w as usize) + src_x as usize;
-            let luma = frame.pixels.get(index).copied().unwrap_or(0);
-            let pixel = u32::from(luma);
+            let [red, green, blue] = sample_rgb(frame, src_x, src_y);
             let slot = (y as usize).saturating_mul(dst_w as usize) + x as usize;
             if let Some(dest) = buffer.get_mut(slot) {
-                *dest = (pixel << 16) | (pixel << 8) | pixel;
+                *dest = (u32::from(red) << 16) | (u32::from(green) << 8) | u32::from(blue);
             }
         }
     }
+}
+
+fn sample_rgb(frame: &Picture, x: u32, y: u32) -> [u8; 3] {
+    let width = frame.width.max(1) as usize;
+    let luma_index = (y as usize)
+        .saturating_mul(width)
+        .saturating_add(x as usize);
+    let luma = frame.y.get(luma_index).copied().unwrap_or(0);
+    let cw = (frame.width / 2).max(1) as usize;
+    let chroma_index = ((y / 2) as usize)
+        .saturating_mul(cw)
+        .saturating_add((x / 2) as usize);
+    let chroma_u = frame.u.get(chroma_index).copied().unwrap_or(128);
+    let chroma_v = frame.v.get(chroma_index).copied().unwrap_or(128);
+    yuv_to_rgb(luma, chroma_u, chroma_v)
 }
 
 fn apply_button(buttons: &mut u32, button: MouseButton, down: bool) {
@@ -349,6 +362,24 @@ fn modifier_mask(state: ModifiersState) -> u32 {
     mask
 }
 
+/// A key-down event for `enter` or one ASCII graphic character.
+pub fn scripted_key(name: &str) -> Result<InputEvent, CliError> {
+    let keycode = if name.eq_ignore_ascii_case("enter") {
+        KEY_ENTER
+    } else {
+        ascii_key(name).ok_or_else(|| CliError::new("key must be enter or one ASCII character"))?
+    };
+    Ok(InputEvent {
+        body: InputBody::Key(KeyEvent {
+            keycode,
+            down: true,
+            modifiers: 0,
+            unknown: UnknownFields::new(),
+        }),
+        unknown: UnknownFields::new(),
+    })
+}
+
 fn keycode_from_logical(key: &Key) -> Option<u32> {
     match key {
         Key::Named(NamedKey::Enter) => Some(KEY_ENTER),
@@ -375,7 +406,7 @@ fn ascii_key(text: &str) -> Option<u32> {
 
 #[cfg(test)]
 mod tests {
-    use cbdesk_capture::{SyntheticCapturer, BARCODE_WIDTH};
+    use cbdesk_capture::{Picture, SyntheticCapturer, BARCODE_WIDTH};
     use cbdesk_input::KEY_ENTER;
     use winit::keyboard::{Key, NamedKey};
 
@@ -421,7 +452,8 @@ mod tests {
         let frame = SyntheticCapturer::new(BARCODE_WIDTH, 16)
             .capture(1, 1_000)
             .expect("frame");
-        let frames = Arc::new(Mutex::new(Some(frame)));
+        let picture = Picture::from_luma(&frame).expect("picture");
+        let frames = Arc::new(Mutex::new(Some(picture)));
         let (input_tx, _input_rx) = tokio::sync::mpsc::unbounded_channel();
         let (stop_tx, _stop_rx) = tokio::sync::watch::channel(false);
         run(

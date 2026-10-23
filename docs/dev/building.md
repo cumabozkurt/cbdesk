@@ -60,14 +60,17 @@ cbdesk host --bind 0.0.0.0:22116 --synthetic --approve view,input --lan
 cbdesk view --browse --window
 ```
 
-`--screen` captures the display instead of the barcode. The preview is scaled
-to at most 480 by 270. `--approve` is explicit consent and still waits three
-seconds on a first contact. Omitting it rejects immediately. `--frames N`
-stops after N frames; `0`, the default, streams until the viewer closes.
-`--pointer X,Y` sends one pointer event after the first frame, and only if
-the host granted `input`. The window does the same for later pointer and key
-events. The ticket printed by the host is a locator. `--browse` does not use
-it. `--lan` does not read the OS network category; the library still sends
+`--screen` captures the display instead of the barcode. The live picture
+keeps that capture's even width and height. `--approve` is explicit consent
+and still waits three seconds on a first contact. Omitting it rejects
+immediately. `--frames N` stops after N frames; `0`, the default, streams
+until the viewer closes. `--pointer X,Y` and `--key NAME` send one event
+each after the first frame, and only if the host granted `input`. The
+window uses the same mapping for later pointer and key events. `--put FILE`
+uploads that file after `file_write`. `--tone` and `--audio` exchange one
+synthetic Opus stream after `audio`. `--relay URL` may be repeated. The
+ticket printed by the host is a locator. `--browse` does not use it.
+`--lan` does not read the OS network category; the library still sends
 nothing when a caller passes a public profile.
 
 ## Pins
@@ -80,7 +83,9 @@ do not unify (`ed25519-dalek` 3, `getrandom` 0.4).
 
 ## What will not build
 
-Installers, audio, file transfer, and mobile targets have no code in the
-workspace. Their directories contain a README so the layout from the master
-plan is visible. They are not Cargo workspace members. Plain-text clipboard
-sync is in the CLI, not in `cbdesk-clipboard`.
+Installers and mobile targets have no code in the workspace. Some plan
+directories still contain only a README and are not Cargo workspace
+members. Plain-text clipboard sync is in the CLI, not in
+`cbdesk-clipboard`. File bytes live in `cbdesk-fs`. Synthetic Opus lives
+in `cbdesk-audio`. Neither opens a microphone, and file chunks are
+uncompressed.

@@ -14,9 +14,11 @@
 mod barcode;
 mod error;
 mod fit;
+mod picture;
 mod screen;
 
 pub use barcode::{read_barcode, Frame, SyntheticCapturer, BARCODE_WIDTH};
 pub use error::CaptureError;
 pub use fit::fit_even;
-pub use screen::capture_screen;
+pub use picture::{crop_even, from_rgba, yuv_to_rgb, Picture};
+pub use screen::{capture_picture, capture_screen};

@@ -16,10 +16,13 @@ cbdesk-proto = { path = "../cbdesk-proto" }
 cbdesk-session = { path = "../cbdesk-session" }
 iroh.workspace = true
 n0-error.workspace = true
+rustls.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
+# The relay server helper is test-only. The CLI does not run a relay.
+iroh = { workspace = true, features = ["test-utils"] }
 tokio = { workspace = true, features = ["test-util"] }
 
 [lints]

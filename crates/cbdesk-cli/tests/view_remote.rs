@@ -2,7 +2,6 @@
 
 //! The `cbdesk` binary views one synthetic frame after consent.
 
-use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
@@ -11,7 +10,7 @@ use cbdesk_capture::{read_barcode, Frame};
 #[test]
 fn cli_views_a_synthetic_frame_only_after_consent() {
     let started = Instant::now();
-    let mut host = Command::new(env!("CARGO_BIN_EXE_cbdesk"))
+    let mut host = cbdesk()
         .args([
             "host",
             "--bind",
@@ -33,7 +32,7 @@ fn cli_views_a_synthetic_frame_only_after_consent() {
         .expect("ticket prefix")
         .to_string();
     let ppm = std::env::temp_dir().join(format!("cbdesk-view-{}.ppm", std::process::id()));
-    let view = Command::new(env!("CARGO_BIN_EXE_cbdesk"))
+    let view = cbdesk()
         .args([
             "view",
             "--ticket",
@@ -62,7 +61,7 @@ fn cli_views_a_synthetic_frame_only_after_consent() {
 
 #[test]
 fn cli_records_pointer_input_after_an_input_grant() {
-    let mut host = Command::new(env!("CARGO_BIN_EXE_cbdesk"))
+    let mut host = cbdesk()
         .args([
             "host",
             "--bind",
@@ -84,7 +83,7 @@ fn cli_records_pointer_input_after_an_input_grant() {
         .expect("ticket prefix")
         .to_string();
     let ppm = std::env::temp_dir().join(format!("cbdesk-input-{}.ppm", std::process::id()));
-    let view = Command::new(env!("CARGO_BIN_EXE_cbdesk"))
+    let view = cbdesk()
         .args([
             "view",
             "--ticket",
@@ -93,10 +92,13 @@ fn cli_records_pointer_input_after_an_input_grant() {
             ppm.to_str().expect("ppm path"),
             "--pointer",
             "12,34",
+            "--key",
+            "enter",
         ])
         .output()
         .expect("view");
     let input = read_line(&mut host).expect("input line");
+    let key = read_line(&mut host).expect("key line");
     let host_status = host.wait().expect("host wait");
     assert!(
         view.status.success(),
@@ -109,14 +111,123 @@ fn cli_records_pointer_input_after_an_input_grant() {
         stderr_of(&mut host)
     );
     assert_eq!(input.trim(), "input pointer 12 34");
+    assert_eq!(key.trim(), "input key 57344 1");
     let _ = std::fs::remove_file(&ppm);
+}
+
+#[test]
+fn cli_stores_a_put_file_after_a_file_write_grant() {
+    let root = std::env::temp_dir().join(format!("cbdesk-files-{}", std::process::id()));
+    let src_dir = std::env::temp_dir().join(format!("cbdesk-put-{}", std::process::id()));
+    std::fs::create_dir_all(&src_dir).expect("src");
+    let src = src_dir.join("note.txt");
+    std::fs::write(&src, b"hello").expect("src file");
+    let mut host = cbdesk()
+        .args([
+            "host",
+            "--bind",
+            "127.0.0.1:0",
+            "--synthetic",
+            "--approve",
+            "file_write",
+            "--allow-high-risk",
+            "--files-root",
+            root.to_str().expect("root"),
+            "--frames",
+            "1",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("host");
+    let ticket = read_line(&mut host).expect("ticket line");
+    let ticket = ticket
+        .trim()
+        .strip_prefix("ticket ")
+        .expect("ticket prefix")
+        .to_string();
+    let view = cbdesk()
+        .args([
+            "view",
+            "--ticket",
+            &ticket,
+            "--put",
+            src.to_str().expect("put"),
+        ])
+        .output()
+        .expect("view");
+    let stored = read_line(&mut host).expect("file line");
+    let host_status = host.wait().expect("host wait");
+    assert!(
+        view.status.success(),
+        "view failed: {}",
+        String::from_utf8_lossy(&view.stderr)
+    );
+    assert!(
+        host_status.success(),
+        "host failed: {}",
+        stderr_of(&mut host)
+    );
+    assert_eq!(stored.trim(), "file complete note.txt");
+    assert_eq!(
+        std::fs::read(root.join("note.txt")).expect("stored"),
+        b"hello"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+    let _ = std::fs::remove_dir_all(&src_dir);
+}
+
+#[test]
+fn cli_plays_a_tone_after_an_audio_grant() {
+    let mut host = cbdesk()
+        .args([
+            "host",
+            "--bind",
+            "127.0.0.1:0",
+            "--synthetic",
+            "--approve",
+            "audio",
+            "--tone",
+            "--frames",
+            "1",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("host");
+    let ticket = read_line(&mut host).expect("ticket line");
+    let ticket = ticket
+        .trim()
+        .strip_prefix("ticket ")
+        .expect("ticket prefix")
+        .to_string();
+    let view = cbdesk()
+        .args(["view", "--ticket", &ticket, "--audio"])
+        .output()
+        .expect("view");
+    let host_status = host.wait().expect("host wait");
+    assert!(
+        view.status.success(),
+        "view failed: {}",
+        String::from_utf8_lossy(&view.stderr)
+    );
+    assert!(
+        host_status.success(),
+        "host failed: {}",
+        stderr_of(&mut host)
+    );
+    let stdout = String::from_utf8_lossy(&view.stdout);
+    assert!(
+        stdout.lines().any(|line| line.starts_with("audio ")),
+        "viewer stdout: {stdout}"
+    );
 }
 
 #[test]
 fn cli_browses_a_lan_host_and_reads_the_barcode() {
     let _lock = hold_discovery_lock();
     let started = Instant::now();
-    let mut host = Command::new(env!("CARGO_BIN_EXE_cbdesk"))
+    let mut host = cbdesk()
         .args([
             "host",
             "--bind",
@@ -135,7 +246,7 @@ fn cli_browses_a_lan_host_and_reads_the_barcode() {
     let ticket = read_line(&mut host).expect("ticket line");
     assert!(ticket.trim().starts_with("ticket "), "{ticket}");
     let ppm = std::env::temp_dir().join(format!("cbdesk-lan-{}.ppm", std::process::id()));
-    let view = Command::new(env!("CARGO_BIN_EXE_cbdesk"))
+    let view = cbdesk()
         .args(["view", "--browse", "--ppm", ppm.to_str().expect("ppm path")])
         .output()
         .expect("view");
@@ -158,6 +269,12 @@ fn cli_browses_a_lan_host_and_reads_the_barcode() {
     let frame = ppm_luma(&std::fs::read(&ppm).expect("ppm"));
     assert_eq!(read_barcode(&frame).expect("barcode"), (1, 1_000));
     let _ = std::fs::remove_file(&ppm);
+}
+
+fn cbdesk() -> Command {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_cbdesk"));
+    command.env("CBDESK_EPHEMERAL_IDENTITY", "1");
+    command
 }
 
 fn hold_discovery_lock() -> std::net::TcpListener {
@@ -194,11 +311,22 @@ fn keychain_id(text: &str) -> Option<&str> {
 }
 
 fn read_line(child: &mut std::process::Child) -> std::io::Result<String> {
+    // One byte at a time. A `BufReader` would pull the next line into its
+    // buffer and drop those bytes when this function returns.
     let stdout = child.stdout.as_mut().expect("stdout");
-    let mut reader = BufReader::new(stdout);
-    let mut line = String::new();
-    reader.read_line(&mut line)?;
-    Ok(line)
+    let mut line = Vec::new();
+    let mut byte = [0_u8; 1];
+    loop {
+        let read = std::io::Read::read(stdout, &mut byte)?;
+        if read == 0 {
+            break;
+        }
+        line.push(byte[0]);
+        if byte[0] == b'\n' {
+            break;
+        }
+    }
+    Ok(String::from_utf8_lossy(&line).into_owned())
 }
 
 fn stderr_of(child: &mut std::process::Child) -> String {

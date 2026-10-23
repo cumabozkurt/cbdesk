@@ -42,15 +42,23 @@ future import would be a new decision, with upstream copyright notices and
 
 M0's exit criterion ("the fork builds on three desktops") stays unmet on
 purpose. CI builds this workspace on Linux, Windows, and macOS instead.
-Hardware codecs, audio, and a Flutter UI are still absent. The session
-indicator still cannot be disabled, and a ticket is still only a locator.
+Hardware codecs and a Flutter UI are still absent. The session indicator
+still cannot be disabled, and a ticket is still only a locator.
 
 ## Implementation note (2026-10-23)
 
-VP8 keyframes are encoded and decoded with oxideav-vp8 0.2.7. The license is
-MIT. Default features stay off, so the registry feature and its extra
-framework are not linked. The crate is pure Rust. This build does not link a
-system libvpx. Each frame is its own keyframe. The decoder entry used here
-rejects inter frames. When both peers offer VP8 and AV1, negotiation selects
-VP8. T-MED-001 is that both-sides-VP8 selection. T-MED-004 in this tree is a
-short keyframe stream whose barcode still reads. It is not a 60-second soak.
+VP8 is oxideav-vp8 0.2.7. The license is MIT. Default features stay off, so
+the registry feature and its extra framework are not linked. The crate is
+pure Rust. This build does not link a system libvpx. The first frame, and
+any frame after a size change, is a keyframe. A later frame can be a
+zero-motion inter frame. A unit test checks the inter-frame tag and still
+reads the barcode at quantizer 0. Color is YUV. A gray barcode stays gray
+enough for that reader. When both peers offer VP8 and AV1, negotiation
+selects VP8. T-MED-001 is that both-sides-VP8 selection. T-MED-004 in this
+tree is a short barcode stream, including that inter frame. It is not a
+60-second soak and it is not a measured 1080p run. The live pacer targets
+33 ms.
+
+Audio in this tree is a synthetic Opus tone (rusty-opus), after an Audio
+grant. It does not open a microphone. File bytes are a separate crate and
+are not a codec.

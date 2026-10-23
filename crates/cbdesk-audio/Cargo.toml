@@ -1,0 +1,17 @@
+[package]
+name = "cbdesk-audio"
+description = "Opus frames for one consented audio grant. No microphone is opened."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+rusty-opus.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

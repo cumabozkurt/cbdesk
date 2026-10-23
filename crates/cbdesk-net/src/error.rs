@@ -31,9 +31,15 @@ pub enum NetError {
         /// The host that matched a forbidden suffix.
         host: String,
     },
-    /// The direct endpoint does not install operator relays.
+    /// The endpoint was not built with this relay, or it has no relays at all.
     #[error("operator relays are not installed on the direct QUIC endpoint")]
     RelaysNotInstalled,
+    /// A relay URL could not be parsed.
+    #[error("relay URL `{0}` is not usable")]
+    BadRelay(String),
+    /// Relay-only mode was asked for without a relay URL.
+    #[error("relay-only mode needs a user-configured relay")]
+    RelayOnlyNeedsRelay,
     /// The QUIC stack refused to bind or to move bytes.
     #[error("QUIC endpoint failed: {0}")]
     Quic(String),

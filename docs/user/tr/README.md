@@ -11,4 +11,5 @@ Biri sizi arayıp uzaktan erişim programı kurmanızı söylediyse reddedin.
 Bankalar, kamu kurumları ve destek şirketleri bunu istemez.
 
 Açılacak bir hesap yoktur. Oturumunuzun geçmek zorunda olduğu bir CBDesk
-sunucusu yoktur.
+sunucusu yoktur. Bir aktarıcı kullanırsanız, onu siz seçersiniz. Bu proje
+onu çalıştırmaz.

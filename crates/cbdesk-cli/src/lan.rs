@@ -6,7 +6,7 @@
 //! the caller passes a public network profile. This command passes private,
 //! because it does not read the OS network category.
 
-use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::{Duration, Instant};
 
 use cbdesk_crypto::{DeviceId, Identity};
@@ -79,6 +79,23 @@ pub async fn browse_peer(identity: &Identity) -> Result<(DeviceId, SocketAddr), 
     Err(CliError::new("no CBDesk host answered on the LAN"))
 }
 
+/// Addresses to dial after a multicast answer.
+///
+/// The first candidate is loopback when the announce source is some other
+/// address. Same-machine CI runners often see a hypervisor address that does
+/// not complete a QUIC handshake to a socket bound on `0.0.0.0`. Discovery
+/// still uses the multicast packet. The data path may be loopback.
+pub fn dial_candidates(source: SocketAddr) -> Vec<SocketAddr> {
+    if source.ip().is_loopback() {
+        return vec![source];
+    }
+    let loopback = match source.ip() {
+        IpAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), source.port()),
+        IpAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), source.port()),
+    };
+    vec![loopback, source]
+}
+
 fn config(device_id: DeviceId, quic_port: u16) -> LanPresenceConfig {
     LanPresenceConfig {
         device_id,
@@ -86,5 +103,28 @@ fn config(device_id: DeviceId, quic_port: u16) -> LanPresenceConfig {
         name: None,
         user_enabled: true,
         profile: NetworkProfile::Private,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lan_source_is_dialed_after_loopback() {
+        let source: SocketAddr = "192.168.64.4:22116".parse().expect("source");
+        let addrs = dial_candidates(source);
+        assert_eq!(
+            addrs[0],
+            "127.0.0.1:22116".parse::<SocketAddr>().expect("loop")
+        );
+        assert_eq!(addrs[1], source);
+        let local: SocketAddr = "127.0.0.1:9".parse().expect("local");
+        assert_eq!(dial_candidates(local), vec![local]);
+        let v6: SocketAddr = "[2001:db8::1]:22116".parse().expect("v6");
+        assert_eq!(
+            dial_candidates(v6)[0],
+            "[::1]:22116".parse::<SocketAddr>().expect("v6 loop")
+        );
     }
 }

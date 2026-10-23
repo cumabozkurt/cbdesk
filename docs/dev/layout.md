@@ -10,8 +10,10 @@ The workspace members are the crates that compile:
 | `crates/cbdesk-net` | Transport trait, memory hub, path and relay policy |
 | `crates/cbdesk-session` | Host consent, grants, rate limits |
 | `crates/cbdesk-capture` | Synthetic barcode and operating-system screen capture |
-| `crates/cbdesk-codec` | Software VP8 keyframes and AV1 stills, grayscale |
+| `crates/cbdesk-codec` | VP8 inter frames, color, and AV1 stills |
 | `crates/cbdesk-input` | Keyboard and pointer injection after an Input grant |
+| `crates/cbdesk-fs` | Jailed resumable file transfer, uncompressed |
+| `crates/cbdesk-audio` | Synthetic Opus tone and a jitter buffer |
 | `crates/cbdesk-cli` | `cbdesk host` and `cbdesk view`, including the window |
 | `crates/cbdesk-testkit` | Re-exported barcode frames, recording injector, fake DHT |
 

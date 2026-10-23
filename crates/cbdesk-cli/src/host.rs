@@ -6,8 +6,9 @@ use std::io::{self, Write};
 use std::net::IpAddr;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use cbdesk_capture::{capture_screen, fit_even, Frame, SyntheticCapturer, BARCODE_WIDTH};
-use cbdesk_codec::{encode_luma, encode_vp8, CodecError, EncodeQuality};
+use cbdesk_audio::ToneCodec;
+use cbdesk_capture::{capture_picture, crop_even, Picture, SyntheticCapturer, BARCODE_WIDTH};
+use cbdesk_codec::{encode_luma, BitrateControl, CodecError, EncodeQuality, Pace, Vp8Encoder};
 use cbdesk_crypto::Identity;
 use cbdesk_discovery::sign_ticket;
 use cbdesk_input::{inject_os, Injector, InputLog};
@@ -24,11 +25,23 @@ use zeroize::Zeroize;
 use crate::args::HostArgs;
 use crate::clipboard::{ClipSync, OsClipboard};
 use crate::error::CliError;
+use crate::files::{Stored, Uploads};
 use crate::hex;
 use crate::identity::open_identity;
 use crate::lan::start_announce;
 
-const FRAME_INTERVAL: Duration = Duration::from_millis(125);
+const FRAME_INTERVAL: Duration = Duration::from_millis(33);
+
+struct Stream {
+    encoder: Vp8Encoder,
+    rate: BitrateControl,
+    skip_next: bool,
+    last_hash: Option<[u8; 32]>,
+    sent: u32,
+    next_at: Instant,
+    uploads: Option<Uploads>,
+    tone: Option<ToneCodec>,
+}
 
 /// Bind, print a ticket, and stream pictures until the viewer closes.
 pub async fn serve(args: &HostArgs) -> Result<(), CliError> {
@@ -36,7 +49,7 @@ pub async fn serve(args: &HostArgs) -> Result<(), CliError> {
     if args.lan {
         start_announce(&endpoint, &identity).await?;
     }
-    let ticket = sign_locator(&identity, &endpoint)?;
+    let ticket = sign_locator(&identity, &endpoint, args)?;
     println!("ticket {}", hex::encode(&ticket));
     io::stdout().flush()?;
     let conn = tokio::time::timeout(Duration::from_secs(45), endpoint.accept())
@@ -56,14 +69,22 @@ pub async fn serve(args: &HostArgs) -> Result<(), CliError> {
 async fn bind_host(args: &HostArgs) -> Result<(QuicEndpoint, Identity), CliError> {
     let identity = open_identity()?;
     let mut seed = identity.signing_seed();
-    let endpoint = QuicEndpoint::bind(&EndpointConfig::default(), args.bind, &seed)
+    let config = EndpointConfig {
+        relays: args.relays.clone(),
+        ..EndpointConfig::default()
+    };
+    let endpoint = QuicEndpoint::bind(&config, args.bind, &seed)
         .await
         .map_err(|err| CliError::new(err.to_string()))?;
     seed.zeroize();
     Ok((endpoint, identity))
 }
 
-fn sign_locator(identity: &Identity, endpoint: &QuicEndpoint) -> Result<Vec<u8>, CliError> {
+fn sign_locator(
+    identity: &Identity,
+    endpoint: &QuicEndpoint,
+    args: &HostArgs,
+) -> Result<Vec<u8>, CliError> {
     let addr = endpoint
         .local_addr()
         .map_err(|err| CliError::new(err.to_string()))?;
@@ -71,6 +92,7 @@ fn sign_locator(identity: &Identity, endpoint: &QuicEndpoint) -> Result<Vec<u8>,
     let ticket = sign_ticket(
         cbdesk_proto::InviteTicket {
             direct_addrs: vec![addr.to_string()],
+            relay_urls: args.relays.clone(),
             expires_at: expires,
             purpose: InvitePurpose::Session,
             ..cbdesk_proto::InviteTicket::default()
@@ -128,34 +150,177 @@ async fn consent_answer(origin: Instant, perms: Vec<Permission>, high_risk: bool
 }
 
 async fn session_loop(link: &mut HostLink, args: &HostArgs, codec: Codec) -> Result<(), CliError> {
-    let mut sent = 0_u32;
-    let mut next_frame = Instant::now();
+    let mut stream = Stream::prepare(args)?;
     let mut clips = ClipSync::new();
     let clip_ok = link.authorize(Permission::Clipboard).is_ok();
+    let view_ok = link.authorize(Permission::View).is_ok();
+    let audio_ok = args.tone && link.authorize(Permission::Audio).is_ok();
     loop {
-        if wants_frame(sent, args.frames) && Instant::now() >= next_frame {
-            sent = sent.saturating_add(1);
-            send_one(link, args.screen, codec, u64::from(sent)).await?;
-            next_frame = Instant::now() + FRAME_INTERVAL;
-        }
-        if !drive_once(link, args, &mut clips, clip_ok, sent).await? {
+        stream.pump(link, args, codec, view_ok, audio_ok).await?;
+        if !wait_peer(
+            link,
+            args,
+            &mut stream,
+            &mut clips,
+            clip_ok,
+            view_ok,
+            audio_ok,
+        )
+        .await?
+        {
             break;
         }
     }
     Ok(())
 }
 
-async fn drive_once(
+impl Stream {
+    fn prepare(args: &HostArgs) -> Result<Self, CliError> {
+        let uploads = match &args.files_root {
+            Some(root) => Some(Uploads::create(root)?),
+            None => None,
+        };
+        let tone = if args.tone {
+            Some(ToneCodec::new().map_err(|err| CliError::new(err.to_string()))?)
+        } else {
+            None
+        };
+        Ok(Self {
+            encoder: Vp8Encoder::new(),
+            rate: BitrateControl::live(),
+            skip_next: false,
+            last_hash: None,
+            sent: 0,
+            next_at: Instant::now(),
+            uploads,
+            tone,
+        })
+    }
+
+    async fn pump(
+        &mut self,
+        link: &mut HostLink,
+        args: &HostArgs,
+        codec: Codec,
+        view_ok: bool,
+        audio_ok: bool,
+    ) -> Result<(), CliError> {
+        if Instant::now() < self.next_at {
+            return Ok(());
+        }
+        let send_video = view_ok && wants_frame(self.sent, args.frames);
+        let send_audio = audio_ok && self.tone.is_some();
+        if !send_video && !send_audio {
+            return Ok(());
+        }
+        if self.skip_next {
+            self.skip_next = false;
+            self.arm_interval();
+            return Ok(());
+        }
+        if send_video {
+            self.send_picture(link, args.screen, codec).await?;
+        } else {
+            self.arm_interval();
+        }
+        if send_audio {
+            self.send_tone(link).await?;
+        }
+        Ok(())
+    }
+
+    async fn send_picture(
+        &mut self,
+        link: &mut HostLink,
+        screen: bool,
+        codec: Codec,
+    ) -> Result<(), CliError> {
+        let frame_no = u64::from(self.sent.saturating_add(1));
+        let picture = capture(screen, frame_no)?;
+        let digest = picture_hash(&picture);
+        if self.last_hash == Some(digest) {
+            self.arm_interval();
+            return Ok(());
+        }
+        let qindex = if screen { self.rate.qindex() } else { 0 };
+        let started = Instant::now();
+        let (payload, keyframe) = self.encode(picture, codec, qindex, screen).await?;
+        self.note_encode(screen, elapsed_ms(started));
+        let header = VideoFrameHeader {
+            display_id: 1,
+            codec,
+            frame_no,
+            capture_ts_us: 1_000,
+            keyframe,
+            unknown: UnknownFields::new(),
+        };
+        link.send_view_frame(&header, &payload)
+            .await
+            .map_err(|err| CliError::new(err.to_string()))?;
+        self.sent = self.sent.saturating_add(1);
+        self.last_hash = Some(digest);
+        self.arm_interval();
+        Ok(())
+    }
+
+    async fn encode(
+        &mut self,
+        picture: Picture,
+        codec: Codec,
+        qindex: u8,
+        screen: bool,
+    ) -> Result<(Vec<u8>, bool), CliError> {
+        match codec {
+            Codec::Vp8 => encode_vp8_stream(&mut self.encoder, picture, qindex).await,
+            Codec::Av1 => encode_av1(picture, screen).await.map(|bytes| (bytes, true)),
+            _ => Err(CliError::new("codec is not available")),
+        }
+    }
+
+    fn note_encode(&mut self, screen: bool, elapsed: u32) {
+        if screen && self.rate.observe_encode(elapsed) == Pace::SkipNext {
+            self.skip_next = true;
+        }
+    }
+
+    async fn send_tone(&mut self, link: &mut HostLink) -> Result<(), CliError> {
+        let Some(tone) = self.tone.as_mut() else {
+            return Ok(());
+        };
+        let packet = tone
+            .encode_frame()
+            .map_err(|err| CliError::new(err.to_string()))?;
+        link.send_audio(&packet)
+            .await
+            .map_err(|err| CliError::new(err.to_string()))
+    }
+
+    fn arm_interval(&mut self) {
+        self.next_at = Instant::now() + FRAME_INTERVAL;
+    }
+
+    fn take_file(&mut self, chunk: &cbdesk_proto::FileChunk) -> Result<Stored, CliError> {
+        let uploads = self
+            .uploads
+            .as_mut()
+            .ok_or_else(|| CliError::new("file chunk arrived without --files-root"))?;
+        uploads.push(chunk)
+    }
+}
+
+async fn wait_peer(
     link: &mut HostLink,
     args: &HostArgs,
+    stream: &mut Stream,
     clips: &mut ClipSync,
     clip_ok: bool,
-    sent: u32,
+    view_ok: bool,
+    audio_ok: bool,
 ) -> Result<bool, CliError> {
-    let sending = wants_frame(sent, args.frames);
-    let waiting = sending || (args.screen && clip_ok);
-    let pause = tokio::time::sleep(if sending {
-        FRAME_INTERVAL
+    let pacing = pacing_due(stream, args, view_ok, audio_ok);
+    let waiting = pacing || (args.screen && clip_ok);
+    let pause = tokio::time::sleep(if pacing {
+        stream.next_at.saturating_duration_since(Instant::now())
     } else {
         Duration::from_millis(400)
     });
@@ -164,7 +329,7 @@ async fn drive_once(
         biased;
         event = link.next_peer_event() => {
             match event {
-                Ok(event) => apply_event(link, args, clips, event).await,
+                Ok(event) => apply_event(link, args, stream, clips, event).await,
                 Err(err) => Err(CliError::new(err.to_string())),
             }
         }
@@ -177,9 +342,15 @@ async fn drive_once(
     }
 }
 
+fn pacing_due(stream: &Stream, args: &HostArgs, view_ok: bool, audio_ok: bool) -> bool {
+    let video = view_ok && wants_frame(stream.sent, args.frames);
+    video || audio_ok
+}
+
 async fn apply_event(
-    _link: &mut HostLink,
+    link: &HostLink,
     args: &HostArgs,
+    stream: &mut Stream,
     clips: &mut ClipSync,
     event: PeerEvent,
 ) -> Result<bool, CliError> {
@@ -193,59 +364,101 @@ async fn apply_event(
             apply_remote_clipboard(clips, &text.text, args.screen)?;
             Ok(true)
         }
+        PeerEvent::File(chunk) => {
+            let stored = note_file(stream, &chunk)?;
+            if stored == Stored::Done {
+                link.ack_file()
+                    .await
+                    .map_err(|err| CliError::new(err.to_string()))?;
+            }
+            Ok(true)
+        }
+        PeerEvent::Audio(packet) => {
+            println!("audio {}", packet.len());
+            io::stdout().flush()?;
+            Ok(true)
+        }
+        PeerEvent::Feedback(feedback) => {
+            if args.screen {
+                stream
+                    .rate
+                    .observe_feedback(feedback.loss, feedback.frame_delay_ms);
+            }
+            Ok(true)
+        }
     }
+}
+
+fn note_file(stream: &mut Stream, chunk: &cbdesk_proto::FileChunk) -> Result<Stored, CliError> {
+    let stored = stream.take_file(chunk)?;
+    match stored {
+        Stored::Part => println!("file {} {}", chunk.offset, chunk.path),
+        Stored::Done => println!("file complete {}", chunk.path),
+    }
+    io::stdout().flush()?;
+    Ok(stored)
 }
 
 fn wants_frame(sent: u32, limit: u32) -> bool {
     limit == 0 || sent < limit
 }
 
-async fn send_one(
-    link: &mut HostLink,
-    screen: bool,
-    codec: Codec,
-    frame_no: u64,
-) -> Result<(), CliError> {
-    let (frame, quality) = one_frame(screen, frame_no)?;
-    let payload = tokio::task::spawn_blocking(move || encode_frame(&frame, codec, quality))
+async fn encode_vp8_stream(
+    encoder: &mut Vp8Encoder,
+    picture: Picture,
+    qindex: u8,
+) -> Result<(Vec<u8>, bool), CliError> {
+    let taken = std::mem::take(encoder);
+    let encoded = tokio::task::spawn_blocking(move || {
+        let mut taken = taken;
+        let result = taken.encode(&picture, qindex);
+        (taken, result)
+    })
+    .await
+    .map_err(|err| CliError::new(err.to_string()))?;
+    *encoder = encoded.0;
+    encoded.1.map_err(|err| CliError::new(err.to_string()))
+}
+
+async fn encode_av1(picture: Picture, screen: bool) -> Result<Vec<u8>, CliError> {
+    let frame = picture
+        .to_luma()
+        .map_err(|err| CliError::new(err.to_string()))?;
+    let quality = if screen {
+        EncodeQuality::Fast
+    } else {
+        EncodeQuality::Lossless
+    };
+    tokio::task::spawn_blocking(move || encode_frame(&frame, quality))
         .await
         .map_err(|err| CliError::new(err.to_string()))?
-        .map_err(|err| CliError::new(err.to_string()))?;
-    let header = VideoFrameHeader {
-        display_id: 1,
-        codec,
-        frame_no,
-        capture_ts_us: 1_000,
-        keyframe: true,
-        unknown: UnknownFields::new(),
-    };
-    link.send_view_frame(&header, &payload)
-        .await
         .map_err(|err| CliError::new(err.to_string()))
 }
 
 fn encode_frame(
-    frame: &Frame,
-    codec: Codec,
+    frame: &cbdesk_capture::Frame,
     quality: EncodeQuality,
 ) -> Result<Vec<u8>, CodecError> {
-    match codec {
-        Codec::Vp8 => encode_vp8(frame, quality),
-        Codec::Av1 => encode_luma(frame, quality),
-        _ => Err(CodecError::Encode("codec is not available".to_string())),
-    }
+    encode_luma(frame, quality)
 }
 
-fn one_frame(screen: bool, frame_no: u64) -> Result<(Frame, EncodeQuality), CliError> {
+fn capture(screen: bool, frame_no: u64) -> Result<Picture, CliError> {
     if screen {
-        let captured = capture_screen().map_err(|err| CliError::new(err.to_string()))?;
-        let fitted = fit_even(&captured, 480, 270).map_err(|err| CliError::new(err.to_string()))?;
-        return Ok((fitted, EncodeQuality::Fast));
+        let picture = capture_picture().map_err(|err| CliError::new(err.to_string()))?;
+        return crop_even(picture).map_err(|err| CliError::new(err.to_string()));
     }
     let frame = SyntheticCapturer::new(BARCODE_WIDTH, 16)
         .capture(frame_no, 1_000)
         .map_err(|err| CliError::new(err.to_string()))?;
-    Ok((frame, EncodeQuality::Lossless))
+    Picture::from_luma(&frame).map_err(|err| CliError::new(err.to_string()))
+}
+
+fn picture_hash(picture: &Picture) -> [u8; 32] {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&picture.y);
+    hasher.update(&picture.u);
+    hasher.update(&picture.v);
+    *hasher.finalize().as_bytes()
 }
 
 fn record_input(event: &InputEvent, screen: bool) -> Result<(), CliError> {
@@ -307,6 +520,10 @@ async fn push_local_clipboard(link: &mut HostLink, clips: &mut ClipSync) -> Resu
     link.send_clipboard(&message)
         .await
         .map_err(|err| CliError::new(err.to_string()))
+}
+
+fn elapsed_ms(started: Instant) -> u32 {
+    u32::try_from(started.elapsed().as_millis()).unwrap_or(u32::MAX)
 }
 
 fn millis_since(origin: Instant) -> u64 {

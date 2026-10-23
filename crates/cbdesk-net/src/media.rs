@@ -19,9 +19,14 @@ use crate::error::NetError;
 use crate::quic::QuicConn;
 
 /// Read one video frame the host opened after `authorize(View)`.
+///
+/// A file, audio, or feedback stream is [`NetError::BadMedia`] here. Use
+/// [`crate::recv_uni`] when those streams are in the same session.
 pub async fn recv_view_frame(conn: &QuicConn) -> Result<(VideoFrameHeader, Vec<u8>), NetError> {
-    let mut recv = conn.accept_uni_stream().await?;
-    read_view_frame(&mut recv).await
+    match crate::side::recv_uni(conn).await? {
+        crate::side::UniBody::Video(header, payload) => Ok((header, payload)),
+        _ => Err(NetError::BadMedia),
+    }
 }
 
 /// Send one clipboard text update. The host still has to have granted Clipboard.
@@ -72,10 +77,11 @@ pub(crate) async fn write_view_frame(
     Ok(())
 }
 
-pub(crate) async fn read_view_frame(
+pub(crate) async fn read_view_frame_after(
     recv: &mut iroh::endpoint::RecvStream,
+    header_len: u32,
 ) -> Result<(VideoFrameHeader, Vec<u8>), NetError> {
-    let header_bytes = read_prefixed(recv, CONTROL_MAX_BYTES).await?;
+    let header_bytes = read_counted(recv, header_len, CONTROL_MAX_BYTES).await?;
     let header = VideoFrameHeader::from_bytes(&header_bytes).map_err(|_| NetError::BadMedia)?;
     let payload = read_prefixed(recv, VIDEO_FRAME_MAX_BYTES).await?;
     check_frame(header_bytes.len(), payload.len())?;
@@ -107,6 +113,14 @@ pub(crate) async fn read_input(
     recv: &mut iroh::endpoint::RecvStream,
 ) -> Result<InputEvent, NetError> {
     let bytes = read_prefixed(recv, CONTROL_MAX_BYTES).await?;
+    InputEvent::from_bytes(&bytes).map_err(|_| NetError::BadMedia)
+}
+
+pub(crate) async fn read_input_after(
+    recv: &mut iroh::endpoint::RecvStream,
+    len: u32,
+) -> Result<InputEvent, NetError> {
+    let bytes = read_counted(recv, len, CONTROL_MAX_BYTES).await?;
     InputEvent::from_bytes(&bytes).map_err(|_| NetError::BadMedia)
 }
 
@@ -151,7 +165,15 @@ async fn read_prefixed(
     recv.read_exact(&mut len_buf)
         .await
         .map_err(|_| NetError::BadMedia)?;
-    let len = u32::from_be_bytes(len_buf) as usize;
+    read_counted(recv, u32::from_be_bytes(len_buf), limit).await
+}
+
+async fn read_counted(
+    recv: &mut iroh::endpoint::RecvStream,
+    len: u32,
+    limit: usize,
+) -> Result<Vec<u8>, NetError> {
+    let len = len as usize;
     if len == 0 || len > limit {
         return Err(NetError::BadMedia);
     }

@@ -18,6 +18,7 @@
 mod args;
 mod clipboard;
 mod error;
+mod files;
 mod hex;
 mod host;
 mod identity;

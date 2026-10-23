@@ -9,9 +9,10 @@
 
 use crate::barcode::Frame;
 use crate::error::CaptureError;
+use crate::picture::{self, Picture};
 
-/// Capture the primary display.
-pub fn capture_screen() -> Result<Frame, CaptureError> {
+/// Capture the primary display as I420.
+pub fn capture_picture() -> Result<Picture, CaptureError> {
     #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
     {
         platform::capture_primary()
@@ -24,6 +25,11 @@ pub fn capture_screen() -> Result<Frame, CaptureError> {
     }
 }
 
+/// Capture the primary display and keep the luma plane.
+pub fn capture_screen() -> Result<Frame, CaptureError> {
+    capture_picture()?.to_luma()
+}
+
 #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
 mod platform {
     use super::*;
@@ -34,7 +40,7 @@ mod platform {
         Portal,
     }
 
-    pub(super) fn capture_primary() -> Result<Frame, CaptureError> {
+    pub(super) fn capture_primary() -> Result<Picture, CaptureError> {
         #[cfg(target_os = "linux")]
         if std::env::var_os("WAYLAND_DISPLAY").is_some() {
             return capture(Source::Portal);
@@ -55,7 +61,7 @@ mod platform {
         Ok(monitors.swap_remove(index))
     }
 
-    fn capture(source: Source) -> Result<Frame, CaptureError> {
+    fn capture(source: Source) -> Result<Picture, CaptureError> {
         match source {
             Source::Still(monitor) => {
                 let image = monitor.capture_image().map_err(unavailable)?;
@@ -67,7 +73,7 @@ mod platform {
     }
 
     #[cfg(target_os = "linux")]
-    fn capture_portal() -> Result<Frame, CaptureError> {
+    fn capture_portal() -> Result<Picture, CaptureError> {
         use std::time::Duration;
 
         let monitor = primary_monitor()?;
@@ -80,26 +86,9 @@ mod platform {
         from_rgba(frame.width, frame.height, &frame.raw)
     }
 
-    fn from_rgba(width: u32, height: u32, rgba: &[u8]) -> Result<Frame, CaptureError> {
-        let samples = usize::try_from(width)
-            .ok()
-            .and_then(|w| usize::try_from(height).ok().and_then(|h| w.checked_mul(h)))
-            .ok_or(CaptureError::BadDimensions)?;
-        if rgba.len() != samples.saturating_mul(4) || samples == 0 {
-            return Err(CaptureError::Unavailable(
-                "capturer returned a buffer that is not RGBA".to_string(),
-            ));
-        }
-        let mut pixels = Vec::with_capacity(samples);
-        for pixel in rgba.chunks_exact(4) {
-            let luma =
-                u16::from(pixel[0]) * 77 + u16::from(pixel[1]) * 150 + u16::from(pixel[2]) * 29;
-            pixels.push(u8::try_from(luma >> 8).unwrap_or(255));
-        }
-        Ok(Frame {
-            width,
-            height,
-            pixels,
+    fn from_rgba(width: u32, height: u32, rgba: &[u8]) -> Result<Picture, CaptureError> {
+        picture::from_rgba(width, height, rgba).map_err(|_| {
+            CaptureError::Unavailable("capturer returned a buffer that is not RGBA".to_string())
         })
     }
 

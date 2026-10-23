@@ -1,10 +1,13 @@
 # Manual tests
 
 Ubuntu CI and this workspace open the viewer window under Xvfb for about
-600 ms and paint one local barcode frame. That smoke test does not click,
-type, or approve a prompt. A separate run on this Linux machine started
-`cbdesk host --lan` and `cbdesk view --browse --ppm` and read the barcode
-back. Windows and macOS have not been clicked by hand. There is no installer.
+600 ms and paint one local barcode frame. That smoke test does not click
+or approve a prompt. A CLI test sends a scripted pointer and Enter over
+QUIC and checks the host's stdout lines. The same Linux tests put a small
+file, receive one Opus tone, and browse a LAN host onto a PPM. Windows
+and macOS have not been clicked by hand. There is no installer. A
+symmetric NAT path has not been measured. The relay test uses a loopback
+relay inside the test process.
 
 When those exist, the master plan's "M" rows (approval window over a
 full-screen application, session indicator, fraud warning, Turkish layout)

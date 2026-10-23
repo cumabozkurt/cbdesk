@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Dial the direct addresses of a verified invite ticket.
+//! Dial a verified invite ticket.
 //!
-//! Relay URLs on the ticket are not contacted. A verified ticket still does
-//! not authorize a session: the caller hands the resulting connection to the
-//! host consent handshake.
+//! Direct addresses are tried first. Relay URLs are used only when this
+//! endpoint was configured with that same URL and the direct path did not
+//! connect. A relay that appears only on the ticket is ignored, so a ticket
+//! cannot steer the dialer onto a relay the operator did not choose. A
+//! verified ticket still does not authorize a session.
 
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -17,7 +19,7 @@ use tokio::task::JoinSet;
 use crate::addr::rank_candidates;
 use crate::error::NetError;
 use crate::quic::QuicEndpoint;
-use crate::{DIRECT_TIMEOUT_MS, HAPPY_EYEBALLS_STAGGER_MS};
+use crate::{DIRECT_TIMEOUT_MS, HAPPY_EYEBALLS_STAGGER_MS, RELAY_FALLBACK_MS};
 
 /// A ticket could not be turned into a direct QUIC connection.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -47,11 +49,12 @@ pub fn direct_candidates(ticket: &InviteTicket) -> Result<Vec<SocketAddr>, DialE
     Ok(ranked)
 }
 
-/// Verify `ticket`, then dial its direct addresses and no relay.
+/// Verify `ticket`, then dial a direct address or an allowed user relay.
 ///
 /// Verification consumes the replay cache before the dial. An expired or
 /// tampered ticket returns here without a connection. The returned connection
-/// is not a grant.
+/// is not a grant. Relay attempts use [`RELAY_FALLBACK_MS`] each, and only
+/// URLs [`QuicEndpoint::allows_relay`] already accepts.
 pub async fn dial_verified_ticket(
     endpoint: &QuicEndpoint,
     ticket: &InviteTicket,
@@ -59,10 +62,57 @@ pub async fn dial_verified_ticket(
     replay: &mut ReplayCache,
 ) -> Result<crate::quic::QuicConn, DialError> {
     let device = verify_ticket(ticket, now_secs, replay)?;
-    let addrs = direct_candidates(ticket)?;
-    connect_candidates(endpoint, device.as_bytes(), &addrs)
+    let peer = device.as_bytes();
+    let addrs = match direct_candidates(ticket) {
+        Ok(addrs) => addrs,
+        Err(DialError::Net(NetError::NoCandidate)) => Vec::new(),
+        Err(error) => return Err(error),
+    };
+    let mut direct_error = None;
+    if !addrs.is_empty() {
+        match connect_candidates(endpoint, peer, &addrs).await {
+            Ok(conn) => return Ok(conn),
+            Err(error) => direct_error = Some(error),
+        }
+    }
+    let relays = allowed_relays(endpoint, ticket);
+    if relays.is_empty() {
+        return Err(DialError::Net(
+            direct_error.unwrap_or(NetError::NoCandidate),
+        ));
+    }
+    connect_relays(endpoint, peer, &relays)
         .await
         .map_err(DialError::Net)
+}
+
+fn allowed_relays(endpoint: &QuicEndpoint, ticket: &InviteTicket) -> Vec<String> {
+    ticket
+        .relay_urls
+        .iter()
+        .filter(|url| endpoint.allows_relay(url))
+        .cloned()
+        .collect()
+}
+
+async fn connect_relays(
+    endpoint: &QuicEndpoint,
+    peer: &[u8; 32],
+    relays: &[String],
+) -> Result<crate::quic::QuicConn, NetError> {
+    if relays.is_empty() {
+        return Err(NetError::NoCandidate);
+    }
+    let mut last = NetError::NoCandidate;
+    for url in relays {
+        let attempt = endpoint.connect_path(peer, None, Some(url));
+        match tokio::time::timeout(Duration::from_millis(RELAY_FALLBACK_MS), attempt).await {
+            Ok(Ok(conn)) => return Ok(conn),
+            Ok(Err(error)) => last = error,
+            Err(_) => last = NetError::Quic("relay attempt timed out".to_string()),
+        }
+    }
+    Err(last)
 }
 
 /// Dial `addrs` in order, starting the next candidate after 250 ms or on failure.

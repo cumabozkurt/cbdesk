@@ -1,6 +1,6 @@
 [package]
 name = "cbdesk-cli"
-description = "Host and viewer for a consented VP8 frame stream."
+description = "Host and viewer for a consented color picture, file, and audio session."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,10 +15,13 @@ path = "src/main.rs"
 
 [dependencies]
 arboard.workspace = true
+blake3.workspace = true
+cbdesk-audio = { path = "../cbdesk-audio" }
 cbdesk-capture = { path = "../cbdesk-capture" }
 cbdesk-codec = { path = "../cbdesk-codec" }
 cbdesk-crypto = { path = "../cbdesk-crypto" }
 cbdesk-discovery = { path = "../cbdesk-discovery" }
+cbdesk-fs = { path = "../cbdesk-fs" }
 cbdesk-input = { path = "../cbdesk-input" }
 cbdesk-net = { path = "../cbdesk-net" }
 cbdesk-proto = { path = "../cbdesk-proto" }

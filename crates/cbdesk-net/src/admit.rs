@@ -99,6 +99,12 @@ pub enum PeerEvent {
     Input(cbdesk_proto::InputEvent),
     /// Clipboard text. Present only when Clipboard was granted.
     Clipboard(cbdesk_proto::ClipboardText),
+    /// A file chunk. Present only when FileWrite was granted.
+    File(cbdesk_proto::FileChunk),
+    /// An Opus packet from the controller. Present only when Audio was granted.
+    Audio(Vec<u8>),
+    /// Receiver feedback. Present only when View was granted.
+    Feedback(cbdesk_proto::Feedback),
 }
 
 impl HostLink {
@@ -187,6 +193,32 @@ impl HostLink {
             .map_err(AdmitError::Net)
     }
 
+    /// Send one Opus packet. The stream is not opened when Audio is absent.
+    pub async fn send_audio(&mut self, packet: &[u8]) -> Result<(), AdmitError> {
+        self.authorize(Permission::Audio)?;
+        crate::side::send_audio_packet(&self.conn, packet)
+            .await
+            .map_err(AdmitError::Net)
+    }
+
+    /// Tell the controller that one uploaded file was stored.
+    pub async fn ack_file(&self) -> Result<(), AdmitError> {
+        crate::side::send_file_ack(&self.conn)
+            .await
+            .map_err(AdmitError::Net)
+    }
+
+    /// Send one file chunk toward the controller. Requires FileRead.
+    pub async fn send_file_chunk(
+        &mut self,
+        chunk: &cbdesk_proto::FileChunk,
+    ) -> Result<(), AdmitError> {
+        self.authorize(Permission::FileRead)?;
+        crate::side::send_file_chunk(&self.conn, chunk)
+            .await
+            .map_err(AdmitError::Net)
+    }
+
     /// The next input, clipboard update, or control message.
     ///
     /// [`PeerEvent::Ended`] means the controller went away. A stream that
@@ -203,7 +235,7 @@ impl HostLink {
 
     async fn finish_incoming(&mut self, incoming: HostIncoming) -> Result<PeerEvent, AdmitError> {
         match incoming {
-            HostIncoming::Uni(Ok(mut recv)) => self.input_from(&mut recv).await,
+            HostIncoming::Uni(Ok(mut recv)) => self.host_uni(&mut recv).await,
             HostIncoming::Bi(Ok((mut send, mut recv))) => {
                 let text = self.clipboard_from(&mut recv).await?;
                 let _ = send.finish();
@@ -216,20 +248,56 @@ impl HostLink {
         }
     }
 
-    async fn input_from(
+    async fn host_uni(
         &mut self,
         recv: &mut iroh::endpoint::RecvStream,
+    ) -> Result<PeerEvent, AdmitError> {
+        let incoming = match crate::side::read_host_uni(recv).await {
+            Ok(incoming) => incoming,
+            Err(error) => {
+                let _ = self.violate().await;
+                return Err(AdmitError::Net(error));
+            }
+        };
+        match incoming {
+            crate::side::HostUni::Input(event) => self.finish_input(event).await,
+            crate::side::HostUni::File(chunk) => {
+                self.finish_perm(Permission::FileWrite, PeerEvent::File(chunk))
+                    .await
+            }
+            crate::side::HostUni::Audio(packet) => {
+                self.finish_perm(Permission::Audio, PeerEvent::Audio(packet))
+                    .await
+            }
+            crate::side::HostUni::Feedback(feedback) => {
+                self.finish_perm(Permission::View, PeerEvent::Feedback(feedback))
+                    .await
+            }
+        }
+    }
+
+    async fn finish_input(
+        &mut self,
+        event: cbdesk_proto::InputEvent,
     ) -> Result<PeerEvent, AdmitError> {
         if self.authorize(Permission::Input).is_err() {
             return Err(self.violate().await);
         }
-        match crate::media::read_input(recv).await {
-            Ok(event) => Ok(PeerEvent::Input(event)),
-            Err(error) => {
-                let _ = self.violate().await;
-                Err(AdmitError::Net(error))
-            }
+        crate::side::send_input_ack(&self.conn)
+            .await
+            .map_err(AdmitError::Net)?;
+        Ok(PeerEvent::Input(event))
+    }
+
+    async fn finish_perm(
+        &mut self,
+        perm: Permission,
+        event: PeerEvent,
+    ) -> Result<PeerEvent, AdmitError> {
+        if self.authorize(perm).is_err() {
+            return Err(self.violate().await);
         }
+        Ok(event)
     }
 
     async fn clipboard_from(

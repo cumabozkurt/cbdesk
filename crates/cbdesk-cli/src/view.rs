@@ -4,25 +4,27 @@
 //!
 //! `--ppm` writes one picture and leaves. `--window` keeps reading until the
 //! window closes, and forwards the pointer and keyboard only after an Input
-//! grant. `--browse` finds the host on the LAN. A ticket is still only a
-//! locator.
+//! grant. `--put` uploads one file after FileWrite. `--audio` prints the
+//! length of Opus packets. `--browse` finds the host on the LAN and dials
+//! loopback before the multicast source address. A ticket is still only a
+//! locator. Relay URLs are used only when this process was given the same URL.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use cbdesk_capture::Frame;
-use cbdesk_codec::{decode_luma, decode_vp8_luma};
+use cbdesk_capture::Picture;
+use cbdesk_codec::{decode_luma, Vp8StreamDecoder};
 use cbdesk_crypto::Identity;
 use cbdesk_discovery::ReplayCache;
 use cbdesk_net::{
-    dial_verified_ticket, open_controller, recv_clipboard_text, recv_view_frame,
-    send_clipboard_text, send_input_event, ControllerGrant, ControllerSession, EndpointConfig,
-    QuicConn, QuicEndpoint,
+    connect_candidates, dial_verified_ticket, open_controller, recv_clipboard_text, recv_uni,
+    send_clipboard_text, send_feedback, send_input_event, ControllerGrant, ControllerSession,
+    EndpointConfig, QuicConn, QuicEndpoint, UniBody,
 };
 use cbdesk_proto::{
-    local_capabilities, select_video_codec, AuthMethod, ClipboardText, Codec, Hello, InputBody,
-    InputEvent, Permission, Platform, PointerEvent, ProtoMessage, UnknownFields, PROTO_MAJOR,
+    local_capabilities, select_video_codec, AuthMethod, ClipboardText, Codec, Feedback, Hello,
+    InputEvent, Permission, Platform, ProtoMessage, UnknownFields, VideoFrameHeader, PROTO_MAJOR,
     PROTO_MINOR,
 };
 use zeroize::Zeroize;
@@ -32,7 +34,7 @@ use crate::clipboard::{ClipSync, OsClipboard};
 use crate::error::CliError;
 use crate::hex;
 use crate::identity::open_identity;
-use crate::lan::browse_peer;
+use crate::lan::{browse_peer, dial_candidates};
 use crate::ppm::write_ppm;
 use crate::window::{self, WindowOptions};
 
@@ -41,21 +43,17 @@ struct LiveView {
     _endpoint: QuicEndpoint,
     conn: QuicConn,
     grant: ControllerGrant,
-    codec: Codec,
+    codec: Option<Codec>,
+    decoder: Vp8StreamDecoder,
     _identity: Identity,
 }
 
-/// Dial and write one frame to a PPM file.
+/// Dial, show one frame or upload a file, then leave.
 pub async fn view_remote(args: &ViewArgs) -> Result<(), CliError> {
-    let live = connect_view(args).await?;
-    let frame = read_frame(&live).await?;
-    let Some(path) = args.ppm.as_ref() else {
-        return Err(CliError::new("view needs --ppm or --window"));
-    };
-    write_ppm(path, &frame)?;
-    send_scripted_pointer(&live, args.pointer).await?;
+    let mut live = connect_view(args).await?;
+    let result = run_remote(&mut live, args).await;
     let _ = live.grant.release().await;
-    Ok(())
+    result
 }
 
 /// Dial, then run the window on this thread until it closes.
@@ -72,9 +70,11 @@ pub fn view_window(args: &ViewArgs) -> Result<(), CliError> {
     let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
     let ppm = args.ppm.clone();
     let pointer = args.pointer;
+    let key = args.key.clone();
+    let put = args.put.clone();
     let shown = Arc::clone(&frames);
     let task = runtime.spawn(async move {
-        drive_window(WindowDrive {
+        let drive = WindowDrive {
             live,
             frames: shown,
             input_rx,
@@ -83,8 +83,10 @@ pub fn view_window(args: &ViewArgs) -> Result<(), CliError> {
             allow_clip,
             ppm,
             pointer,
-        })
-        .await
+            key,
+            put,
+        };
+        drive_window(drive).await
     });
     let window_result = window::run(
         frames,
@@ -105,19 +107,32 @@ pub fn view_window(args: &ViewArgs) -> Result<(), CliError> {
 
 struct WindowDrive {
     live: LiveView,
-    frames: Arc<Mutex<Option<Frame>>>,
+    frames: Arc<Mutex<Option<Picture>>>,
     input_rx: tokio::sync::mpsc::UnboundedReceiver<InputEvent>,
     stop_rx: tokio::sync::watch::Receiver<bool>,
     allow_input: bool,
     allow_clip: bool,
     ppm: Option<PathBuf>,
     pointer: Option<(i32, i32)>,
+    key: Option<String>,
+    put: Option<PathBuf>,
 }
 
 async fn drive_window(mut drive: WindowDrive) -> Result<(), CliError> {
+    let result = drive_until_close(&mut drive).await;
+    let _ = drive.live.grant.release().await;
+    result
+}
+
+async fn drive_until_close(drive: &mut WindowDrive) -> Result<(), CliError> {
+    if let Some(path) = drive.put.clone() {
+        let mut ignored = false;
+        send_while_reading(&mut drive.live, &path, &mut ignored).await?;
+    }
     let mut clips = ClipSync::new();
     let mut wrote_ppm = false;
-    let mut sent_pointer = false;
+    let mut sent_script = false;
+    let mut report = ReportClock::default();
     loop {
         let pause = tokio::time::sleep(Duration::from_millis(400));
         tokio::pin!(pause);
@@ -130,26 +145,14 @@ async fn drive_window(mut drive: WindowDrive) -> Result<(), CliError> {
             }
             input = drive.input_rx.recv(), if drive.allow_input => {
                 match input {
-                    Some(event) => {
-                        send_input_event(&drive.live.conn, &event).await.map_err(cli)?;
-                    }
+                    Some(event) => send_input_event(&drive.live.conn, &event).await.map_err(cli)?,
                     None => break,
                 }
             }
-            frame = recv_view_frame(&drive.live.conn) => {
-                let picture = take_picture(drive.live.codec, frame.map_err(cli)?)?;
-                if let Some(path) = drive.ppm.as_ref() {
-                    if !wrote_ppm {
-                        write_ppm(path, &picture)?;
-                        wrote_ppm = true;
-                    }
-                }
-                if let Ok(mut slot) = drive.frames.lock() {
-                    *slot = Some(picture);
-                }
-                if !sent_pointer {
-                    send_scripted_pointer(&drive.live, drive.pointer).await?;
-                    sent_pointer = true;
+            body = recv_uni(&drive.live.conn) => {
+                let picture = take_uni(&mut drive.live, body.map_err(cli)?)?;
+                if let Some(picture) = picture {
+                    note_picture(drive, &picture, &mut wrote_ppm, &mut sent_script, &mut report).await?;
                 }
             }
             clip = recv_clipboard_text(&drive.live.conn), if drive.allow_clip => {
@@ -160,15 +163,272 @@ async fn drive_window(mut drive: WindowDrive) -> Result<(), CliError> {
             }
         }
     }
-    let _ = drive.live.grant.release().await;
     Ok(())
 }
 
+async fn note_picture(
+    drive: &mut WindowDrive,
+    picture: &Picture,
+    wrote_ppm: &mut bool,
+    sent_script: &mut bool,
+    report: &mut ReportClock,
+) -> Result<(), CliError> {
+    if let Some(path) = drive.ppm.as_ref() {
+        if !*wrote_ppm {
+            write_ppm(path, picture)?;
+            *wrote_ppm = true;
+        }
+    }
+    if let Ok(mut slot) = drive.frames.lock() {
+        *slot = Some(picture.clone());
+    }
+    if !*sent_script {
+        send_scripted(&drive.live, drive.pointer, drive.key.as_deref()).await?;
+        *sent_script = true;
+    }
+    report.send(&drive.live.conn, 0).await
+}
+
+async fn run_remote(live: &mut LiveView, args: &ViewArgs) -> Result<(), CliError> {
+    let mut seen_audio = false;
+    if args.ppm.is_some() {
+        let picture = next_picture(live, &mut seen_audio).await?;
+        if let Some(path) = args.ppm.as_ref() {
+            write_ppm(path, &picture)?;
+        }
+        ReportClock::default().send(&live.conn, 1).await?;
+        send_scripted(live, args.pointer, args.key.as_deref()).await?;
+    }
+    if let Some(path) = args.put.as_ref() {
+        send_while_reading(live, path, &mut seen_audio).await?;
+    }
+    if args.audio && !seen_audio {
+        wait_audio(live).await?;
+    }
+    Ok(())
+}
+
+async fn next_picture(live: &mut LiveView, seen_audio: &mut bool) -> Result<Picture, CliError> {
+    let deadline = Instant::now() + Duration::from_secs(15);
+    loop {
+        let remain = deadline.saturating_duration_since(Instant::now());
+        if remain.is_zero() {
+            return Err(CliError::new("timed out waiting for a frame"));
+        }
+        let body = tokio::time::timeout(remain, recv_uni(&live.conn))
+            .await
+            .map_err(|_| CliError::new("timed out waiting for a frame"))?
+            .map_err(cli)?;
+        let was_audio = matches!(body, UniBody::Audio(_));
+        if let Some(picture) = take_uni(live, body)? {
+            return Ok(picture);
+        }
+        if was_audio {
+            *seen_audio = true;
+        }
+    }
+}
+
+async fn send_while_reading(
+    live: &mut LiveView,
+    path: &std::path::Path,
+    seen_audio: &mut bool,
+) -> Result<(), CliError> {
+    let chunks = crate::files::load_chunks(path)?;
+    let mut index = 0;
+    let conn = &live.conn;
+    let decoder = &mut live.decoder;
+    let codec = live.codec;
+    while index < chunks.len() {
+        tokio::select! {
+            biased;
+            result = cbdesk_net::send_file_chunk(conn, &chunks[index]) => {
+                result.map_err(cli)?;
+                index += 1;
+            }
+            body = recv_uni(conn) => {
+                let body = body.map_err(cli)?;
+                if matches!(body, UniBody::Audio(_)) {
+                    *seen_audio = true;
+                }
+                if let UniBody::Video(header, payload) = body {
+                    let expected = codec.ok_or_else(|| {
+                        CliError::new("host sent video that was not negotiated")
+                    })?;
+                    decode_video(decoder, expected, &header, &payload)?;
+                }
+            }
+        }
+    }
+    wait_uni(conn, |body| matches!(body, UniBody::FileAck), "file ack").await
+}
+
+async fn wait_audio(live: &mut LiveView) -> Result<(), CliError> {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let remain = deadline.saturating_duration_since(Instant::now());
+        if remain.is_zero() {
+            return Err(CliError::new("timed out waiting for audio"));
+        }
+        let body = tokio::time::timeout(remain, recv_uni(&live.conn))
+            .await
+            .map_err(|_| CliError::new("timed out waiting for audio"))?
+            .map_err(cli)?;
+        let was_audio = matches!(body, UniBody::Audio(_));
+        let _ = take_uni(live, body)?;
+        if was_audio {
+            return Ok(());
+        }
+    }
+}
+
+fn take_uni(live: &mut LiveView, body: UniBody) -> Result<Option<Picture>, CliError> {
+    match body {
+        UniBody::Video(header, payload) => {
+            let codec = live
+                .codec
+                .ok_or_else(|| CliError::new("host sent video that was not negotiated"))?;
+            Ok(Some(decode_video(
+                &mut live.decoder,
+                codec,
+                &header,
+                &payload,
+            )?))
+        }
+        UniBody::Audio(packet) => {
+            println!("audio {}", packet.len());
+            Ok(None)
+        }
+        UniBody::File(_) | UniBody::Feedback(_) | UniBody::InputAck | UniBody::FileAck => Ok(None),
+    }
+}
+
+fn decode_video(
+    decoder: &mut Vp8StreamDecoder,
+    expected: Codec,
+    header: &VideoFrameHeader,
+    payload: &[u8],
+) -> Result<Picture, CliError> {
+    if header.codec != expected {
+        return Err(CliError::new("host sent a codec that was not negotiated"));
+    }
+    match header.codec {
+        Codec::Vp8 => decoder.decode(payload).map_err(cli),
+        Codec::Av1 => {
+            let frame = decode_luma(payload).map_err(cli)?;
+            Picture::from_luma(&frame).map_err(cli)
+        }
+        _ => Err(CliError::new("host sent a codec this build cannot decode")),
+    }
+}
+
+#[derive(Default)]
+struct ReportClock {
+    last: Option<Instant>,
+}
+
+impl ReportClock {
+    async fn send(&mut self, conn: &QuicConn, frame_no: u64) -> Result<(), CliError> {
+        let due = self
+            .last
+            .map(|last| last.elapsed() >= Duration::from_millis(100))
+            .unwrap_or(true);
+        if !due {
+            return Ok(());
+        }
+        let delay = self
+            .last
+            .map(|last| elapsed_u32(last.elapsed()))
+            .unwrap_or(0);
+        self.last = Some(Instant::now());
+        let feedback = Feedback {
+            recv_kbps: 0,
+            loss: 0.0,
+            frame_delay_ms: delay,
+            last_frame_no: frame_no,
+            unknown: UnknownFields::new(),
+        };
+        send_feedback(conn, &feedback).await.map_err(cli)
+    }
+}
+
+async fn send_scripted(
+    live: &LiveView,
+    pointer: Option<(i32, i32)>,
+    key: Option<&str>,
+) -> Result<(), CliError> {
+    if pointer.is_none() && key.is_none() {
+        return Ok(());
+    }
+    if !live.grant.granted.perms.contains(&Permission::Input) {
+        return Err(CliError::new("host did not grant input"));
+    }
+    if let Some((x, y)) = pointer {
+        let event = pointer_event(x, y);
+        send_input_event(&live.conn, &event).await.map_err(cli)?;
+    }
+    if let Some(name) = key {
+        let event = window::scripted_key(name)?;
+        send_input_event(&live.conn, &event).await.map_err(cli)?;
+    }
+    let acks = usize::from(pointer.is_some()) + usize::from(key.is_some());
+    let mut got = 0;
+    wait_uni(
+        &live.conn,
+        |body| {
+            if matches!(body, UniBody::InputAck) {
+                got += 1;
+            }
+            got >= acks
+        },
+        "input ack",
+    )
+    .await
+}
+
+async fn wait_uni(
+    conn: &QuicConn,
+    mut done: impl FnMut(&UniBody) -> bool,
+    label: &str,
+) -> Result<(), CliError> {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let remain = deadline.saturating_duration_since(Instant::now());
+        if remain.is_zero() {
+            return Err(CliError::new(format!("timed out waiting for {label}")));
+        }
+        let body = tokio::time::timeout(remain, recv_uni(conn))
+            .await
+            .map_err(|_| CliError::new(format!("timed out waiting for {label}")))?
+            .map_err(cli)?;
+        if done(&body) {
+            return Ok(());
+        }
+    }
+}
+
+fn pointer_event(x: i32, y: i32) -> InputEvent {
+    use cbdesk_proto::{InputBody, PointerEvent};
+    InputEvent {
+        body: InputBody::Pointer(PointerEvent {
+            x,
+            y,
+            buttons: 0,
+            wheel: 0,
+            unknown: UnknownFields::new(),
+        }),
+        unknown: UnknownFields::new(),
+    }
+}
+
 async fn connect_view(args: &ViewArgs) -> Result<LiveView, CliError> {
-    let (endpoint, identity) = bind_viewer().await?;
+    let (endpoint, identity) = bind_viewer(args).await?;
     let conn = if args.browse {
-        let (peer, addr) = browse_peer(&identity).await?;
-        endpoint.connect(peer.as_bytes(), addr).await.map_err(cli)?
+        let (peer, source) = browse_peer(&identity).await?;
+        let addrs = dial_candidates(source);
+        connect_candidates(&endpoint, peer.as_bytes(), &addrs)
+            .await
+            .map_err(cli)?
     } else {
         dial_ticket(&endpoint, args).await?
     };
@@ -178,16 +438,26 @@ async fn connect_view(args: &ViewArgs) -> Result<LiveView, CliError> {
             return Err(CliError::new(format!("host closed: {:?}", close.code)));
         }
     };
-    if !grant.granted.perms.contains(&Permission::View) {
+    let needs_view = args.ppm.is_some() || args.window;
+    if needs_view && !grant.granted.perms.contains(&Permission::View) {
         return Err(CliError::new("host did not grant view"));
     }
-    let codec = select_video_codec(&local_capabilities(), &grant.host_caps)
-        .ok_or_else(|| CliError::new("no shared video codec"))?;
+    if args.put.is_some() && !grant.granted.perms.contains(&Permission::FileWrite) {
+        return Err(CliError::new("host did not grant file_write"));
+    }
+    if args.audio && !grant.granted.perms.contains(&Permission::Audio) {
+        return Err(CliError::new("host did not grant audio"));
+    }
+    let codec = select_video_codec(&local_capabilities(), &grant.host_caps);
+    if needs_view && codec.is_none() {
+        return Err(CliError::new("no shared video codec"));
+    }
     Ok(LiveView {
         _endpoint: endpoint,
         conn,
         grant,
         codec,
+        decoder: Vp8StreamDecoder::new(),
         _identity: identity,
     })
 }
@@ -203,53 +473,6 @@ async fn dial_ticket(endpoint: &QuicEndpoint, args: &ViewArgs) -> Result<QuicCon
     dial_verified_ticket(endpoint, &ticket, unix_now(), &mut replay)
         .await
         .map_err(cli)
-}
-
-async fn read_frame(live: &LiveView) -> Result<Frame, CliError> {
-    take_picture(live.codec, recv_view_frame(&live.conn).await.map_err(cli)?)
-}
-
-fn take_picture(
-    expected: Codec,
-    frame: (cbdesk_proto::VideoFrameHeader, Vec<u8>),
-) -> Result<Frame, CliError> {
-    let (header, payload) = frame;
-    if header.codec != expected {
-        return Err(CliError::new("host sent a codec that was not negotiated"));
-    }
-    decode_picture(header.codec, &payload)
-}
-
-fn decode_picture(codec: Codec, payload: &[u8]) -> Result<Frame, CliError> {
-    let frame = match codec {
-        Codec::Vp8 => decode_vp8_luma(payload),
-        Codec::Av1 => decode_luma(payload),
-        _ => return Err(CliError::new("host sent a codec this build cannot decode")),
-    };
-    frame.map_err(cli)
-}
-
-async fn send_scripted_pointer(
-    live: &LiveView,
-    pointer: Option<(i32, i32)>,
-) -> Result<(), CliError> {
-    let Some((x, y)) = pointer else {
-        return Ok(());
-    };
-    if !live.grant.granted.perms.contains(&Permission::Input) {
-        return Err(CliError::new("host did not grant input"));
-    }
-    let event = InputEvent {
-        body: InputBody::Pointer(PointerEvent {
-            x,
-            y,
-            buttons: 0,
-            wheel: 0,
-            unknown: UnknownFields::new(),
-        }),
-        unknown: UnknownFields::new(),
-    };
-    send_input_event(&live.conn, &event).await.map_err(cli)
 }
 
 fn apply_clip(clips: &mut ClipSync, text: ClipboardText) -> Result<(), CliError> {
@@ -287,13 +510,17 @@ async fn push_local_clip(conn: &QuicConn, clips: &mut ClipSync) -> Result<(), Cl
     send_clipboard_text(conn, &message).await.map_err(cli)
 }
 
-async fn bind_viewer() -> Result<(QuicEndpoint, Identity), CliError> {
+async fn bind_viewer(args: &ViewArgs) -> Result<(QuicEndpoint, Identity), CliError> {
     let identity = open_identity()?;
     let mut seed = identity.signing_seed();
     let addr = "127.0.0.1:0"
         .parse()
         .map_err(|_| CliError::new("viewer bind address is invalid"))?;
-    let endpoint = QuicEndpoint::bind(&EndpointConfig::default(), addr, &seed)
+    let config = EndpointConfig {
+        relays: args.relays.clone(),
+        ..EndpointConfig::default()
+    };
+    let endpoint = QuicEndpoint::bind(&config, addr, &seed)
         .await
         .map_err(cli)?;
     seed.zeroize();
@@ -301,12 +528,21 @@ async fn bind_viewer() -> Result<(QuicEndpoint, Identity), CliError> {
 }
 
 fn hello(args: &ViewArgs) -> Hello {
-    let mut wanted = vec![Permission::View];
-    if args.pointer.is_some() || args.window {
+    let mut wanted = Vec::new();
+    if args.ppm.is_some() || args.window {
+        wanted.push(Permission::View);
+    }
+    if args.pointer.is_some() || args.key.is_some() || args.window {
         wanted.push(Permission::Input);
     }
     if args.window {
         wanted.push(Permission::Clipboard);
+    }
+    if args.put.is_some() {
+        wanted.push(Permission::FileWrite);
+    }
+    if args.audio {
+        wanted.push(Permission::Audio);
     }
     Hello {
         proto_major: PROTO_MAJOR,
@@ -345,6 +581,10 @@ fn unix_now() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|elapsed| elapsed.as_secs())
         .unwrap_or(0)
+}
+
+fn elapsed_u32(duration: Duration) -> u32 {
+    u32::try_from(duration.as_millis()).unwrap_or(u32::MAX)
 }
 
 fn cli(err: impl ToString) -> CliError {

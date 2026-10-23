@@ -54,11 +54,11 @@ async fn bind(byte: u8) -> QuicEndpoint {
         .expect("bind")
 }
 
-fn approve(perms: Vec<Permission>) -> ConsentAnswer {
+fn approve_risk(perms: Vec<Permission>, explicit_high_risk: bool) -> ConsentAnswer {
     ConsentAnswer::Approve {
         now_ms: CONSENT_DELAY_MS,
         perms,
-        explicit_high_risk: false,
+        explicit_high_risk,
     }
 }
 
@@ -73,13 +73,22 @@ struct Linked {
 }
 
 async fn consented(host_byte: u8, client_byte: u8, perms: Vec<Permission>) -> Linked {
+    consented_risk(host_byte, client_byte, perms, false).await
+}
+
+async fn consented_risk(
+    host_byte: u8,
+    client_byte: u8,
+    perms: Vec<Permission>,
+    high_risk: bool,
+) -> Linked {
     let host = bind(host_byte).await;
     let client = bind(client_byte).await;
     let host_addr = host.local_addr().expect("addr");
     let host_key = host.public_key();
     let (dialed, accepted) = tokio::join!(client.connect(&host_key, host_addr), host.accept(),);
     let (tx, rx) = tokio::sync::oneshot::channel();
-    tx.send(approve(perms)).expect("answer");
+    tx.send(approve_risk(perms, high_risk)).expect("answer");
     let admit = admit_until(
         accepted.expect("accept"),
         HostSession::new(always()).expect("session"),
@@ -294,5 +303,120 @@ async fn clipboard_without_the_grant_is_protocol_violation() {
         got.expect_err("clipboard"),
         AdmitError::Closed(ErrorCode::ProtocolViolation)
     );
+    drop(linked.grant);
+}
+
+fn sample_chunk() -> cbdesk_proto::FileChunk {
+    cbdesk_proto::FileChunk {
+        transfer: 1,
+        path: "note.txt".to_string(),
+        offset: 0,
+        data: b"hello".to_vec(),
+        hash: vec![9; 32],
+        total: 5,
+        last: true,
+        root: vec![8; 32],
+        compressed: false,
+        chunk_size: 256 * 1024,
+        unknown: UnknownFields::new(),
+    }
+}
+
+fn sample_feedback() -> cbdesk_proto::Feedback {
+    cbdesk_proto::Feedback {
+        recv_kbps: 100,
+        loss: 0.0,
+        frame_delay_ms: 10,
+        last_frame_no: 1,
+        unknown: UnknownFields::new(),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn file_chunk_follows_a_file_write_grant() {
+    let mut linked = consented_risk(45, 46, vec![Permission::FileWrite], true).await;
+    let chunk = sample_chunk();
+    let send = crate::send_file_chunk(&linked.dialed, &chunk);
+    let recv = linked.link.next_peer_event();
+    let (sent, got) = tokio::join!(send, recv);
+    sent.expect("send");
+    match got.expect("file") {
+        crate::PeerEvent::File(body) => assert_eq!(body, chunk),
+        other => panic!("expected a file chunk, got {other:?}"),
+    }
+    drop(linked.grant);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn file_chunk_without_the_grant_is_protocol_violation() {
+    let mut linked = consented(47, 48, vec![Permission::View]).await;
+    let chunk = sample_chunk();
+    let send = crate::send_file_chunk(&linked.dialed, &chunk);
+    let recv = linked.link.next_peer_event();
+    let (sent, got) = tokio::join!(send, recv);
+    let _ = sent;
+    assert_eq!(
+        got.expect_err("file"),
+        AdmitError::Closed(ErrorCode::ProtocolViolation)
+    );
+    drop(linked.grant);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn host_file_chunk_follows_a_file_read_grant() {
+    let mut linked = consented(49, 50, vec![Permission::FileRead]).await;
+    let chunk = sample_chunk();
+    let send = linked.link.send_file_chunk(&chunk);
+    let recv = crate::recv_uni(&linked.dialed);
+    let (sent, got) = tokio::join!(send, recv);
+    sent.expect("send");
+    match got.expect("file") {
+        crate::UniBody::File(body) => assert_eq!(body, chunk),
+        other => panic!("expected a file chunk, got {other:?}"),
+    }
+    drop(linked.grant);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn audio_packet_follows_an_audio_grant() {
+    let mut linked = consented(51, 52, vec![Permission::Audio]).await;
+    let packet = b"tone".to_vec();
+    let send = crate::send_audio_packet(&linked.dialed, &packet);
+    let recv = linked.link.next_peer_event();
+    let (sent, got) = tokio::join!(send, recv);
+    sent.expect("send");
+    match got.expect("audio") {
+        crate::PeerEvent::Audio(body) => assert_eq!(body, packet),
+        other => panic!("expected audio, got {other:?}"),
+    }
+    drop(linked.grant);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn audio_without_the_grant_is_protocol_violation() {
+    let mut linked = consented(53, 54, vec![Permission::View]).await;
+    let send = crate::send_audio_packet(&linked.dialed, b"nope");
+    let recv = linked.link.next_peer_event();
+    let (sent, got) = tokio::join!(send, recv);
+    let _ = sent;
+    assert_eq!(
+        got.expect_err("audio"),
+        AdmitError::Closed(ErrorCode::ProtocolViolation)
+    );
+    drop(linked.grant);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn feedback_follows_a_view_grant() {
+    let mut linked = consented(55, 56, vec![Permission::View]).await;
+    let feedback = sample_feedback();
+    let send = crate::send_feedback(&linked.dialed, &feedback);
+    let recv = linked.link.next_peer_event();
+    let (sent, got) = tokio::join!(send, recv);
+    sent.expect("send");
+    match got.expect("feedback") {
+        crate::PeerEvent::Feedback(body) => assert_eq!(body, feedback),
+        other => panic!("expected feedback, got {other:?}"),
+    }
     drop(linked.grant);
 }

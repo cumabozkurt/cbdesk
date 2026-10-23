@@ -4,8 +4,9 @@
 //!
 //! The default endpoint has an empty relay list and `use_n0_defaults` is
 //! false. Hosts that match the known n0 suffixes on a DNS label boundary are
-//! rejected before a connection is offered. [`crate::QuicEndpoint`] is built
-//! without those relays or their discovery servers. See ADR-006.
+//! rejected before a connection is offered. A URL the operator configured,
+//! and that is not on that list, can be installed. `RelayMode::Default` is
+//! not selected. See ADR-006.
 
 use crate::error::NetError;
 
@@ -20,6 +21,11 @@ pub struct EndpointConfig {
     pub relays: Vec<String>,
     /// Must stay false. There is no built-in public relay list.
     pub use_n0_defaults: bool,
+    /// Skip the UDP socket and use only the configured relays.
+    ///
+    /// The default is false: a normal endpoint still binds a direct socket.
+    /// A test sets this to prove a path that has no direct addresses.
+    pub relay_only: bool,
 }
 
 /// A relay the dialer was told about, usually from a ticket or a DHT record.
@@ -107,6 +113,7 @@ mod tests {
         let enabled = EndpointConfig {
             relays: Vec::new(),
             use_n0_defaults: true,
+            relay_only: false,
         };
         assert_eq!(
             validate_endpoint(&enabled),
