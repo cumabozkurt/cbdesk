@@ -1,6 +1,6 @@
 [package]
 name = "cbdesk-net"
-description = "Transport trait, in-memory connections, candidate ranking, and relay policy."
+description = "Direct QUIC, invite-ticket dialing, and the consent handshake."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,11 +11,16 @@ publish.workspace = true
 
 [dependencies]
 cbdesk-crypto = { path = "../cbdesk-crypto" }
+cbdesk-discovery = { path = "../cbdesk-discovery" }
 cbdesk-proto = { path = "../cbdesk-proto" }
+cbdesk-session = { path = "../cbdesk-session" }
 iroh.workspace = true
 n0-error.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
 
 [lints]
 workspace = true

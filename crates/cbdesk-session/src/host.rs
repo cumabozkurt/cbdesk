@@ -15,6 +15,13 @@ use crate::perms::PermissionSet;
 /// How long a stranger waits before Allow becomes available.
 pub const CONSENT_DELAY_MS: u64 = 3_000;
 
+/// How long the approval window stays open after it is shown.
+///
+/// The first-contact delay is inside this window. An unanswered prompt closes
+/// at this deadline with [`CloseReason::TimedOut`]. The clock starts when the
+/// prompt appears, not when Allow becomes clickable.
+pub const APPROVAL_TIMEOUT_MS: u64 = 30_000;
+
 /// Second-factor progress inside [`Phase::Authenticating`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AuthStep {
@@ -33,6 +40,8 @@ pub enum CloseReason {
     Policy,
     /// The local side closed it.
     LocalClose,
+    /// The person did not answer before [`APPROVAL_TIMEOUT_MS`].
+    TimedOut,
 }
 
 /// What the host is doing right now.
@@ -55,6 +64,8 @@ pub enum Phase {
         first_contact: bool,
         /// Method that reached the prompt.
         method: AuthMethod,
+        /// `expire_unanswered` closes the session at this timestamp.
+        deadline_ms: u64,
     },
     /// Permissions are in force.
     Active {
@@ -181,6 +192,52 @@ impl HostSession {
         Ok(())
     }
 
+    /// Close from any live phase.
+    pub fn close_with(&mut self, reason: CloseReason) -> Result<(), SessionError> {
+        if matches!(self.phase, Phase::Closed { .. }) {
+            return Err(SessionError::AlreadyClosed);
+        }
+        self.phase = Phase::Closed { reason };
+        Ok(())
+    }
+
+    /// When an unanswered prompt closes, if one is showing.
+    pub fn approval_deadline_ms(&self) -> Option<u64> {
+        match self.phase {
+            Phase::AwaitingConsent { deadline_ms, .. } => Some(deadline_ms),
+            _ => None,
+        }
+    }
+
+    /// Close an unanswered prompt once `now_ms` reaches the deadline.
+    ///
+    /// The phase stays [`Phase::AwaitingConsent`] until that timestamp. Media
+    /// stays closed.
+    pub fn expire_unanswered(&mut self, now_ms: u64) -> Result<(), SessionError> {
+        let deadline_ms = self
+            .approval_deadline_ms()
+            .ok_or(SessionError::NotAwaitingConsent)?;
+        if now_ms < deadline_ms {
+            return Err(SessionError::ApprovalStillOpen);
+        }
+        self.close_with(CloseReason::TimedOut)
+    }
+
+    /// `Granted` for the active phase. Absent until a person or an unattended
+    /// policy has approved the session.
+    pub fn granted_message(&self) -> Result<cbdesk_proto::Granted, SessionError> {
+        match &self.phase {
+            Phase::Active {
+                perms, session_id, ..
+            } => Ok(cbdesk_proto::Granted {
+                perms: perms.granted(),
+                session_id: session_id.to_vec(),
+                ..cbdesk_proto::Granted::default()
+            }),
+            _ => Err(SessionError::ChannelBeforeGrant),
+        }
+    }
+
     /// Whether `perm` may be used. Fails before a grant exists.
     pub fn authorize(&self, perm: Permission) -> Result<(), SessionError> {
         match &self.phase {
@@ -259,6 +316,7 @@ impl HostSession {
             ready_at_ms: now_ms.saturating_add(delay),
             first_contact: !facts.peer_known,
             method,
+            deadline_ms: now_ms.saturating_add(APPROVAL_TIMEOUT_MS),
         };
         Ok(())
     }
@@ -436,6 +494,50 @@ mod tests {
                 reason: CloseReason::Policy
             }
         ));
+    }
+
+    #[test]
+    fn unanswered_approval_closes_at_thirty_seconds() {
+        let mut host = session(ApprovalMode::Always, false);
+        assert_eq!(
+            host.expire_unanswered(0),
+            Err(SessionError::NotAwaitingConsent)
+        );
+        host.start_authentication(AuthMethod::Interactive)
+            .expect("start");
+        host.authentication_succeeded(&PeerFacts { peer_known: false }, 1_000)
+            .expect("auth");
+        assert_eq!(
+            host.approval_deadline_ms(),
+            Some(1_000 + APPROVAL_TIMEOUT_MS)
+        );
+        assert_eq!(APPROVAL_TIMEOUT_MS, 30_000);
+        assert_eq!(
+            host.expire_unanswered(1_000 + APPROVAL_TIMEOUT_MS - 1),
+            Err(SessionError::ApprovalStillOpen)
+        );
+        assert!(host.indicator_visible());
+        assert!(host.granted_message().is_err());
+        host.expire_unanswered(1_000 + APPROVAL_TIMEOUT_MS)
+            .expect("timeout");
+        assert!(matches!(
+            host.phase(),
+            Phase::Closed {
+                reason: CloseReason::TimedOut
+            }
+        ));
+        assert!(!host.indicator_visible());
+        assert!(host.authorize(Permission::View).is_err());
+        assert!(host.open_media().is_err());
+
+        let mut known = session(ApprovalMode::Always, false);
+        known
+            .start_authentication(AuthMethod::Interactive)
+            .expect("start");
+        known
+            .authentication_succeeded(&PeerFacts { peer_known: true }, 50)
+            .expect("auth");
+        assert_eq!(known.approval_deadline_ms(), Some(50 + APPROVAL_TIMEOUT_MS));
     }
 
     #[test]

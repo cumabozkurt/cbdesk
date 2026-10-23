@@ -71,6 +71,16 @@ message Close {
   string detail = 2;
 }
 
+// One control-channel message. Exactly one body is set.
+// A QUIC control stream frames this as a big-endian u32 length plus these
+// bytes. The length counts only this message and is at most 64 KiB.
+message Control {
+  Hello hello = 1;
+  HelloAck hello_ack = 2;
+  Granted granted = 3;
+  Close close = 4;
+}
+
 // A ticket locates a peer. It does not authorize a session.
 message InviteTicket {
   uint32 version = 1;

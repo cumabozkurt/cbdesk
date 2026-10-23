@@ -45,6 +45,18 @@ impl PermissionSet {
     pub fn contains(self, perm: Permission) -> bool {
         perm.bit().is_some_and(|bit| self.0 & (1_u32 << bit) != 0)
     }
+
+    /// Granted permissions, in wire order.
+    pub fn granted(self) -> Vec<Permission> {
+        let mut out = Vec::new();
+        for value in 1..=17 {
+            let perm = Permission::from_i32(value);
+            if self.contains(perm) {
+                out.push(perm);
+            }
+        }
+        out
+    }
 }
 
 #[cfg(test)]

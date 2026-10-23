@@ -27,8 +27,8 @@ packed or unpacked encoding.
 ## Messages implemented
 
 `Hello`, `HelloAck`, `Granted`, `PermissionChanged`, `DisplayInfo`,
-`VideoFrameHeader`, `Feedback`, `Close`, `InviteTicket`, `DhtAddressRecord`,
-`SignedDhtRecord`.
+`VideoFrameHeader`, `Feedback`, `Close`, `Control`, `InviteTicket`,
+`DhtAddressRecord`, `SignedDhtRecord`.
 
 Video bytes are not carried inside `VideoFrameHeader`. The header is only the
 metadata a later media crate will put beside a frame.
@@ -41,6 +41,29 @@ addresses, and replay of the signature. `ticket_grants_access()` is constant
 false. A `Granted` message is produced by `cbdesk-session` after consent or an
 explicit unattended policy. No message asks a peer to hide the session.
 `supports_hidden_session()` is constant false.
+
+## Control stream
+
+The first bidirectional stream is the control channel. Each message is a
+big-endian `u32` length plus one `Control` protobuf body. The length counts
+only that body and must be from 1 to 64 KiB. Exactly one of `hello`,
+`hello_ack`, `granted`, or `close` is set. Bytes that are not this frame,
+including an echo probe, are `PROTOCOL_VIOLATION`. The probe is not reflected
+and it does not grant a session.
+
+`dial_verified_ticket` checks the signature, lifetime, and replay cache, then
+dials `direct_addrs` only. Relay URLs on the ticket are ignored. The
+connection is then handed to `HostSession`. The ticket is not an argument of
+admission.
+
+Interactive approval sends `HelloAck` with `AUTH_INTERACTIVE`, then waits.
+The wait is 30 seconds from the moment the prompt is shown
+(`APPROVAL_TIMEOUT_MS`). The 3 second first-contact delay sits inside that
+window. No answer becomes `Close` with `TIMEOUT_USER_RESPONSE`. Allow is
+still refused until the first-contact delay has elapsed. `Granted` is sent
+only after `HostSession::approve` or an explicit unattended policy. This
+slice's controller offers interactive approval, so the unattended path is not
+taken. No video stream is opened.
 
 ## Errors
 

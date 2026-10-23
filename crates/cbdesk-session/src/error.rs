@@ -28,6 +28,12 @@ pub enum SessionError {
     /// The first-contact delay has not elapsed.
     #[error("consent is not available yet")]
     ConsentTooEarly,
+    /// The approval window has not reached its deadline.
+    #[error("the approval window is still open")]
+    ApprovalStillOpen,
+    /// The session was already closed.
+    #[error("the session is already closed")]
+    AlreadyClosed,
     /// The person approved an empty permission set.
     #[error("a grant needs at least one permission")]
     EmptyGrant,

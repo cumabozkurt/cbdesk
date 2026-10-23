@@ -24,7 +24,11 @@ cargo test --workspace --all-targets
 a small CI runner. It is the parameter lock for identity backup, which is not
 wired to a file format yet.
 
-The QUIC echo binds two loopback sockets. The LAN tests send the mDNS and
+The QUIC echo binds two loopback sockets. The ticket dial tests do the same,
+and they also name `192.0.2.1` so a higher-ranked address is started first.
+That address is not expected to answer. The 30 second approval wait is locked
+with a paused clock; the loopback handshake fires the same timeout path
+without sleeping 30 wall-clock seconds. The LAN tests send the mDNS and
 broadcast encodings between loopback UDP sockets. Neither test needs a public
 network or port 5353.
 

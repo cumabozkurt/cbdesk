@@ -29,9 +29,11 @@ pass. Nothing in the Rust sources is derived from that project.
   encodings, DHT records. Blinded publishing returns an error. Public networks
   do not send.
 - `cbdesk-net`: `Transport` trait, in-memory connections, candidate ranking,
-  reconnect backoff, path state machine, relay suffix policy.
-- `cbdesk-session`: consent delay, unattended rules, quick-support ban,
-  high-risk opt-in, indicator that cannot be disabled, auth rate limits.
+  reconnect backoff, path state machine, relay suffix policy, direct QUIC,
+  ticket dial, and the consent handshake.
+- `cbdesk-session`: consent delay, 30 second approval timeout, unattended
+  rules, quick-support ban, high-risk opt-in, indicator that cannot be
+  disabled, auth rate limits.
 - `cbdesk-testkit`: synthetic barcode frames, recording injector, poisonable
   fake DHT.
 - Netlab profile files for N0, N3, and N4. They do not create namespaces.
@@ -70,23 +72,30 @@ substitute, not that exit.
   `RelayMode::Disabled`. No n0 discovery service is installed. T-NET-001 is a
   loopback echo; the endpoint resolver must record no DNS names. It is not a
   packet capture of the whole machine.
+- A verified invite ticket dials `direct_addrs` through that endpoint. Relay
+  URLs on the ticket are not contacted. The connection is handed to
+  `HostSession`. The ticket is not a grant.
 - LAN announce and browse. Public networks do not send. The datagrams are the
   tested mDNS TXT record and the `CBDS` broadcast body. CI uses loopback
   sockets, not port 5353 and not the multicast group.
-- Consent policy in the library. No window, no 30 second approval timeout.
+- Consent policy in the library, including the 30 second approval timeout.
+  No window. The production wait is `wait_for_approval`. Loopback tests fire
+  that same close path without sleeping 30 wall-clock seconds.
 - Synthetic capturer. No VP8 encoder and no Linux/Windows end-to-end run.
+  A grant still does not send a frame.
 
 ## Test ids this pass actually locks
 
 | Id | What the test covers | What it does not cover |
 | --- | --- | --- |
-| T-NET-001 | Loopback QUIC echo on an endpoint with no n0 relays, no n0 discovery, and a resolver that recorded no names. Forbidden relay suffixes still fail before bind | A capture of every packet the runner sends, including traffic to GitHub |
+| T-NET-001 | Loopback QUIC echo on an endpoint with no n0 relays, no n0 discovery, and a resolver that recorded no names. Forbidden relay suffixes still fail before bind. A verified ticket dial does not query DNS for its relay URL | A capture of every packet the runner sends, including traffic to GitHub |
+| T-AUTH-018 | An unanswered approval closes at 30 seconds and the controller receives `TIMEOUT_USER_RESPONSE`. The 30 second sleep is the production wait; the loopback test uses that close path with a ready deadline | A visible approval window |
 | T-AUTH-011 | Fifth failure locks 60 seconds, later failures double up to one hour | Password UI |
 | T-AUTH-012 | Counters are per device id and per IPv4 /24 or IPv6 /56 | Distributed clients |
 | T-AUTH-015 | A known trusted key can skip the prompt when the policy says so, and the grant is the safe set | A real trust store |
 | T-AUTH-019 | One consent prompt per minute; three rejects silence the peer for 24 hours | A real window |
 | T-PERM-002 | `authorize` refuses a permission that was not granted | File messages |
-| T-PERM-006 | Media and `authorize` fail before the grant | Closing the socket with `PROTOCOL_VIOLATION` |
+| T-PERM-006 | Media and `authorize` fail before the grant. An echo probe is answered with `PROTOCOL_VIOLATION` and is not reflected | A video stream |
 | T-UI-004 | First contact cannot be approved before 3 seconds | A widget |
 | T-UI-005 | `indicator_can_be_disabled` is constant false | Settings UI, CLI |
 | T-UI-007 / T-I18N-001 | Catalog keys match across Turkish and English, including every known error | A rendered UI |
@@ -94,12 +103,11 @@ substitute, not that exit.
 
 ## Recommended next run
 
-Keep the fork import as its own reviewable change. The next implementation
-run should dial from a verified invite ticket's direct addresses through
-`QuicEndpoint`, then hand the connection to `HostSession`. The ticket stays a
-locator: `ticket_grants_access` remains false, and the echo probe must not
-skip consent. No screen capture in that run.
+Keep the fork import as its own reviewable change. Next, after `authorize(View)`
+succeeds, send one synthetic barcode frame on its own QUIC stream. Before the
+grant, that stream is `PROTOCOL_VIOLATION`. No operating-system capture, no
+encoder, and no RustDesk import in that run.
 
 Still out of that run: SPAKE2, OPAQUE, DHT blinding, and the fork import.
-ADR-007 and ADR-008 are still Proposed. The 30 second approval timeout, the
-OS keychain, and a multicast join on port 5353 can follow the ticket dial.
+ADR-007 and ADR-008 are still Proposed. The OS keychain and a multicast join
+on port 5353 can follow the synthetic frame.

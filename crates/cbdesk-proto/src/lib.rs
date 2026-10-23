@@ -16,12 +16,14 @@
 //! session layer accepts an interactive approval or an explicit unattended
 //! policy. No message in this crate can ask a peer to hide that session.
 
+mod control;
 mod enums;
 mod error;
 mod limits;
 mod messages;
 mod wire;
 
+pub use control::{Control, ControlBody};
 pub use enums::{AuthMethod, Capability, Codec, ErrorCode, InvitePurpose, Permission, Platform};
 pub use error::ProtoError;
 pub use limits::{

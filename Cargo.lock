@@ -265,7 +265,9 @@ name = "cbdesk-net"
 version = "0.0.0"
 dependencies = [
  "cbdesk-crypto",
+ "cbdesk-discovery",
  "cbdesk-proto",
+ "cbdesk-session",
  "iroh",
  "n0-error",
  "thiserror 1.0.69",

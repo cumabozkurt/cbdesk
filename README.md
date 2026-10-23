@@ -6,9 +6,9 @@ CBDesk is a decentralized, serverless, open-source remote desktop application un
 
 ## Bu depo şu an ne değildir / What this repository is not yet
 
-Bu ağaç çalışan bir uzak masaüstü değildir. Ekran yakalama, girdi ve arayüz yoktur. `cargo test` kimlik, protokol, onay politikası, döngüsel bir QUIC yankısı ve aynı makinede LAN duyurusu/tarama sınar. NAT deliği, aktarıcı ve internet üzerinden keşif yoktur.
+Bu ağaç çalışan bir uzak masaüstü değildir. Ekran yakalama, girdi ve arayüz yoktur. `cargo test` kimlik, protokol, onay politikası, döngüsel bir QUIC yankısı, doğrulanmış bir davet biletinin doğrudan adresinden açılan oturum ve aynı makinede LAN duyurusu/tarama sınar. Bilet erişim vermez. Onay 30 saniye yanıtsız kalırsa bağlantı kapanır. Yankı sondası oturum açmaz. NAT deliği, aktarıcı ve internet üzerinden keşif yoktur.
 
-This tree is not a usable remote desktop. There is no screen capture, input injection, or UI. `cargo test` covers identity, the protocol codec, the consent policy, a loopback QUIC echo, and LAN announce/browse between sockets on the same machine. There is no NAT traversal, no relay, and no discovery across the internet.
+This tree is not a usable remote desktop. There is no screen capture, input injection, or UI. `cargo test` covers identity, the protocol codec, the consent policy, a loopback QUIC echo, a session dialed from a verified invite ticket's direct addresses, and LAN announce/browse between sockets on the same machine. The ticket does not grant access. An approval that nobody answers within 30 seconds closes. An echo probe does not open a session. There is no NAT traversal, no relay, and no discovery across the internet.
 
 Bu kod RustDesk'ten türetilmemiştir. Çatal ve marka temizliği bu turda yapılmadı. Sıralama kararı [ADR-002](docs/adr/002-fork-sequencing.md) içindedir. `tools/rebrand-check.sh`, ileride içeri alınacak kodda o adın yalnız atıf dosyalarında kalmasını denetler.
 
@@ -28,9 +28,9 @@ If someone called you and told you to install this program, deny the connection.
 
 ## Onay / Consent
 
-Oturum gizli tutulamaz. Oturum göstergesinin kapatma anahtarı yoktur. Davet bileti yer tarifidir; erişim vermez. Hızlı Destek gözetimsiz erişim açamaz. İlk temasta dosya yazma, uçbirim, yerel girdiyi engelleme ve gizlilik modu ayrıca seçilmeden verilmez.
+Oturum gizli tutulamaz. Oturum göstergesinin kapatma anahtarı yoktur. Davet bileti yer tarifidir; erişim vermez. Onay penceresi 30 saniye içinde yanıtlanmazsa bağlantı reddedilir. Hızlı Destek gözetimsiz erişim açamaz. İlk temasta dosya yazma, uçbirim, yerel girdiyi engelleme ve gizlilik modu ayrıca seçilmeden verilmez.
 
-A session cannot be hidden. The session indicator has no off switch. An invite ticket is a locator, not an authorization. Quick Support cannot enable unattended access. On a first contact, file write, terminal, blocking local input, and privacy mode stay off unless the person at the host opts in.
+A session cannot be hidden. The session indicator has no off switch. An invite ticket is a locator, not an authorization. If the approval window gets no answer within 30 seconds, the connection is refused. Quick Support cannot enable unattended access. On a first contact, file write, terminal, blocking local input, and privacy mode stay off unless the person at the host opts in.
 
 ## Derleme / Build
 

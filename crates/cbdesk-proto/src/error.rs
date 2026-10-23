@@ -39,4 +39,7 @@ pub enum ProtoError {
     /// A floating-point field was NaN or infinite.
     #[error("floating-point field must be finite")]
     NonFinite,
+    /// A control message did not contain exactly one body.
+    #[error("control message must contain exactly one body")]
+    ControlBody,
 }

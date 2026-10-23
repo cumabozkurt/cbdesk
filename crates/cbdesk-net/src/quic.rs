@@ -216,6 +216,29 @@ impl QuicConn {
         let _reason = self.inner.closed().await;
         Ok(())
     }
+
+    pub(crate) async fn open_bi_streams(
+        &self,
+    ) -> Result<(iroh::endpoint::SendStream, iroh::endpoint::RecvStream), NetError> {
+        self.inner
+            .open_bi()
+            .await
+            .map_err(|err| NetError::Quic(err.to_string()))
+    }
+
+    pub(crate) async fn accept_bi_streams(
+        &self,
+    ) -> Result<(iroh::endpoint::SendStream, iroh::endpoint::RecvStream), NetError> {
+        self.inner
+            .accept_bi()
+            .await
+            .map_err(|err| NetError::Quic(err.to_string()))
+    }
+
+    /// Ed25519 public key of the peer that completed the QUIC handshake.
+    pub(crate) fn remote_key(&self) -> [u8; 32] {
+        *self.inner.remote_id().as_bytes()
+    }
 }
 
 const PROBE_MAX: usize = 64 * 1024;

@@ -37,6 +37,12 @@ pub enum NetError {
     /// The QUIC stack refused to bind or to move bytes.
     #[error("QUIC endpoint failed: {0}")]
     Quic(String),
+    /// No direct address was eligible to dial.
+    #[error("no dialable direct address")]
+    NoCandidate,
+    /// The control stream did not carry one `cbdesk/1` frame.
+    #[error("control frame was rejected")]
+    BadControl,
     /// The path state machine rejected this event.
     #[error("path cannot apply {event} while {state}")]
     InvalidTransition {

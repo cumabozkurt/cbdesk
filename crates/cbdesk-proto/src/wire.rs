@@ -68,6 +68,11 @@ pub struct Fields {
 }
 
 impl Fields {
+    /// True when at least one value for `number` is still unread.
+    pub(crate) fn contains(&self, number: u32) -> bool {
+        self.items.iter().any(|(field, _)| *field == number)
+    }
+
     /// Parse a protobuf message body.
     pub fn parse(bytes: &[u8]) -> Result<Self, ProtoError> {
         let mut cursor = Cursor::new(bytes);
