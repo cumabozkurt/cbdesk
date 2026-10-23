@@ -8,10 +8,11 @@
 //!
 //! Tests pass loopback destinations. The bytes are the same ones a production
 //! caller sends to [`MDNS_IPV4`] port [`MDNS_PORT`] and to the broadcast
-//! fallback on [`LAN_BROADCAST_PORT`]. The repeating browse schedule is not
-//! implemented.
+//! fallback on [`LAN_BROADCAST_PORT`]. [`LanPresence::bind_multicast`] joins
+//! that group and binds port 5353 when it is free. The repeating browse
+//! schedule is not implemented; a caller decides when to announce again.
 
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 use cbdesk_crypto::DeviceId;
@@ -110,6 +111,7 @@ pub struct LanPresence {
     broadcast: UdpSocket,
     mdns_dest: SocketAddr,
     broadcast_dest: SocketAddr,
+    joined_multicast: bool,
 }
 
 impl LanPresence {
@@ -128,7 +130,50 @@ impl LanPresence {
             broadcast,
             mdns_dest: plan.mdns_dest,
             broadcast_dest: plan.broadcast_dest,
+            joined_multicast: false,
         })
+    }
+
+    /// Join `224.0.0.251` and bind port 5353 when that port is free.
+    ///
+    /// A busy 5353 falls back to an ephemeral port that is still a member of
+    /// the group. Sends still aim at `224.0.0.251:5353`, which is the port
+    /// other stacks listen on. This socket receives those packets only when
+    /// [`Self::mdns_local`] reports port 5353. A public network still sends
+    /// nothing.
+    pub async fn bind_multicast(mut config: LanPresenceConfig) -> Result<Self, DiscoveryError> {
+        config.name = normalize_name(config.name)?;
+        let mdns = match bind_v4(
+            SocketAddr::from((Ipv4Addr::UNSPECIFIED, MDNS_PORT)),
+            Some(MDNS_IPV4),
+        ) {
+            Ok(socket) => socket,
+            Err(_) => bind_v4(
+                SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
+                Some(MDNS_IPV4),
+            )?,
+        };
+        let broadcast = match bind_v4(
+            SocketAddr::from((Ipv4Addr::UNSPECIFIED, LAN_BROADCAST_PORT)),
+            None,
+        ) {
+            Ok(socket) => socket,
+            Err(_) => bind_v4(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)), None)?,
+        };
+        broadcast.set_broadcast(true).map_err(lan_io)?;
+        Ok(Self {
+            config,
+            mdns,
+            broadcast,
+            mdns_dest: SocketAddr::from((MDNS_IPV4, MDNS_PORT)),
+            broadcast_dest: SocketAddr::from((Ipv4Addr::BROADCAST, LAN_BROADCAST_PORT)),
+            joined_multicast: true,
+        })
+    }
+
+    /// Whether [`Self::bind_multicast`] joined `224.0.0.251`.
+    pub fn joined_multicast(&self) -> bool {
+        self.joined_multicast
     }
 
     /// Point later sends at a peer. Used by loopback tests and by a caller
@@ -272,6 +317,35 @@ fn lan_io(err: std::io::Error) -> DiscoveryError {
     DiscoveryError::LanIo(err.to_string())
 }
 
+fn bind_v4(addr: SocketAddr, group: Option<Ipv4Addr>) -> Result<UdpSocket, DiscoveryError> {
+    let SocketAddr::V4(v4) = addr else {
+        return Err(DiscoveryError::LanIo(
+            "LAN discovery bind is IPv4".to_string(),
+        ));
+    };
+    let socket = socket2::Socket::new(
+        socket2::Domain::IPV4,
+        socket2::Type::DGRAM,
+        Some(socket2::Protocol::UDP),
+    )
+    .map_err(lan_io)?;
+    socket.set_reuse_address(true).map_err(lan_io)?;
+    // Linux delivers a multicast copy to every SO_REUSEADDR member. SO_REUSEPORT
+    // on Linux can hand the datagram to only one of them, which drops mDNS.
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    socket.set_reuse_port(true).map_err(lan_io)?;
+    socket.set_nonblocking(true).map_err(lan_io)?;
+    socket.bind(&socket2::SockAddr::from(v4)).map_err(lan_io)?;
+    let udp = UdpSocket::from_std(socket.into()).map_err(lan_io)?;
+    if let Some(group) = group {
+        udp.join_multicast_v4(group, Ipv4Addr::UNSPECIFIED)
+            .map_err(lan_io)?;
+        udp.set_multicast_loop_v4(true).map_err(lan_io)?;
+        udp.set_multicast_ttl_v4(255).map_err(lan_io)?;
+    }
+    Ok(udp)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -395,6 +469,84 @@ mod tests {
             left.browse().await.expect("browse");
             let found = right.recv(Duration::from_millis(150)).await.expect("recv");
             assert!(found.is_none(), "{profile:?} enabled={enabled}");
+        }
+    }
+
+    async fn multicast(profile: NetworkProfile, enabled: bool, byte: u8) -> LanPresence {
+        LanPresence::bind_multicast(LanPresenceConfig {
+            device_id: identity(byte),
+            quic_port: 22116,
+            name: None,
+            user_enabled: enabled,
+            profile,
+        })
+        .await
+        .expect("multicast bind")
+    }
+
+    async fn expect_peer(presence: &LanPresence, device: u8) {
+        match presence.recv(Duration::from_secs(2)).await.expect("recv") {
+            Some(Incoming::Peer(peer)) => {
+                assert_eq!(peer.path, DiscoveryPath::Mdns);
+                assert_eq!(peer.device_id, identity(device));
+                assert_eq!(peer.quic_port, 22116);
+            }
+            other => panic!("expected a multicast announcement, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn multicast_group_delivers_the_announcement() {
+        // The CLI LAN test also binds port 5353. This listener is only a mutex.
+        let _lock = hold_discovery_lock();
+        let mut left = multicast(NetworkProfile::Private, true, 3).await;
+        assert!(left.joined_multicast());
+        let port = left.mdns_local().expect("port").port();
+        if port == MDNS_PORT {
+            let right = multicast(NetworkProfile::Private, true, 4).await;
+            if right.mdns_local().expect("port").port() == MDNS_PORT {
+                left.announce_mdns().await.expect("announce");
+                expect_peer(&right, 3).await;
+            } else {
+                loopback_announce(&mut left, port).await;
+            }
+        } else {
+            loopback_announce(&mut left, port).await;
+        }
+        drop(left);
+
+        let mut quiet = multicast(NetworkProfile::Public, true, 5).await;
+        let quiet_port = quiet.mdns_local().expect("port").port();
+        quiet.set_targets(
+            SocketAddr::from((MDNS_IPV4, quiet_port)),
+            "127.0.0.1:9".parse().expect("addr"),
+        );
+        assert!(!quiet.announces());
+        quiet.announce().await.expect("announce");
+        quiet.browse().await.expect("browse");
+        let found = quiet.recv(Duration::from_millis(200)).await.expect("recv");
+        assert!(found.is_none());
+    }
+
+    async fn loopback_announce(presence: &mut LanPresence, port: u16) {
+        presence.set_targets(
+            SocketAddr::from((MDNS_IPV4, port)),
+            "127.0.0.1:9".parse().expect("addr"),
+        );
+        presence.announce_mdns().await.expect("announce");
+        expect_peer(presence, 3).await;
+    }
+
+    fn hold_discovery_lock() -> std::net::TcpListener {
+        let started = std::time::Instant::now();
+        loop {
+            if let Ok(listener) = std::net::TcpListener::bind("127.0.0.1:22953") {
+                return listener;
+            }
+            if started.elapsed() > Duration::from_secs(30) {
+                panic!("timed out waiting for the discovery test lock");
+            }
+            std::thread::sleep(Duration::from_millis(50));
         }
     }
 }

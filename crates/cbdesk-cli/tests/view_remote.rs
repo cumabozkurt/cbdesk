@@ -112,6 +112,87 @@ fn cli_records_pointer_input_after_an_input_grant() {
     let _ = std::fs::remove_file(&ppm);
 }
 
+#[test]
+fn cli_browses_a_lan_host_and_reads_the_barcode() {
+    let _lock = hold_discovery_lock();
+    let started = Instant::now();
+    let mut host = Command::new(env!("CARGO_BIN_EXE_cbdesk"))
+        .args([
+            "host",
+            "--bind",
+            "0.0.0.0:0",
+            "--synthetic",
+            "--approve",
+            "view",
+            "--frames",
+            "1",
+            "--lan",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("host");
+    let ticket = read_line(&mut host).expect("ticket line");
+    assert!(ticket.trim().starts_with("ticket "), "{ticket}");
+    let ppm = std::env::temp_dir().join(format!("cbdesk-lan-{}.ppm", std::process::id()));
+    let view = Command::new(env!("CARGO_BIN_EXE_cbdesk"))
+        .args(["view", "--browse", "--ppm", ppm.to_str().expect("ppm path")])
+        .output()
+        .expect("view");
+    let view_err = String::from_utf8_lossy(&view.stderr).to_string();
+    if !view.status.success() {
+        let _ = host.kill();
+    }
+    let host_status = host.wait().expect("host wait");
+    let host_err = stderr_of(&mut host);
+    if !view.status.success() && same_keychain_device(&host_err, &view_err) {
+        eprintln!("LAN browse skipped: both processes loaded one keychain identity");
+        return;
+    }
+    assert!(view.status.success(), "view failed: {view_err}\n{host_err}");
+    assert!(host_status.success(), "host failed: {host_err}");
+    assert!(
+        started.elapsed() >= Duration::from_millis(3_000),
+        "host granted before the first-contact delay"
+    );
+    let frame = ppm_luma(&std::fs::read(&ppm).expect("ppm"));
+    assert_eq!(read_barcode(&frame).expect("barcode"), (1, 1_000));
+    let _ = std::fs::remove_file(&ppm);
+}
+
+fn hold_discovery_lock() -> std::net::TcpListener {
+    let started = Instant::now();
+    loop {
+        if let Ok(listener) = std::net::TcpListener::bind("127.0.0.1:22953") {
+            return listener;
+        }
+        if started.elapsed() > Duration::from_secs(30) {
+            panic!("timed out waiting for the discovery test lock");
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+fn same_keychain_device(host_err: &str, view_err: &str) -> bool {
+    match (keychain_id(host_err), keychain_id(view_err)) {
+        (Some(host_id), Some(view_id)) => host_id == view_id,
+        _ => false,
+    }
+}
+
+fn keychain_id(text: &str) -> Option<&str> {
+    for line in text.lines() {
+        let mut parts = line.split_whitespace();
+        if parts.next() == Some("identity") {
+            let id = parts.next()?;
+            if parts.next() == Some("keychain") {
+                return Some(id);
+            }
+        }
+    }
+    None
+}
+
 fn read_line(child: &mut std::process::Child) -> std::io::Result<String> {
     let stdout = child.stdout.as_mut().expect("stdout");
     let mut reader = BufReader::new(stdout);

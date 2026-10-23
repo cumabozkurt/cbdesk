@@ -14,6 +14,12 @@
 - `AGPL-3.0-only` is allowed for rav1d-safe. The crate's SPDX expression is
   `AGPL-3.0-only OR LicenseRef-Imazen-Commercial`. This tree uses the AGPL
   side (ADR-015). Assembler features of rav1e and rav1d-safe stay off.
+- `BSL-1.0` is allowed for `clipboard-win`, the Windows text clipboard behind
+  arboard. It is the Boost Software License.
+- oxideav-vp8 is MIT. winit is Apache-2.0. softbuffer and arboard are MIT OR
+  Apache-2.0. `cargo audit` may warn that `ttf-parser` (pulled by winit's
+  Wayland decorations) and the older zbus crates are unmaintained. Those
+  warnings do not fail the audit.
 
 CI runs EmbarkStudios/cargo-deny-action, pinned to a commit, and
 `cargo audit` from cargo-audit 0.22.2. The RustSec GitHub Action installs

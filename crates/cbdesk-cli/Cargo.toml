@@ -1,6 +1,6 @@
 [package]
 name = "cbdesk-cli"
-description = "Minimal host and viewer for one consented AV1 frame."
+description = "Host and viewer for a consented VP8 frame stream."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -14,6 +14,7 @@ name = "cbdesk"
 path = "src/main.rs"
 
 [dependencies]
+arboard.workspace = true
 cbdesk-capture = { path = "../cbdesk-capture" }
 cbdesk-codec = { path = "../cbdesk-codec" }
 cbdesk-crypto = { path = "../cbdesk-crypto" }
@@ -22,8 +23,10 @@ cbdesk-input = { path = "../cbdesk-input" }
 cbdesk-net = { path = "../cbdesk-net" }
 cbdesk-proto = { path = "../cbdesk-proto" }
 cbdesk-session = { path = "../cbdesk-session" }
+softbuffer.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+winit.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]

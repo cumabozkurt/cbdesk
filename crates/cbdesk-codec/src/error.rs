@@ -11,12 +11,12 @@ pub enum CodecError {
     #[error("frame dimensions are not encodable")]
     BadDimensions,
     /// The encoder rejected the picture.
-    #[error("AV1 encode failed: {0}")]
+    #[error("encode failed: {0}")]
     Encode(String),
     /// The decoder rejected the payload.
-    #[error("AV1 decode failed: {0}")]
+    #[error("decode failed: {0}")]
     Decode(String),
     /// The payload did not yield a picture.
-    #[error("AV1 payload contained no picture")]
+    #[error("payload contained no picture")]
     NoFrame,
 }

@@ -12,6 +12,7 @@
 mod error;
 mod identity;
 mod kdf;
+mod keystore;
 mod redacted;
 mod z32;
 
@@ -20,6 +21,9 @@ pub use identity::{DeviceId, Identity, ShortFingerprint};
 pub use kdf::{
     derive_backup_key, dht_epoch_seed, epoch_day, hash_argon2id, x25519_public, x25519_shared,
     BACKUP_MEM_KIB, BACKUP_PARALLELISM, BACKUP_TIME_COST,
+};
+pub use keystore::{
+    identity_from_os, identity_from_store, IdentityStore, MemoryKeyStore, OsKeyStore,
 };
 pub use redacted::Redacted;
 

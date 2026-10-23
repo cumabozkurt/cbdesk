@@ -19,7 +19,10 @@ use crate::admit::{admit_until, open_controller, ConsentWait};
 use crate::control::ControlChannel;
 use crate::policy::EndpointConfig;
 use crate::quic::QuicEndpoint;
-use crate::{recv_view_frame, send_input_event, AdmitError, ConsentAnswer, ControllerSession};
+use crate::{
+    recv_view_frame, send_clipboard_text, send_input_event, AdmitError, ConsentAnswer,
+    ControllerSession,
+};
 
 fn seed(byte: u8) -> [u8; 32] {
     [byte; 32]
@@ -253,5 +256,43 @@ async fn granted_input_returns_the_event_and_does_not_need_the_os() {
     let (sent, got) = tokio::join!(send, recv);
     sent.expect("send");
     assert_eq!(got.expect("event"), event);
+    drop(linked.grant);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn clipboard_text_follows_the_grant() {
+    let mut linked = consented(41, 42, vec![Permission::View, Permission::Clipboard]).await;
+    let text = cbdesk_proto::ClipboardText {
+        text: "merhaba".to_string(),
+        generation: 2,
+        unknown: UnknownFields::new(),
+    };
+    let send = send_clipboard_text(&linked.dialed, &text);
+    let recv = linked.link.next_peer_event();
+    let (sent, got) = tokio::join!(send, recv);
+    sent.expect("send");
+    match got.expect("clipboard") {
+        crate::PeerEvent::Clipboard(body) => assert_eq!(body, text),
+        other => panic!("expected clipboard text, got {other:?}"),
+    }
+    drop(linked.grant);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn clipboard_without_the_grant_is_protocol_violation() {
+    let mut linked = consented(43, 44, vec![Permission::View]).await;
+    let text = cbdesk_proto::ClipboardText {
+        text: "nope".to_string(),
+        generation: 1,
+        unknown: UnknownFields::new(),
+    };
+    let send = send_clipboard_text(&linked.dialed, &text);
+    let recv = linked.link.next_peer_event();
+    let (sent, got) = tokio::join!(send, recv);
+    let _ = sent;
+    assert_eq!(
+        got.expect_err("clipboard"),
+        AdmitError::Closed(ErrorCode::ProtocolViolation)
+    );
     drop(linked.grant);
 }

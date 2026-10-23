@@ -28,12 +28,12 @@ mod quic;
 pub use addr::{address_rank, rank_candidates, MAX_CANDIDATES};
 pub use admit::{
     admit_invited, open_controller, request_grant, AdmitError, ConsentAnswer, ControllerGrant,
-    ControllerOutcome, ControllerSession, FailedAdmit, HostLink,
+    ControllerOutcome, ControllerSession, FailedAdmit, HostLink, PeerEvent,
 };
 pub use backoff::{next_delay_ms, BACKOFF_MS, GIVE_UP_MS};
 pub use dial::{connect_candidates, dial_verified_ticket, direct_candidates, DialError};
 pub use error::NetError;
-pub use media::{recv_view_frame, send_input_event};
+pub use media::{recv_clipboard_text, recv_view_frame, send_clipboard_text, send_input_event};
 pub use memory::{Conn, MemoryEndpoint, MemoryHub};
 pub use path::{apply, PathEvent, PathState};
 pub use policy::{

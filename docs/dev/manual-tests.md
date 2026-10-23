@@ -1,7 +1,10 @@
 # Manual tests
 
-No manual platform test was run. There is no window, installer, or capture
-path to exercise.
+Ubuntu CI and this workspace open the viewer window under Xvfb for about
+600 ms and paint one local barcode frame. That smoke test does not click,
+type, or approve a prompt. A separate run on this Linux machine started
+`cbdesk host --lan` and `cbdesk view --browse --ppm` and read the barcode
+back. Windows and macOS have not been clicked by hand. There is no installer.
 
 When those exist, the master plan's "M" rows (approval window over a
 full-screen application, session indicator, fraud warning, Turkish layout)

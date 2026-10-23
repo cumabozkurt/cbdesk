@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! One video frame or one input event on its own unidirectional stream.
+//! One video frame or one input event on its own unidirectional stream, and
+//! one clipboard text update on a bidirectional stream.
 //!
 //! A frame is a big-endian `u32` length, a `VideoFrameHeader`, a big-endian
 //! `u32` length, and the payload. The lengths plus both bodies stay within
 //! 16 MiB. An input event is a big-endian `u32` length and one `InputEvent`.
-//! Opening either stream is the caller's decision; this module only frames
-//! bytes. See ADR-014.
+//! Clipboard text uses the same length prefix on a bidirectional stream.
+//! Opening a stream is the caller's decision; this module only frames bytes.
+//! See ADR-014.
 
 use cbdesk_proto::{
-    InputEvent, ProtoMessage, VideoFrameHeader, CONTROL_MAX_BYTES, VIDEO_FRAME_MAX_BYTES,
+    ClipboardText, InputEvent, ProtoMessage, VideoFrameHeader, CONTROL_MAX_BYTES,
+    VIDEO_FRAME_MAX_BYTES,
 };
 
 use crate::error::NetError;
@@ -19,6 +22,23 @@ use crate::quic::QuicConn;
 pub async fn recv_view_frame(conn: &QuicConn) -> Result<(VideoFrameHeader, Vec<u8>), NetError> {
     let mut recv = conn.accept_uni_stream().await?;
     read_view_frame(&mut recv).await
+}
+
+/// Send one clipboard text update. The host still has to have granted Clipboard.
+pub async fn send_clipboard_text(conn: &QuicConn, text: &ClipboardText) -> Result<(), NetError> {
+    let (mut send, _recv) = conn.open_bi_streams().await?;
+    write_clipboard(&mut send, text).await?;
+    send.finish()
+        .map_err(|err| NetError::Quic(err.to_string()))?;
+    Ok(())
+}
+
+/// Read one clipboard text update the peer opened after `authorize(Clipboard)`.
+pub async fn recv_clipboard_text(conn: &QuicConn) -> Result<ClipboardText, NetError> {
+    let (mut send, mut recv) = conn.accept_bi_streams().await?;
+    let text = read_clipboard(&mut recv).await?;
+    let _ = send.finish();
+    Ok(text)
 }
 
 /// Send one input event. The host still has to have granted Input.
@@ -88,6 +108,21 @@ pub(crate) async fn read_input(
 ) -> Result<InputEvent, NetError> {
     let bytes = read_prefixed(recv, CONTROL_MAX_BYTES).await?;
     InputEvent::from_bytes(&bytes).map_err(|_| NetError::BadMedia)
+}
+
+pub(crate) async fn write_clipboard(
+    send: &mut iroh::endpoint::SendStream,
+    text: &ClipboardText,
+) -> Result<(), NetError> {
+    let bytes = text.to_bytes().map_err(|_| NetError::BadMedia)?;
+    write_prefixed(send, &bytes, CONTROL_MAX_BYTES).await
+}
+
+pub(crate) async fn read_clipboard(
+    recv: &mut iroh::endpoint::RecvStream,
+) -> Result<ClipboardText, NetError> {
+    let bytes = read_prefixed(recv, CONTROL_MAX_BYTES).await?;
+    ClipboardText::from_bytes(&bytes).map_err(|_| NetError::BadMedia)
 }
 
 async fn write_prefixed(

@@ -14,7 +14,7 @@ use crate::error::CliError;
 pub enum Command {
     /// Listen, print a ticket, and maybe grant.
     Host(HostArgs),
-    /// Dial a ticket and write one PPM.
+    /// Dial a ticket or browse the LAN, then show frames.
     View(ViewArgs),
 }
 
@@ -29,18 +29,24 @@ pub struct HostArgs {
     pub allow_high_risk: bool,
     /// Capture the operating-system display instead of the barcode.
     pub screen: bool,
-    /// How many frames to send after the grant.
+    /// How many frames to send after the grant. Zero streams until the viewer closes.
     pub frames: u32,
+    /// Announce on the LAN. The operator asked for this; the profile is private.
+    pub lan: bool,
 }
 
 /// Viewer options.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ViewArgs {
-    /// Hex-encoded invite ticket.
-    pub ticket_hex: String,
-    /// Where to write the PPM.
-    pub ppm: PathBuf,
-    /// Optional pointer sample to send after the frame, if Input was granted.
+    /// Hex-encoded invite ticket. Absent when [`Self::browse`] is set.
+    pub ticket_hex: Option<String>,
+    /// Find a host on the LAN instead of dialing a ticket.
+    pub browse: bool,
+    /// Where to write the first frame as a PPM. Optional when a window is open.
+    pub ppm: Option<PathBuf>,
+    /// Open a window and keep reading until it closes.
+    pub window: bool,
+    /// Optional pointer sample to send after the first frame, if Input was granted.
     pub pointer: Option<(i32, i32)>,
 }
 
@@ -58,7 +64,7 @@ pub fn parse(args: &[String]) -> Result<Command, CliError> {
 
 fn usage() -> CliError {
     CliError::new(
-        "usage: cbdesk host --bind ADDR (--synthetic|--screen) [--approve view,input] [--frames N]\n       cbdesk view --ticket HEX --ppm FILE [--pointer X,Y]",
+        "usage: cbdesk host --bind ADDR (--synthetic|--screen) [--approve view,input] [--frames N] [--lan]\n       cbdesk view (--ticket HEX|--browse) (--ppm FILE|--window) [--pointer X,Y]",
     )
 }
 
@@ -69,7 +75,8 @@ fn parse_host(args: &[String]) -> Result<HostArgs, CliError> {
     let mut approve = Vec::new();
     let mut allow_high_risk = false;
     let mut screen = None;
-    let mut frames = 1_u32;
+    let mut frames = 0_u32;
+    let mut lan = false;
     let mut index = 0;
     while index < args.len() {
         let flag = args[index].as_str();
@@ -84,6 +91,7 @@ fn parse_host(args: &[String]) -> Result<HostArgs, CliError> {
             "--synthetic" => screen = Some(false),
             "--screen" => screen = Some(true),
             "--frames" => frames = frames_arg(&take(args, &mut index, "frame count")?)?,
+            "--lan" => lan = true,
             _ => return Err(CliError::new(format!("unknown host argument {flag}"))),
         }
         index += 1;
@@ -100,27 +108,42 @@ fn parse_host(args: &[String]) -> Result<HostArgs, CliError> {
         allow_high_risk,
         screen,
         frames,
+        lan,
     })
 }
 
 fn parse_view(args: &[String]) -> Result<ViewArgs, CliError> {
     let mut ticket_hex = None;
+    let mut browse = false;
     let mut ppm = None;
+    let mut window = false;
     let mut pointer = None;
     let mut index = 0;
     while index < args.len() {
         let flag = args[index].as_str();
         match flag {
             "--ticket" => ticket_hex = Some(take(args, &mut index, "ticket")?),
+            "--browse" => browse = true,
             "--ppm" => ppm = Some(PathBuf::from(take(args, &mut index, "ppm path")?)),
+            "--window" => window = true,
             "--pointer" => pointer = Some(pointer_arg(&take(args, &mut index, "pointer")?)?),
             _ => return Err(CliError::new(format!("unknown view argument {flag}"))),
         }
         index += 1;
     }
+    if ticket_hex.is_some() == browse {
+        return Err(CliError::new(
+            "view needs exactly one of --ticket or --browse",
+        ));
+    }
+    if ppm.is_none() && !window {
+        return Err(CliError::new("view needs --ppm or --window"));
+    }
     Ok(ViewArgs {
-        ticket_hex: ticket_hex.ok_or_else(|| CliError::new("view needs --ticket"))?,
-        ppm: ppm.ok_or_else(|| CliError::new("view needs --ppm"))?,
+        ticket_hex,
+        browse,
+        ppm,
+        window,
         pointer,
     })
 }
@@ -160,10 +183,12 @@ fn frames_arg(text: &str) -> Result<u32, CliError> {
     let value: u32 = text
         .parse()
         .map_err(|_| CliError::new("frame count is invalid"))?;
-    if (1..=30).contains(&value) {
+    if value <= 30 {
         Ok(value)
     } else {
-        Err(CliError::new("frame count must be from 1 to 30"))
+        Err(CliError::new(
+            "frame count must be from 0 to 30; 0 streams until the viewer closes",
+        ))
     }
 }
 

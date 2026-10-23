@@ -51,6 +51,13 @@ impl SyntheticCapturer {
         write_bits(&mut pixels, 0, u64::from(MAGIC), 8);
         write_bits(&mut pixels, 8, frame_no, 64);
         write_bits(&mut pixels, 72, timestamp_us, 64);
+        // Repeat the barcode down the frame. A 4x4 block codec keeps a
+        // one-pixel-tall stripe only when every row in the block matches.
+        let width = self.width as usize;
+        for row in 1..self.height as usize {
+            let start = row.saturating_mul(width);
+            pixels.copy_within(0..width, start);
+        }
         Ok(Frame {
             width: self.width,
             height: self.height,

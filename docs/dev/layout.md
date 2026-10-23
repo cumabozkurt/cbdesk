@@ -10,9 +10,9 @@ The workspace members are the crates that compile:
 | `crates/cbdesk-net` | Transport trait, memory hub, path and relay policy |
 | `crates/cbdesk-session` | Host consent, grants, rate limits |
 | `crates/cbdesk-capture` | Synthetic barcode and operating-system screen capture |
-| `crates/cbdesk-codec` | Software AV1 encode and decode for one grayscale still |
+| `crates/cbdesk-codec` | Software VP8 keyframes and AV1 stills, grayscale |
 | `crates/cbdesk-input` | Keyboard and pointer injection after an Input grant |
-| `crates/cbdesk-cli` | `cbdesk host` and `cbdesk view` |
+| `crates/cbdesk-cli` | `cbdesk host` and `cbdesk view`, including the window |
 | `crates/cbdesk-testkit` | Re-exported barcode frames, recording injector, fake DHT |
 
 Other crate directories match the master plan and are not members. Adding one

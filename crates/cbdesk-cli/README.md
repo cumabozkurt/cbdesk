@@ -6,5 +6,7 @@ Minimal `cbdesk` host and viewer.
 contact. An empty approval rejects immediately. The ticket does not grant
 access.
 
-`cbdesk view` dials that ticket and writes one AV1 frame as a PPM. There is
-no window, and the command cannot hide a session.
+`cbdesk view` dials that ticket, or finds the host with `--browse` after the
+host was started with `--lan`. `--ppm` writes the first frame. `--window`
+keeps showing frames until the window closes and forwards the pointer and
+keyboard only after an Input grant. The command cannot hide a session.

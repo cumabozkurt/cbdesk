@@ -55,14 +55,28 @@ base64ct = { version = "=1.7.3", default-features = false }
 hashbrown = { version = "=0.16.1", default-features = false }
 indexmap = { version = "=2.13.1", default-features = false }
 # Software AV1. rav1e asm/nasm and git2 stay off. rav1d-safe is the pure-Rust
-# decoder (AGPL-3.0-only). VP8 is not linked: those crates need a system libvpx.
+# decoder (AGPL-3.0-only).
 rav1e = { version = "=0.8.1", default-features = false }
 rav1d-safe = { version = "=0.6.0", default-features = false, features = ["bitdepth_8"] }
+# Software VP8 keyframes. oxideav-vp8 is pure Rust (MIT). The registry
+# feature pulls oxideav-core and stays off. No system libvpx.
+oxideav-vp8 = { version = "=0.2.7", default-features = false }
 # Screen capture. 0.9.5 is the last release whose Linux deps are all on crates.io.
 xcap = "=0.9.5"
 # Pointer and keyboard injection. x11rb is the X11 path; wayland is the
 # compositor path. Neither feature is used unless a grant includes Input.
 enigo = { version = "=0.6.1", default-features = false, features = ["x11rb", "wayland"] }
+# Viewer window. Stable winit, not the 0.31 beta. softbuffer presents
+# decoded frames without a GPU toolkit.
+winit = "=0.30.13"
+softbuffer = "=0.4.8"
+# OS clipboard text. Tests use a memory double and do not call this.
+arboard = "=3.7.0"
+# OS credential store for the device seed. v1 is the small platform API.
+# The cli feature pulls every store and stays off.
+keyring = { version = "=4.2.0", default-features = false, features = ["v1"] }
+# SO_REUSEADDR / SO_REUSEPORT before an mDNS bind on port 5353.
+socket2 = "=0.6.5"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

@@ -27,12 +27,11 @@ hidden sessions, ticket-as-grant, default relays, and the ports in ADR-009.
 The second option. This repository does not vendor or fork RustDesk. Capture
 uses xcap 0.9.5 (X11, the Wayland Screenshot portal for a still, and the
 Wayland ScreenCast plus PipeWire path when `WAYLAND_DISPLAY` is set; Windows
-and macOS through the same crate). The software codec is AV1: rav1e with its
-assembler and git tooling turned off, and rav1d-safe under AGPL-3.0-only.
-VP8 is not linked. The crates that encode VP8 require a system libvpx, which
-this CI cannot assume on Windows. Input uses enigo, and only after
-`authorize(Input)`. Tests record events. They do not move the machine's
-pointer.
+and macOS through the same crate). The first software codec in this tree was
+AV1: rav1e with its assembler and git tooling turned off, and rav1d-safe
+under AGPL-3.0-only. Input uses enigo, and only after `authorize(Input)`.
+Tests record events. They do not move the machine's pointer. The VP8
+encoder this tree links now is recorded in the implementation note below.
 
 ADR-002 still records why M0 did not start from an import. This ADR closes
 the "import platform code later" option for capture, codec, and input. A
@@ -43,7 +42,15 @@ future import would be a new decision, with upstream copyright notices and
 
 M0's exit criterion ("the fork builds on three desktops") stays unmet on
 purpose. CI builds this workspace on Linux, Windows, and macOS instead.
-T-MED-001 and T-MED-004 ask for a VP8 stream. This slice speaks
-`Capability::VideoAv1` and does not claim those tests. Hardware codecs,
-audio, and a windowed UI are still absent. The session indicator still
-cannot be disabled, and a ticket is still only a locator.
+Hardware codecs, audio, and a Flutter UI are still absent. The session
+indicator still cannot be disabled, and a ticket is still only a locator.
+
+## Implementation note (2026-10-23)
+
+VP8 keyframes are encoded and decoded with oxideav-vp8 0.2.7. The license is
+MIT. Default features stay off, so the registry feature and its extra
+framework are not linked. The crate is pure Rust. This build does not link a
+system libvpx. Each frame is its own keyframe. The decoder entry used here
+rejects inter frames. When both peers offer VP8 and AV1, negotiation selects
+VP8. T-MED-001 is that both-sides-VP8 selection. T-MED-004 in this tree is a
+short keyframe stream whose barcode still reads. It is not a 60-second soak.

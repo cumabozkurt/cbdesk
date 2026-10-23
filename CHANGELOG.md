@@ -29,13 +29,26 @@ Version 0.0.0 is not a release.
   An input event uses its own unidirectional stream and is accepted only
   after `authorize(Input)`.
 - Software AV1 (rav1e, assembler and git tooling off; rav1d-safe under
-  AGPL-3.0-only) for one grayscale still. VP8 is not linked.
+  AGPL-3.0-only) for one grayscale still.
+- Software VP8 keyframes through oxideav-vp8 0.2.7 (MIT, default features
+  off, no system libvpx). Each frame is its own keyframe. Negotiation
+  prefers VP8 when both peers offer it. AV1 is the fallback.
 - Operating-system screen capture through xcap 0.9.5, and keyboard/pointer
   injection through enigo after an Input grant. Tests record input events
   and do not move the pointer.
-- `cbdesk host` and `cbdesk view`: after consent, one synthetic AV1 frame
-  can be written to a PPM. `--screen` captures the display. The ticket is
-  still only a locator.
+- `cbdesk host` streams frames until the viewer closes (`--frames 0`).
+  `cbdesk view --window` shows them with winit and softbuffer and forwards
+  the pointer and keyboard only after an Input grant. `--ppm` still writes
+  the first frame. `--screen` captures the display. The ticket is still
+  only a locator.
+- Plain-text clipboard sync on a bidirectional stream after a Clipboard
+  grant, capped at 60 KiB. Files and images are not this message.
+- The device seed is loaded from the OS keychain (Secret Service, Keychain,
+  or Credential Manager). A store that does not answer yields an in-memory
+  identity for that process. The seed is not written to a file.
+- LAN announce and browse can join `224.0.0.251:5353` when that port can be
+  shared. A busy 5353 keeps sending to the group and listens on an ephemeral
+  port. `--lan` is the operator opting into a private profile.
 - ADR-015 keeps the clean-room core. The M0 fork exit stays unmet on purpose.
 
 This tree is not derived from RustDesk. See ADR-002 and ADR-015.

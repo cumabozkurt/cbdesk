@@ -16,7 +16,8 @@ This build only accepts major 1 (`session_supports`). The helper
 | Payload | Limit |
 | --- | --- |
 | Control message | 64 KiB |
-| Clipboard | 64 MiB default and absolute cap |
+| Clipboard text in `ClipboardText` | 60 KiB |
+| Clipboard reassembly ceiling | 64 MiB default and absolute cap |
 | Video frame | 16 MiB |
 | Direct addresses on a ticket | 8 |
 
@@ -28,7 +29,7 @@ packed or unpacked encoding.
 
 `Hello`, `HelloAck`, `Granted`, `PermissionChanged`, `DisplayInfo`,
 `VideoFrameHeader`, `Feedback`, `Close`, `KeyEvent`, `PointerEvent`,
-`InputEvent`, `Control`, `InviteTicket`, `DhtAddressRecord`,
+`InputEvent`, `ClipboardText`, `Control`, `InviteTicket`, `DhtAddressRecord`,
 `SignedDhtRecord`.
 
 Video bytes are not a protobuf field. They follow `VideoFrameHeader` on a
@@ -78,14 +79,17 @@ frame. The bytes are:
 4. the payload
 
 An empty header or an empty payload is rejected. The two lengths plus both
-bodies must be at most 16 MiB. This slice's payload is one AV1 still
-(`Codec::Av1`, `keyframe` true). The capability advertised for that path is
-`VideoAv1`. VP8 is not produced. A unidirectional stream, or a second
-bidirectional stream, opened before the grant is `PROTOCOL_VIOLATION`. The
-session closes and no permission is granted. After the frame is sent, the
-host reads the control stream until the controller finishes it. The
-controller does that only after it has read the frame. Closing the
-connection first discards a frame that is still inside QUIC.
+bodies must be at most 16 MiB. The payload is one grayscale keyframe.
+Negotiation selects VP8 when both peers offer it (`Codec::Vp8`) and falls
+back to AV1 (`Codec::Av1`). `keyframe` is true. A unidirectional stream, or
+an extra bidirectional stream, opened before the grant is
+`PROTOCOL_VIOLATION`. The session closes and no permission is granted. After
+a frame is sent, the host keeps the connection up until the controller
+finishes the control stream or the frame budget is exhausted and the
+controller leaves. The controller reads each frame before it releases the
+grant. Closing the connection first discards a frame that is still inside
+QUIC. `--frames 0` keeps sending until that close. A positive count stops
+after that many frames and then waits for the controller.
 
 ## Input events
 
@@ -96,6 +100,17 @@ Without that grant the event is not injected, the host sends `Close` with
 code points, or the private-use names in `cbdesk-input` (`KEY_ENTER` is
 `0xE000` through `KEY_DOWN` at `0xE007`). Modifier bits are shift 1, ctrl 2,
 alt 4, meta 8. Pointer buttons are left 1, right 2, middle 4.
+
+## Clipboard text
+
+`ClipboardText` is one bidirectional stream, separate from video and input
+so those unidirectional frames stay unchanged. The bytes are a big-endian
+`u32` length and one `ClipboardText` protobuf. The text is at most 60 KiB.
+Empty text clears the peer's text clipboard. The host accepts the stream
+only after `authorize(Clipboard)`. Without that grant the session closes
+with `PROTOCOL_VIOLATION` and nothing is written to the operating-system
+clipboard. Files, images, and HTML are not this message. The 64 MiB clipboard
+ceiling remains the cap for a later reassembly path.
 
 ## Errors
 

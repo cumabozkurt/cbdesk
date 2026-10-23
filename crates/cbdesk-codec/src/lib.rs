@@ -2,21 +2,22 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used))]
 #![cfg_attr(not(test), deny(clippy::expect_used))]
 
-//! Software AV1 for one grayscale picture.
+//! Software video for one grayscale picture.
 //!
-//! The encoder is rav1e with assembler and git tooling disabled. The decoder
-//! is rav1d-safe, a pure-Rust decoder, under AGPL-3.0-only. This is
-//! [`cbdesk_proto::Codec::Av1`], not VP8. VP8 would need a system libvpx,
-//! which the Windows CI job does not have. Each call encodes one still
-//! picture, so the payload is a keyframe.
+//! AV1 uses rav1e with assembler and git tooling disabled, and rav1d-safe
+//! under AGPL-3.0-only. VP8 uses oxideav-vp8, which is pure Rust and does
+//! not need a system libvpx. Each call encodes one still picture, so the
+//! payload is a keyframe. A live stream is a sequence of those keyframes.
 
 mod error;
+mod vp8;
 
 use cbdesk_capture::Frame as Picture;
 use rav1d_safe::src::managed::{Decoder, Planes};
 use rav1e::prelude::*;
 
 pub use error::CodecError;
+pub use vp8::{decode_vp8_luma, encode_vp8};
 
 /// How hard the encoder should try.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

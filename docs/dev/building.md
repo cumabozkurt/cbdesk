@@ -29,34 +29,46 @@ and they also name `192.0.2.1` so a higher-ranked address is started first.
 That address is not expected to answer. The 30 second approval wait is locked
 with a paused clock; the loopback handshake fires the same timeout path
 without sleeping 30 wall-clock seconds. The LAN tests send the mDNS and
-broadcast encodings between loopback UDP sockets. Neither test needs a public
-network or port 5353.
+broadcast encodings between sockets. One of them joins `224.0.0.251:5353`
+when that port is free. A public profile still sends nothing.
 
-Linux screen capture and input compile against system libraries. Ubuntu CI
-installs `pkg-config`, `clang`, `libclang-dev`, `libxcb1-dev`,
-`libxrandr-dev`, `libx11-dev`, `x11-utils`, `libdbus-1-dev`,
+Linux screen capture, the viewer window, and input compile against system
+libraries. Ubuntu CI installs `pkg-config`, `clang`, `libclang-dev`,
+`libxcb1-dev`, `libxrandr-dev`, `libx11-dev`, `x11-utils`, `libdbus-1-dev`,
 `libpipewire-0.3-dev`, `libwayland-dev`, `libxkbcommon-dev`,
-`libegl1-mesa-dev`, `libgbm-dev`, `libdrm-dev`, and `xvfb`. The test step
-starts Xvfb on `:99` and sets `DISPLAY` and `CBDESK_REQUIRE_DISPLAY=1`, so a
-missing X11 frame fails that job. Windows and macOS compile the same capture
-crate. Their jobs leave `CBDESK_REQUIRE_DISPLAY` unset, so a missing display
-or a denied permission is `Unavailable` and the synthetic, codec, and consent
-tests still run. The Wayland ScreenCast path is selected when
-`WAYLAND_DISPLAY` is set. CI does not set that variable and does not open a
-portal dialog. Input tests do not call `inject`.
+`libxkbcommon-x11-dev`, `libegl1-mesa-dev`, `libgbm-dev`, `libdrm-dev`, and
+`xvfb`. The test step starts Xvfb on `:99` and sets `DISPLAY` and
+`CBDESK_REQUIRE_DISPLAY=1`, so a missing X11 frame or a viewer window that
+does not open fails that job. Windows and macOS compile the same capture and
+window crates. Their jobs leave `CBDESK_REQUIRE_DISPLAY` unset, so the window
+smoke test returns without opening a display, and a missing display or a
+denied permission is `Unavailable`. The synthetic, codec, and consent tests
+still run. The Wayland ScreenCast path is selected when `WAYLAND_DISPLAY` is
+set. CI does not set that variable and does not open a portal dialog. Input
+tests do not call `inject`.
+
+The LAN unit test joins `224.0.0.251:5353` when the port can be shared with
+another socket. A busy 5353 falls back to an ephemeral member and the test
+checks that member on loopback. A public profile still sends nothing. The
+CLI browse test and that unit test take turns on a localhost TCP mutex so
+they do not share port 5353 at the same time.
 
 ## CLI
 
 ```sh
-cbdesk host --bind 127.0.0.1:22116 --synthetic --approve view
-cbdesk view --ticket HEX --ppm frame.ppm
+cbdesk host --bind 0.0.0.0:22116 --synthetic --approve view,input --lan
+cbdesk view --browse --window
 ```
 
-`--screen` captures the display instead of the barcode. `--approve` is
-explicit consent and still waits three seconds on a first contact. Omitting
-it rejects immediately. `--pointer X,Y` sends one pointer event after the
-frame, and only if the host granted `input`. The ticket printed by the host
-is a locator.
+`--screen` captures the display instead of the barcode. The preview is scaled
+to at most 480 by 270. `--approve` is explicit consent and still waits three
+seconds on a first contact. Omitting it rejects immediately. `--frames N`
+stops after N frames; `0`, the default, streams until the viewer closes.
+`--pointer X,Y` sends one pointer event after the first frame, and only if
+the host granted `input`. The window does the same for later pointer and key
+events. The ticket printed by the host is a locator. `--browse` does not use
+it. `--lan` does not read the OS network category; the library still sends
+nothing when a caller passes a public profile.
 
 ## Pins
 
@@ -68,7 +80,7 @@ do not unify (`ed25519-dalek` 3, `getrandom` 0.4).
 
 ## What will not build
 
-Installers, audio, clipboard, file transfer, and mobile targets have no code.
-Their directories contain a README so the layout from the master plan is
-visible. They are not Cargo workspace members. There is no window. The CLI
-writes a PPM.
+Installers, audio, file transfer, and mobile targets have no code in the
+workspace. Their directories contain a README so the layout from the master
+plan is visible. They are not Cargo workspace members. Plain-text clipboard
+sync is in the CLI, not in `cbdesk-clipboard`.

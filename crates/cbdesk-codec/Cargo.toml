@@ -1,6 +1,6 @@
 [package]
 name = "cbdesk-codec"
-description = "Software AV1 encode and decode for one grayscale frame."
+description = "Software VP8 and AV1 encode and decode for one grayscale frame."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,7 @@ publish.workspace = true
 
 [dependencies]
 cbdesk-capture = { path = "../cbdesk-capture" }
+oxideav-vp8.workspace = true
 rav1e.workspace = true
 rav1d-safe.workspace = true
 thiserror.workspace = true

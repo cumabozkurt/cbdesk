@@ -5,8 +5,9 @@
 //! CBDesk session protocol, version `cbdesk/1`.
 //!
 //! This crate is the implemented subset of the protocol: handshake messages,
-//! grants, invite tickets, DHT address records, input events, and the size
-//! limits parsers must enforce. Encoded video bytes are not a protobuf field.
+//! grants, invite tickets, DHT address records, input events, clipboard text,
+//! and the size limits parsers must enforce. Encoded video bytes are not a
+//! protobuf field.
 //! The readable schema is `proto/cbdesk/v1/session.proto`.
 //!
 //! # Consent
@@ -16,14 +17,17 @@
 //! session layer accepts an interactive approval or an explicit unattended
 //! policy. No message in this crate can ask a peer to hide that session.
 
+mod clipboard;
 mod control;
 mod enums;
 mod error;
 mod input;
 mod limits;
 mod messages;
+mod negotiate;
 mod wire;
 
+pub use clipboard::{ClipboardText, CLIPBOARD_TEXT_MAX_BYTES};
 pub use control::{Control, ControlBody};
 pub use enums::{AuthMethod, Capability, Codec, ErrorCode, InvitePurpose, Permission, Platform};
 pub use error::ProtoError;
@@ -36,6 +40,7 @@ pub use messages::{
     Close, DhtAddressRecord, DisplayInfo, Feedback, Granted, Hello, HelloAck, InviteTicket,
     PermissionChanged, ProtoMessage, SignedDhtRecord, VideoFrameHeader,
 };
+pub use negotiate::{local_capabilities, select_video_codec};
 pub use wire::{FieldValue, UnknownFields};
 
 /// ALPN token for this major version.

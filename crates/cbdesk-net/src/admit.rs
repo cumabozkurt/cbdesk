@@ -14,8 +14,8 @@ use std::net::IpAddr;
 
 use cbdesk_crypto::DeviceId;
 use cbdesk_proto::{
-    session_supports, AuthMethod, Close, Control, ControlBody, ErrorCode, Hello, HelloAck,
-    Permission, PROTO_MAJOR, PROTO_MINOR,
+    local_capabilities, session_supports, AuthMethod, Capability, Close, Control, ControlBody,
+    ErrorCode, Hello, HelloAck, Permission, PROTO_MAJOR, PROTO_MINOR,
 };
 use cbdesk_session::{
     CloseReason, HostSession, PeerFacts, RateLimiter, SessionError, APPROVAL_TIMEOUT_MS,
@@ -85,6 +85,20 @@ pub struct HostLink {
     conn: QuicConn,
     remote: DeviceId,
     control: ControlChannel,
+    peer_caps: Vec<Capability>,
+}
+
+/// A datagram the controller sent after the grant, or the end of the session.
+#[derive(Debug)]
+pub enum PeerEvent {
+    /// The controller finished the control stream, or the connection closed.
+    Ended,
+    /// A control message, usually `Close`.
+    Control(Control),
+    /// An input event. Present only when Input was granted.
+    Input(cbdesk_proto::InputEvent),
+    /// Clipboard text. Present only when Clipboard was granted.
+    Clipboard(cbdesk_proto::ClipboardText),
 }
 
 impl HostLink {
@@ -101,6 +115,11 @@ impl HostLink {
     /// Controller device id proven by the QUIC handshake.
     pub fn remote(&self) -> DeviceId {
         self.remote
+    }
+
+    /// Capabilities from the controller's `Hello`.
+    pub fn peer_caps(&self) -> &[Capability] {
+        &self.peer_caps
     }
 
     /// Prompt and authentication counters after this handshake.
@@ -150,6 +169,78 @@ impl HostLink {
         }
         match crate::media::read_input(&mut recv).await {
             Ok(event) => Ok(event),
+            Err(error) => {
+                let _ = self.violate().await;
+                Err(AdmitError::Net(error))
+            }
+        }
+    }
+
+    /// Send clipboard text. The stream is not opened when Clipboard is absent.
+    pub async fn send_clipboard(
+        &mut self,
+        text: &cbdesk_proto::ClipboardText,
+    ) -> Result<(), AdmitError> {
+        self.authorize(Permission::Clipboard)?;
+        crate::media::send_clipboard_text(&self.conn, text)
+            .await
+            .map_err(AdmitError::Net)
+    }
+
+    /// The next input, clipboard update, or control message.
+    ///
+    /// [`PeerEvent::Ended`] means the controller went away. A stream that
+    /// arrives without its grant closes the session with `PROTOCOL_VIOLATION`.
+    pub async fn next_peer_event(&mut self) -> Result<PeerEvent, AdmitError> {
+        let incoming = tokio::select! {
+            biased;
+            result = self.conn.accept_uni_stream() => HostIncoming::Uni(result),
+            result = self.conn.accept_bi_streams() => HostIncoming::Bi(result),
+            result = self.control.read() => HostIncoming::Control(result),
+        };
+        self.finish_incoming(incoming).await
+    }
+
+    async fn finish_incoming(&mut self, incoming: HostIncoming) -> Result<PeerEvent, AdmitError> {
+        match incoming {
+            HostIncoming::Uni(Ok(mut recv)) => self.input_from(&mut recv).await,
+            HostIncoming::Bi(Ok((mut send, mut recv))) => {
+                let text = self.clipboard_from(&mut recv).await?;
+                let _ = send.finish();
+                Ok(text)
+            }
+            HostIncoming::Control(Ok(message)) => Ok(PeerEvent::Control(message)),
+            HostIncoming::Uni(Err(_))
+            | HostIncoming::Bi(Err(_))
+            | HostIncoming::Control(Err(_)) => Ok(PeerEvent::Ended),
+        }
+    }
+
+    async fn input_from(
+        &mut self,
+        recv: &mut iroh::endpoint::RecvStream,
+    ) -> Result<PeerEvent, AdmitError> {
+        if self.authorize(Permission::Input).is_err() {
+            return Err(self.violate().await);
+        }
+        match crate::media::read_input(recv).await {
+            Ok(event) => Ok(PeerEvent::Input(event)),
+            Err(error) => {
+                let _ = self.violate().await;
+                Err(AdmitError::Net(error))
+            }
+        }
+    }
+
+    async fn clipboard_from(
+        &mut self,
+        recv: &mut iroh::endpoint::RecvStream,
+    ) -> Result<PeerEvent, AdmitError> {
+        if self.authorize(Permission::Clipboard).is_err() {
+            return Err(self.violate().await);
+        }
+        match crate::media::read_clipboard(recv).await {
+            Ok(text) => Ok(PeerEvent::Clipboard(text)),
             Err(error) => {
                 let _ = self.violate().await;
                 Err(AdmitError::Net(error))
@@ -265,7 +356,7 @@ where
         send_close(&mut channel, ErrorCode::HostBusy).await;
         return Err(failed(session, limits, conn, AdmitError::Session(error)));
     }
-    let result = {
+    let (result, peer_caps) = {
         let mut ctx = Ctx {
             conn: &conn,
             channel: &mut channel,
@@ -275,8 +366,10 @@ where
             facts,
             source,
             now_ms,
+            peer_caps: Vec::new(),
         };
-        handshake(&mut ctx, waits).await
+        let result = handshake(&mut ctx, waits).await;
+        (result, ctx.peer_caps)
     };
     limits.end_handshake();
     match result {
@@ -286,6 +379,7 @@ where
             conn,
             remote,
             control: channel,
+            peer_caps,
         }),
         Err(error) => Err(failed(session, limits, conn, error)),
     }
@@ -315,6 +409,8 @@ pub async fn request_grant(conn: &QuicConn, hello: &Hello) -> Result<ControllerO
 pub struct ControllerGrant {
     /// The grant the host sent.
     pub granted: cbdesk_proto::Granted,
+    /// Capabilities from the host's `HelloAck`.
+    pub host_caps: Vec<Capability>,
     control: ControlChannel,
 }
 
@@ -362,10 +458,12 @@ pub async fn open_controller(
     match channel.read().await?.body {
         ControlBody::Close(close) => Ok(ControllerSession::Closed(close)),
         ControlBody::HelloAck(ack) if interactive_ack(&ack) => {
+            let host_caps = ack.caps;
             match read_decision(&mut channel).await? {
                 ControllerOutcome::Granted(granted) => {
                     Ok(ControllerSession::Granted(ControllerGrant {
                         granted,
+                        host_caps,
                         control: channel,
                     }))
                 }
@@ -385,6 +483,7 @@ struct Ctx<'a> {
     facts: PeerFacts,
     source: IpAddr,
     now_ms: u64,
+    peer_caps: Vec<Capability>,
 }
 
 async fn handshake<A, W>(ctx: &mut Ctx<'_>, waits: ConsentWait<A, W>) -> Result<(), AdmitError>
@@ -425,6 +524,12 @@ where
     }
 }
 
+enum HostIncoming {
+    Uni(Result<iroh::endpoint::RecvStream, NetError>),
+    Bi(Result<(iroh::endpoint::SendStream, iroh::endpoint::RecvStream), NetError>),
+    Control(Result<Control, NetError>),
+}
+
 enum Decision<T> {
     Side,
     Answer(T),
@@ -441,6 +546,7 @@ async fn prepare(ctx: &mut Ctx<'_>) -> Result<(), AdmitError> {
             return Err(error);
         }
     };
+    ctx.peer_caps = hello.caps.clone();
     if let Some(code) = hello_refusal(&hello) {
         send_close(ctx.channel, code).await;
         return Err(AdmitError::Closed(code));
@@ -461,6 +567,7 @@ async fn prepare(ctx: &mut Ctx<'_>) -> Result<(), AdmitError> {
     let ack = HelloAck {
         proto_major: PROTO_MAJOR,
         proto_minor: PROTO_MINOR,
+        caps: local_capabilities().to_vec(),
         auth_required: vec![AuthMethod::Interactive],
         ..HelloAck::default()
     };

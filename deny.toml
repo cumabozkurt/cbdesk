@@ -36,6 +36,8 @@ allow = [
     # This tree uses the AGPL side. See ADR-015.
     "AGPL-3.0-only",
     "GPL-3.0-or-later",
+    # clipboard-win, the Windows text clipboard behind arboard.
+    "BSL-1.0",
 ]
 
 [licenses.private]

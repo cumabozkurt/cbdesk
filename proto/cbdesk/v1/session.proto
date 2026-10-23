@@ -91,6 +91,13 @@ message InputEvent {
   PointerEvent pointer = 2;
 }
 
+// Plain text clipboard update on its own bidirectional stream.
+// A Clipboard grant is still required. This is not a file or image.
+message ClipboardText {
+  string text = 1;
+  uint64 generation = 2;
+}
+
 // One control-channel message. Exactly one body is set.
 // A QUIC control stream frames this as a big-endian u32 length plus these
 // bytes. The length counts only this message and is at most 64 KiB.

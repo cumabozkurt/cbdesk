@@ -25,4 +25,9 @@ pub enum CryptoError {
     /// An X25519 shared secret was the all-zero value and was rejected.
     #[error("X25519 shared secret was all zeros")]
     WeakSharedSecret,
+    /// The operating-system credential store could not be used.
+    ///
+    /// The detail is omitted on purpose: some store errors attach the secret.
+    #[error("operating system keychain is unavailable")]
+    KeyStoreUnavailable,
 }
