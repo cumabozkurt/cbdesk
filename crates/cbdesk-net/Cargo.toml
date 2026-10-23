@@ -19,6 +19,7 @@ n0-error.workspace = true
 rustls.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+zeroize.workspace = true
 
 [dev-dependencies]
 # The relay server helper is test-only. The CLI does not run a relay.

@@ -58,6 +58,9 @@ class DeskView {
     required this.relay,
     required this.error,
     required this.blocked,
+    required this.clipboard,
+    required this.audioPackets,
+    required this.lastInput,
   });
 
   /// Full device id.
@@ -66,10 +69,10 @@ class DeskView {
   /// Display fingerprint.
   final String shortFingerprint;
 
-  /// `NNN-WORD-WORD`. Not a credential in this build.
+  /// `NNN-WORD-WORD`. The words confirm pairing. They do not locate a peer.
   final String shortCode;
 
-  /// Always false until a PAKE exists.
+  /// True when the words can confirm pairing. The ticket is still the locator.
   final bool shortCodeAuthenticates;
 
   /// Signed invite ticket, hex.
@@ -140,11 +143,20 @@ class DeskView {
 
   /// Device ids this desk will not prompt for.
   final List<String> blocked;
+
+  /// Latest clipboard text this desk applied or received.
+  final String clipboard;
+
+  /// Audio packets the host has accepted.
+  final int audioPackets;
+
+  /// Last input the host recorded or injected.
+  final String lastInput;
 }
 
 /// A failure the shell can translate.
 class DeskFailure implements Exception {
-  /// `short_code`, `blocked`, `no_prompt`, `loose_seed`, or `message:…`.
+  /// `short_code_needs_ticket`, `blocked`, `no_prompt`, `loose_seed`, or `message:…`.
   DeskFailure(this.code);
 
   /// Stable code from the core.
@@ -162,7 +174,9 @@ abstract class DeskApi {
   /// Consent checkboxes, including which ones are high risk.
   Future<List<PermissionChoice>> permissions();
 
-  /// Dial a ticket. A short code is refused.
+  /// Dial a ticket. An optional second field is the short code.
+  ///
+  /// The code alone does not locate a computer.
   Future<void> connect(String text);
 
   /// Approve the current prompt.
@@ -194,4 +208,25 @@ abstract class DeskApi {
 
   /// Jail `name` and remember it.
   Future<void> stageFile(String name);
+
+  /// Send a pointer sample. Requires an Input grant.
+  Future<void> sendPointer(int x, int y, int buttons, int wheel);
+
+  /// Send a key transition. Requires an Input grant.
+  Future<void> sendKey(int keycode, bool down, int modifiers);
+
+  /// Send file bytes. The receiver jails [name]. Requires FileWrite.
+  Future<void> sendFile(String name, List<int> bytes);
+
+  /// Send clipboard text. Empty clears. Requires Clipboard.
+  Future<void> setClipboard(String text);
+
+  /// Send one audio packet. Requires Audio.
+  Future<void> sendAudio(List<int> bytes);
+
+  /// Open or drop the default microphone on this controller.
+  Future<void> setMic(bool enabled);
+
+  /// Queue one RGBA frame. Android calls this after system capture consent.
+  Future<void> submitFrame(int width, int height, List<int> rgba);
 }

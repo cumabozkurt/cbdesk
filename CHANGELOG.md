@@ -7,6 +7,24 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- Short-code pairing with the published `spake2` 0.4.0 crate. The password
+  is the two lowercase words. The slot and both device keys are transcript
+  only. The words are not written into the ticket. A desk host requires the
+  exchange before consent. A wrong code does not open the prompt. The host
+  still approves. The CLI host does not run this exchange. The transcript
+  has not had an external review. OPAQUE is still not implemented.
+- The Flutter shell sends the live session. A desktop host encodes
+  `capture_picture` when no picture is queued. The remote view forwards a
+  click and Enter after an Input grant, clipboard text after a Clipboard
+  grant, and a microphone switch after an Audio grant. The file panel sends
+  bytes over QUIC after the jail accepts the name. A missing microphone
+  does not end the session. This tree does not record that a person heard
+  the audio. Android capture uses the system dialog and does not create a
+  virtual display until that dialog is accepted. The longer side is scaled
+  to at most 960.
+- CI builds the Windows and macOS debug shells and an arm64 Android debug
+  APK, and checks that each links `libcbdesk_ffi`. Those jobs are not proven
+  until Actions finishes.
 - VP8 inter frames and color. The first frame is a keyframe. A later frame
   of the same size is a motion-compensated inter frame: oxideav-vp8 diamond
   search (whole, half, and quarter pixel). A 48×16 test shifts a white block
@@ -52,16 +70,17 @@ Version 0.0.0 is not a release.
   fraud warning, waits on a first contact, and requires an explicit opt-in
   for a high-risk permission. Reject starts focused. The session indicator
   is an edge and a disconnect panel painted above the pages, and it has no
-  off switch. The remote view is the decoded 48×16 motion frame after
-  consent, not an operating-system capture. The file panel stages a name
-  through the jail; QUIC chunks stay on `cbdesk view --put`. Settings show
-  audio device names and do not start a stream. A short code does not
-  authenticate. A ticket is still only a locator. Widget tests use a fake
-  desk and do not load the native library.
+  off switch. The remote view is the decoded frame. A desktop host sends
+  the operating-system capture when no picture is queued. The file panel
+  sends bytes over QUIC. The microphone switch opens the default device.
+  The two short-code words confirm pairing and do not locate a computer. A
+  ticket is still only a locator. Widget tests use a fake desk and do not
+  load the native library.
 - GitHub Actions runs rustfmt, cargo-deny, RustSec audit, clippy, and tests
   on Linux, Windows, and macOS, and runs Flutter analyze and widget tests on
-  those three. Ubuntu also builds the Linux debug bundle. Windows and macOS
-  Flutter bundles are not in this workflow.
+  those three. Ubuntu builds the Linux debug bundle and an arm64 Android
+  debug APK. Windows and macOS build their debug bundles and check that
+  `libcbdesk_ffi` is linked.
 - ADRs 001–015, threat-model draft, and contribution documents.
 - Turkish and English message catalogs for the errors and consent strings that
   exist so far.

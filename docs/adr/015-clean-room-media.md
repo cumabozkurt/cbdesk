@@ -67,8 +67,11 @@ native size can miss that target; the pacer then raises the quantizer.
 Audio is rusty-opus after an Audio grant. `--tone` is a synthetic packet
 and does not open a device. `--mic` and `--speaker` open the default
 devices through cpal 0.15.3. A missing device is an error. This tree does
-not record that a person heard the stream. The Flutter shell shows device
-names from a probe and does not start a capture. File bytes are a separate
-crate and are not a codec. The Flutter shell exists and shows the decoded
-48×16 motion frame after consent. It does not show an operating-system
-capture. Hardware codecs are still absent.
+not record that a person heard the stream. The Flutter shell can open the
+default microphone after an Audio grant. A missing device does not end
+that session. File bytes are a separate crate and are not a codec. The
+Flutter shell shows the decoded frame. On a desktop host that frame is
+`capture_picture` when nothing is queued. The 48×16 motion pair remains
+the queued test picture. Android frames enter the same queue only after
+the system capture dialog, scaled so the longer side is at most 960.
+Hardware codecs are still absent.

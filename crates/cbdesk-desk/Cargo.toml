@@ -16,6 +16,7 @@ cbdesk-codec = { path = "../cbdesk-codec" }
 cbdesk-crypto = { path = "../cbdesk-crypto" }
 cbdesk-discovery = { path = "../cbdesk-discovery" }
 cbdesk-fs = { path = "../cbdesk-fs" }
+cbdesk-input = { path = "../cbdesk-input" }
 cbdesk-net = { path = "../cbdesk-net" }
 cbdesk-proto = { path = "../cbdesk-proto" }
 cbdesk-session = { path = "../cbdesk-session" }
@@ -24,6 +25,9 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 zeroize.workspace = true
+
+[target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))'.dependencies]
+arboard.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

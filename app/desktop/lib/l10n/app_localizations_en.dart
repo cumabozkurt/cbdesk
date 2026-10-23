@@ -44,7 +44,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get shortCodeDoesNotAuthenticate =>
-      'This short code does not authenticate anyone. It is not a password.';
+      'The two words confirm pairing with this device. They do not locate a computer, and the host still has to approve.';
 
   @override
   String get ticketLocator => 'Invite ticket';
@@ -61,14 +61,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connectTitle => 'Connect';
 
   @override
-  String get connectHint => 'Paste an invite ticket';
+  String get connectHint => 'Paste the invite ticket';
+
+  @override
+  String get connectCodeHint => 'Short code, after the ticket';
 
   @override
   String get connectButton => 'Connect';
 
   @override
   String get errorShortCode =>
-      'A short code does not authenticate anyone. Paste the ticket instead.';
+      'A short code does not locate a computer. Paste the ticket, then the code.';
 
   @override
   String get errorBlocked => 'That device is blocked.';
@@ -149,7 +152,45 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remoteHonest =>
-      'This picture is a frame the core decoded. This shell does not show a full-screen capture.';
+      'This picture is the frame the core decoded. A desktop host sends the operating-system capture after you accept. Android sends a frame only after the system capture consent.';
+
+  @override
+  String get pointerHint =>
+      'A click on the picture is sent after an Input grant.';
+
+  @override
+  String get sendEnter => 'Send Enter';
+
+  @override
+  String lastInputLabel(String text) {
+    return 'Last input: $text';
+  }
+
+  @override
+  String get clipboardHint => 'Clipboard text';
+
+  @override
+  String get setClipboard => 'Set clipboard';
+
+  @override
+  String clipboardLabel(String text) {
+    return 'Clipboard: $text';
+  }
+
+  @override
+  String get micLabel => 'Microphone';
+
+  @override
+  String get micHonest =>
+      'This switch opens the default microphone and sends packets after an Audio grant. A missing device does not fail the session. This build does not record that anyone heard the audio.';
+
+  @override
+  String get micDenied => 'The microphone stays off until you allow it.';
+
+  @override
+  String audioPacketsLabel(int count) {
+    return 'Audio packets: $count';
+  }
 
   @override
   String get remoteEmpty => 'No picture yet. The host still has to accept.';
@@ -168,6 +209,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get stageFile => 'Stage';
+
+  @override
+  String get fileBodyHint => 'Text to send as file bytes';
+
+  @override
+  String get sendFile => 'Send';
 
   @override
   String get staged => 'Staged';
@@ -221,7 +268,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get audioHonest =>
-      'This screen shows the device names. Microphone and speaker audio is the cbdesk host --mic and --speaker path.';
+      'These are the default device names. The remote view switch sends microphone packets after an Audio grant.';
+
+  @override
+  String get desktopCaptureNote =>
+      'This desktop host captures the display inside the core after the other side connects and you accept.';
+
+  @override
+  String get shareScreen => 'Share this screen';
+
+  @override
+  String get shareDenied =>
+      'Screen capture stays off until you accept the system dialog.';
 
   @override
   String get refreshAudio => 'Refresh devices';

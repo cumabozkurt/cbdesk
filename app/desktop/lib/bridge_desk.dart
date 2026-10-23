@@ -4,9 +4,9 @@ import 'desk_api.dart';
 import 'src/rust/api.dart';
 
 /// The running shell's core. Widget tests do not construct this.
-class RustDeskApi implements DeskApi {
+class NativeDesk implements DeskApi {
   /// [desktop] is the opaque handle from [Desktop.open].
-  RustDeskApi(this._desktop);
+  NativeDesk(this._desktop);
 
   final Desktop _desktop;
 
@@ -45,6 +45,9 @@ class RustDeskApi implements DeskApi {
         relay: snap.relay,
         error: snap.error,
         blocked: snap.blocked,
+        clipboard: snap.clipboard,
+        audioPackets: snap.audioPackets,
+        lastInput: snap.lastInput,
       );
     });
   }
@@ -104,6 +107,44 @@ class RustDeskApi implements DeskApi {
   @override
   Future<void> stageFile(String name) =>
       _guard(() => _desktop.stageFile(name: name));
+
+  @override
+  Future<void> sendPointer(int x, int y, int buttons, int wheel) {
+    return _guard(
+      () => _desktop.sendPointer(x: x, y: y, buttons: buttons, wheel: wheel),
+    );
+  }
+
+  @override
+  Future<void> sendKey(int keycode, bool down, int modifiers) {
+    return _guard(
+      () => _desktop.sendKey(keycode: keycode, down: down, modifiers: modifiers),
+    );
+  }
+
+  @override
+  Future<void> sendFile(String name, List<int> bytes) {
+    return _guard(() => _desktop.sendFile(name: name, bytes: bytes));
+  }
+
+  @override
+  Future<void> setClipboard(String text) =>
+      _guard(() => _desktop.setClipboard(text: text));
+
+  @override
+  Future<void> sendAudio(List<int> bytes) =>
+      _guard(() => _desktop.sendAudio(bytes: bytes));
+
+  @override
+  Future<void> setMic(bool enabled) =>
+      _guard(() => _desktop.setMic(enabled: enabled));
+
+  @override
+  Future<void> submitFrame(int width, int height, List<int> rgba) {
+    return _guard(
+      () => _desktop.submitFrame(width: width, height: height, rgba: rgba),
+    );
+  }
 }
 
 Future<T> _guard<T>(Future<T> Function() body) async {

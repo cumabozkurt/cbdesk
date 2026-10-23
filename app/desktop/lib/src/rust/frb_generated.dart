@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 1347615502;
+  int get rustContentHash => 733098929;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -113,9 +113,45 @@ abstract class RustLibApi extends BaseApi {
     required String deviceId,
   });
 
+  Future<void> crateApiDesktopSendAudio({
+    required Desktop that,
+    required List<int> bytes,
+  });
+
+  Future<void> crateApiDesktopSendFile({
+    required Desktop that,
+    required String name,
+    required List<int> bytes,
+  });
+
+  Future<void> crateApiDesktopSendKey({
+    required Desktop that,
+    required int keycode,
+    required bool down,
+    required int modifiers,
+  });
+
+  Future<void> crateApiDesktopSendPointer({
+    required Desktop that,
+    required int x,
+    required int y,
+    required int buttons,
+    required int wheel,
+  });
+
+  Future<void> crateApiDesktopSetClipboard({
+    required Desktop that,
+    required String text,
+  });
+
   Future<void> crateApiDesktopSetLocale({
     required Desktop that,
     required String locale,
+  });
+
+  Future<void> crateApiDesktopSetMic({
+    required Desktop that,
+    required bool enabled,
   });
 
   Future<void> crateApiDesktopSetRelay({
@@ -128,6 +164,13 @@ abstract class RustLibApi extends BaseApi {
   Future<void> crateApiDesktopStageFile({
     required Desktop that,
     required String name,
+  });
+
+  Future<void> crateApiDesktopSubmitFrame({
+    required Desktop that,
+    required int width,
+    required int height,
+    required List<int> rgba,
   });
 
   Future<void> crateApiInitApp();
@@ -459,6 +502,204 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiDesktopSendAudio({
+    required Desktop that,
+    required List<int> bytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDesktop(
+            that,
+            serializer,
+          );
+          sse_encode_list_prim_u_8_loose(bytes, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 10,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiDesktopSendAudioConstMeta,
+        argValues: [that, bytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDesktopSendAudioConstMeta => const TaskConstMeta(
+    debugName: "Desktop_send_audio",
+    argNames: ["that", "bytes"],
+  );
+
+  @override
+  Future<void> crateApiDesktopSendFile({
+    required Desktop that,
+    required String name,
+    required List<int> bytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDesktop(
+            that,
+            serializer,
+          );
+          sse_encode_String(name, serializer);
+          sse_encode_list_prim_u_8_loose(bytes, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 11,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiDesktopSendFileConstMeta,
+        argValues: [that, name, bytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDesktopSendFileConstMeta => const TaskConstMeta(
+    debugName: "Desktop_send_file",
+    argNames: ["that", "name", "bytes"],
+  );
+
+  @override
+  Future<void> crateApiDesktopSendKey({
+    required Desktop that,
+    required int keycode,
+    required bool down,
+    required int modifiers,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDesktop(
+            that,
+            serializer,
+          );
+          sse_encode_u_32(keycode, serializer);
+          sse_encode_bool(down, serializer);
+          sse_encode_u_32(modifiers, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 12,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiDesktopSendKeyConstMeta,
+        argValues: [that, keycode, down, modifiers],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDesktopSendKeyConstMeta => const TaskConstMeta(
+    debugName: "Desktop_send_key",
+    argNames: ["that", "keycode", "down", "modifiers"],
+  );
+
+  @override
+  Future<void> crateApiDesktopSendPointer({
+    required Desktop that,
+    required int x,
+    required int y,
+    required int buttons,
+    required int wheel,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDesktop(
+            that,
+            serializer,
+          );
+          sse_encode_i_32(x, serializer);
+          sse_encode_i_32(y, serializer);
+          sse_encode_u_32(buttons, serializer);
+          sse_encode_i_32(wheel, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 13,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiDesktopSendPointerConstMeta,
+        argValues: [that, x, y, buttons, wheel],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDesktopSendPointerConstMeta => const TaskConstMeta(
+    debugName: "Desktop_send_pointer",
+    argNames: ["that", "x", "y", "buttons", "wheel"],
+  );
+
+  @override
+  Future<void> crateApiDesktopSetClipboard({
+    required Desktop that,
+    required String text,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDesktop(
+            that,
+            serializer,
+          );
+          sse_encode_String(text, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 14,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiDesktopSetClipboardConstMeta,
+        argValues: [that, text],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDesktopSetClipboardConstMeta =>
+      const TaskConstMeta(
+        debugName: "Desktop_set_clipboard",
+        argNames: ["that", "text"],
+      );
+
+  @override
   Future<void> crateApiDesktopSetLocale({
     required Desktop that,
     required String locale,
@@ -475,7 +716,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 15,
             port: port_,
           );
         },
@@ -496,6 +737,43 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<void> crateApiDesktopSetMic({
+    required Desktop that,
+    required bool enabled,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDesktop(
+            that,
+            serializer,
+          );
+          sse_encode_bool(enabled, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 16,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiDesktopSetMicConstMeta,
+        argValues: [that, enabled],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDesktopSetMicConstMeta => const TaskConstMeta(
+    debugName: "Desktop_set_mic",
+    argNames: ["that", "enabled"],
+  );
+
+  @override
   Future<void> crateApiDesktopSetRelay({
     required Desktop that,
     required String relay,
@@ -512,7 +790,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 17,
             port: port_,
           );
         },
@@ -545,7 +823,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 18,
             port: port_,
           );
         },
@@ -580,7 +858,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 13,
+            funcId: 19,
             port: port_,
           );
         },
@@ -601,6 +879,47 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<void> crateApiDesktopSubmitFrame({
+    required Desktop that,
+    required int width,
+    required int height,
+    required List<int> rgba,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerDesktop(
+            that,
+            serializer,
+          );
+          sse_encode_u_32(width, serializer);
+          sse_encode_u_32(height, serializer);
+          sse_encode_list_prim_u_8_loose(rgba, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 20,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiDesktopSubmitFrameConstMeta,
+        argValues: [that, width, height, rgba],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDesktopSubmitFrameConstMeta => const TaskConstMeta(
+    debugName: "Desktop_submit_frame",
+    argNames: ["that", "width", "height", "rgba"],
+  );
+
+  @override
   Future<void> crateApiInitApp() {
     return handler.executeNormal(
       NormalTask(
@@ -609,7 +928,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 14,
+            funcId: 21,
             port: port_,
           );
         },
@@ -636,7 +955,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 22,
             port: port_,
           );
         },
@@ -702,9 +1021,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  int dco_decode_i_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_String).toList();
+  }
+
+  @protected
+  List<int> dco_decode_list_prim_u_8_loose(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as List<int>;
   }
 
   @protected
@@ -765,8 +1096,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   UiSnapshot dco_decode_ui_snapshot(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 27)
-      throw Exception('unexpected arr length: expect 27 but see ${arr.length}');
+    if (arr.length != 30)
+      throw Exception('unexpected arr length: expect 30 but see ${arr.length}');
     return UiSnapshot(
       deviceId: dco_decode_String(arr[0]),
       shortFingerprint: dco_decode_String(arr[1]),
@@ -795,6 +1126,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       relay: dco_decode_String(arr[24]),
       error: dco_decode_String(arr[25]),
       blocked: dco_decode_list_String(arr[26]),
+      clipboard: dco_decode_String(arr[27]),
+      audioPackets: dco_decode_u_32(arr[28]),
+      lastInput: dco_decode_String(arr[29]),
     );
   }
 
@@ -860,6 +1194,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  int sse_decode_i_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getInt32();
+  }
+
+  @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -869,6 +1209,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       ans_.add(sse_decode_String(deserializer));
     }
     return ans_;
+  }
+
+  @protected
+  List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getUint8List(len_);
   }
 
   @protected
@@ -962,6 +1309,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_relay = sse_decode_String(deserializer);
     var var_error = sse_decode_String(deserializer);
     var var_blocked = sse_decode_list_String(deserializer);
+    var var_clipboard = sse_decode_String(deserializer);
+    var var_audioPackets = sse_decode_u_32(deserializer);
+    var var_lastInput = sse_decode_String(deserializer);
     return UiSnapshot(
       deviceId: var_deviceId,
       shortFingerprint: var_shortFingerprint,
@@ -990,6 +1340,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       relay: var_relay,
       error: var_error,
       blocked: var_blocked,
+      clipboard: var_clipboard,
+      audioPackets: var_audioPackets,
+      lastInput: var_lastInput,
     );
   }
 
@@ -1002,12 +1355,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   BigInt sse_decode_usize(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getBigUint64();
-  }
-
-  @protected
-  int sse_decode_i_32(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getInt32();
   }
 
   @protected
@@ -1062,12 +1409,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_i_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putInt32(self);
+  }
+
+  @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_String(item, serializer);
     }
+  }
+
+  @protected
+  void sse_encode_list_prim_u_8_loose(
+    List<int> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putUint8List(
+      self is Uint8List ? self : Uint8List.fromList(self),
+    );
   }
 
   @protected
@@ -1160,6 +1525,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.relay, serializer);
     sse_encode_String(self.error, serializer);
     sse_encode_list_String(self.blocked, serializer);
+    sse_encode_String(self.clipboard, serializer);
+    sse_encode_u_32(self.audioPackets, serializer);
+    sse_encode_String(self.lastInput, serializer);
   }
 
   @protected
@@ -1171,12 +1539,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_usize(BigInt self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putBigUint64(self);
-  }
-
-  @protected
-  void sse_encode_i_32(int self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putInt32(self);
   }
 }
 
@@ -1220,7 +1582,7 @@ class DesktopImpl extends RustOpaque implements Desktop {
   /// Reject this prompt and refuse the same device id later.
   Future<void> block() => RustLib.instance.api.crateApiDesktopBlock(that: this);
 
-  /// Dial `text`. A short code is refused. A ticket is only a locator.
+  /// Dial `text`. A ticket locates the host. A second field is the short code.
   Future<void> connect({required String text}) =>
       RustLib.instance.api.crateApiDesktopConnect(that: this, text: text);
 
@@ -1240,9 +1602,55 @@ class DesktopImpl extends RustOpaque implements Desktop {
   Future<void> removeContact({required String deviceId}) => RustLib.instance.api
       .crateApiDesktopRemoveContact(that: this, deviceId: deviceId);
 
+  /// Send one audio packet. Requires Audio.
+  Future<void> sendAudio({required List<int> bytes}) =>
+      RustLib.instance.api.crateApiDesktopSendAudio(that: this, bytes: bytes);
+
+  /// Send file bytes. The receiver jails `name`. Requires FileWrite.
+  Future<void> sendFile({required String name, required List<int> bytes}) =>
+      RustLib.instance.api.crateApiDesktopSendFile(
+        that: this,
+        name: name,
+        bytes: bytes,
+      );
+
+  /// Send a key transition. Requires an Input grant.
+  Future<void> sendKey({
+    required int keycode,
+    required bool down,
+    required int modifiers,
+  }) => RustLib.instance.api.crateApiDesktopSendKey(
+    that: this,
+    keycode: keycode,
+    down: down,
+    modifiers: modifiers,
+  );
+
+  /// Send a pointer sample. Requires an Input grant.
+  Future<void> sendPointer({
+    required int x,
+    required int y,
+    required int buttons,
+    required int wheel,
+  }) => RustLib.instance.api.crateApiDesktopSendPointer(
+    that: this,
+    x: x,
+    y: y,
+    buttons: buttons,
+    wheel: wheel,
+  );
+
+  /// Send clipboard text. Empty clears. Requires Clipboard.
+  Future<void> setClipboard({required String text}) =>
+      RustLib.instance.api.crateApiDesktopSetClipboard(that: this, text: text);
+
   /// `tr` or `en`. The short code already on screen stays as it was.
   Future<void> setLocale({required String locale}) =>
       RustLib.instance.api.crateApiDesktopSetLocale(that: this, locale: locale);
+
+  /// Open or drop the default microphone on this controller.
+  Future<void> setMic({required bool enabled}) =>
+      RustLib.instance.api.crateApiDesktopSetMic(that: this, enabled: enabled);
 
   /// Store an operator relay URL. Empty clears it. This process does not
   /// start a relay.
@@ -1256,4 +1664,19 @@ class DesktopImpl extends RustOpaque implements Desktop {
   /// Jail `name` under the transfer directory and remember it.
   Future<void> stageFile({required String name}) =>
       RustLib.instance.api.crateApiDesktopStageFile(that: this, name: name);
+
+  /// Queue one RGBA frame for the host encoder.
+  ///
+  /// Android calls this after the person accepts the system capture dialog.
+  /// Odd sizes are refused. This does not capture by itself.
+  Future<void> submitFrame({
+    required int width,
+    required int height,
+    required List<int> rgba,
+  }) => RustLib.instance.api.crateApiDesktopSubmitFrame(
+    that: this,
+    width: width,
+    height: height,
+    rgba: rgba,
+  );
 }

@@ -44,7 +44,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get shortCodeDoesNotAuthenticate =>
-      'Bu kısa kod kimseyi doğrulamaz. Parola değildir.';
+      'İki sözcük bu cihazla eşleşmeyi doğrular. Bir bilgisayar bulmazlar ve sunucunun yine onaylaması gerekir.';
 
   @override
   String get ticketLocator => 'Davet bileti';
@@ -64,11 +64,14 @@ class AppLocalizationsTr extends AppLocalizations {
   String get connectHint => 'Davet biletini yapıştırın';
 
   @override
+  String get connectCodeHint => 'Biletten sonra kısa kod';
+
+  @override
   String get connectButton => 'Bağlan';
 
   @override
   String get errorShortCode =>
-      'Kısa kod kimseyi doğrulamaz. Bileti yapıştırın.';
+      'Kısa kod bir bilgisayar bulmaz. Bileti, sonra kodu yapıştırın.';
 
   @override
   String get errorBlocked => 'Bu cihaz engelli.';
@@ -150,7 +153,45 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get remoteHonest =>
-      'Bu görüntü, çekirdeğin çözdüğü karedir. Bu kabuk tam ekran yakalaması göstermez.';
+      'Bu görüntü, çekirdeğin çözdüğü karedir. Masaüstü sunucu kabulden sonra işletim sistemi yakalamasını gönderir. Android, sistem yakalama onayından sonra kare gönderir.';
+
+  @override
+  String get pointerHint =>
+      'Görüntüye tıklamak, Giriş izninden sonra gönderilir.';
+
+  @override
+  String get sendEnter => 'Enter gönder';
+
+  @override
+  String lastInputLabel(String text) {
+    return 'Son girdi: $text';
+  }
+
+  @override
+  String get clipboardHint => 'Pano metni';
+
+  @override
+  String get setClipboard => 'Panoyu ayarla';
+
+  @override
+  String clipboardLabel(String text) {
+    return 'Pano: $text';
+  }
+
+  @override
+  String get micLabel => 'Mikrofon';
+
+  @override
+  String get micHonest =>
+      'Bu anahtar varsayılan mikrofonu açar ve Ses izninden sonra paket gönderir. Aygıt yoksa oturum düşmez. Bu sürüm, birinin sesi duyduğunu kaydetmez.';
+
+  @override
+  String get micDenied => 'İzin verene kadar mikrofon kapalı kalır.';
+
+  @override
+  String audioPacketsLabel(int count) {
+    return 'Ses paketleri: $count';
+  }
 
   @override
   String get remoteEmpty =>
@@ -170,6 +211,12 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get stageFile => 'Hazırla';
+
+  @override
+  String get fileBodyHint => 'Dosya baytı olarak gönderilecek metin';
+
+  @override
+  String get sendFile => 'Gönder';
 
   @override
   String get staged => 'Hazırlananlar';
@@ -224,7 +271,18 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get audioHonest =>
-      'Bu ekran cihaz adlarını gösterir. Mikrofon ve hoparlör sesi cbdesk host --mic ve --speaker yoludur.';
+      'Bunlar varsayılan aygıt adlarıdır. Uzak ekrandaki anahtar, Ses izninden sonra mikrofon paketi gönderir.';
+
+  @override
+  String get desktopCaptureNote =>
+      'Bu masaüstü sunucu, karşı taraf bağlanıp siz kabul ettikten sonra görüntüyü çekirdekte yakalar.';
+
+  @override
+  String get shareScreen => 'Bu ekranı paylaş';
+
+  @override
+  String get shareDenied =>
+      'Sistem penceresini kabul edene kadar ekran yakalama kapalı kalır.';
 
   @override
   String get refreshAudio => 'Cihazları yenile';

@@ -16,9 +16,12 @@ sources is derived from that project.
 - GitHub Actions: rustfmt, cargo-deny, RustSec audit, DCO, catalog check,
   rebrand scan, and clippy plus tests on `ubuntu-24.04`, `windows-2022`, and
   `macos-14`. Flutter analyze and widget tests run on those three. Ubuntu
-  also builds the Linux debug shell. Windows and macOS Flutter bundles are
-  not in this workflow. CI on `c01d0fb` is green on the three Rust jobs.
-  The jobs for the commit that adds this note have not finished.
+  also builds the Linux debug shell. This workflow also builds the Windows
+  and macOS debug bundles and an arm64 Android debug APK. CI on `c01d0fb`
+  is green. `80534bf` is not: the rebrand scan rejected the shell bridge
+  class name, and the Windows `view_remote` tests timed out after the host
+  main thread overflowed its stack. The following commit is the fix. It is
+  not green until Actions finishes.
 - Contribution documents: `CONTRIBUTING.md`, `GOVERNANCE.md`, `SECURITY.md`,
   `PRIVACY.md`, `TRADEMARK.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, `NOTICE`.
 - ADRs 001–015. ADR-015 declines a fork for capture, codec, and input.
@@ -63,17 +66,27 @@ sources is derived from that project.
   the display. `--put`, `--tone`, `--audio`, `--mic`, `--speaker`, and
   `--relay` are wired. `--tone` and `--mic` cannot be combined.
 - `cbdesk-desk`: device id, short code, signed ticket locator, consent,
-  block list, address book, file-name jail, and the 48×16 motion frame after
-  consent. The short code does not authenticate. The address book does not
-  skip the first-contact delay. The manual clock is not exported.
+  block list, address book, and a live session after consent. The two words
+  confirm pairing through SPAKE2 before the consent prompt. They do not
+  locate a computer and they are not stored in the ticket. A wrong code
+  does not open the prompt. The host still approves, and the address book
+  does not skip the first-contact delay. With no queued picture, the host
+  encodes `capture_picture`. A queued preview or `submit_frame` is used
+  first so the 48×16 motion test does not encode a full display. Input,
+  clipboard text, one audio packet, and file bytes ride the granted
+  streams. The manual clock, the preview queue, and the input-record flag
+  are not exported.
 - `cbdesk-ffi`: flutter_rust_bridge 2.12.0. `api.rs` forbids unsafe.
   Generated glue is the unsafe file.
-- `app/desktop`: Flutter 3.47.7 shell. Home, connect, consent, remote view,
-  file panel, address book, and settings, in Turkish and English. The
-  indicator is an edge and a disconnect panel above the pages and has no
-  off switch. The remote view is the decoded 48×16 motion frame, not an
-  operating-system capture. The file panel stages a name. Settings show
-  device names and do not start a stream. Widget tests use a fake desk.
+- `app/desktop`: Flutter 3.47.7 shell for desktop and Android. Home,
+  connect, consent, remote view, file panel, address book, and settings, in
+  Turkish and English. The indicator is an edge and a disconnect panel
+  above the pages and has no off switch. Connect takes a ticket and an
+  optional short code. The remote view paints the decoded frame and sends
+  a click, Enter, clipboard text, and a microphone switch. The file panel
+  stages a name and sends bytes. Android shares the screen only after the
+  system capture dialog; the longer side is at most 960. Widget tests use
+  a fake desk and do not load the native library.
 - `cbdesk-testkit`: re-exported barcode frames, recording injector,
   poisonable fake DHT.
 - Netlab profile files for N0, N3, and N4. They do not create namespaces.
@@ -144,7 +157,8 @@ substitute, not that exit.
 - Synthetic capturer, a VP8 barcode stream, and an AV1 fallback. The live
   path sends color YUV at the capture's even size. The pacer targets 33 ms
   and adapts the VP8 quantizer. This tree has no 1080p timing measurement.
-  The Flutter desk sends the 48×16 motion pair, not that live capture.
+  The Flutter desk encodes that live capture when no picture is queued.
+  The 48×16 motion pair is the queued test picture.
   Ubuntu CI proves the X11 path under Xvfb, including a viewer window that
   opens and paints one local frame. The Wayland ScreenCast path is compiled
   and selected when `WAYLAND_DISPLAY` is set; CI does not run it. Windows
@@ -158,10 +172,11 @@ substitute, not that exit.
   QUIC delivery, not an injected operating-system click.
 - File transfer resumes in `cbdesk-fs`. The CLI `--put` test stores
   `hello` after `file_write` and `--allow-high-risk`. The Flutter file panel
-  stages a name through that jail and does not send the chunks. Audio
+  jails the name and sends the bytes on the QUIC file stream. Audio
   `--tone` reaches a viewer that passed `--audio`. `--mic` and `--speaker`
-  open real devices; the shell only displays the names `probe_defaults`
-  returns. Integration tests set
+  open real devices. The shell switch calls the same microphone open on the
+  controller. A missing device does not end the desk session. This tree
+  does not record that a person heard the stream. Integration tests set
   `CBDESK_EPHEMERAL_IDENTITY=1` so two processes do not load one OS keychain
   identity and refuse to dial each other. Same-machine browse dials loopback
   before the multicast source address.
@@ -186,36 +201,42 @@ substitute, not that exit.
 | T-I18N-004 | Turkish short-code casing | A spoken usability test |
 
 Widget tests in `app/desktop/test` drive the shell with a fake desk. They
-cover the home id and short code, a refused short code, the consent delay
-flag, the high-risk opt-in, Reject focus, the missing hide-indicator
-control, disconnect, the file-name jail, the address book, and the English
-settings strings. They do not load `libcbdesk_ffi`. The Rust bridge test
-refuses a short code and keeps `indicator_can_be_disabled` false.
+cover the home id and the pairing sentence, a short code without a ticket,
+the consent delay flag, the high-risk opt-in, Reject focus, the missing
+hide-indicator control, disconnect, the file-name jail, a file-byte send,
+a click, Enter, clipboard text, the microphone switch, the address book,
+and the English settings strings. They do not load `libcbdesk_ffi`. The
+Rust bridge test refuses a short code that has no ticket and keeps
+`indicator_can_be_disabled` false.
 `flutter build linux --debug` on this machine produced a bundle that
 contains `libcbdesk_ffi.so`. Starting that binary under Xvfb loaded the
 library and wrote an identity file. That start is not a click-through of
 the screens and it is not a session to another computer.
+`flutter build apk --debug --target-platform android-arm64` on this
+machine produced an APK whose `lib/arm64-v8a/libcbdesk_ffi.so` is the Rust
+bridge. That APK was not installed on a device, and the system capture
+dialog was not accepted. Windows and macOS bundles are in the workflow and
+are not proven until Actions finishes.
 
 ## Recommended next run
 
-Stream an operating-system capture through the Flutter desk. Today that
-desk sends the 48×16 motion pair after consent, and `cbdesk --screen` is
-the capture path. Pipe the microphone through the Flutter session. Today
-`--mic` and `--speaker` are CLI flags, and the shell only shows device
-names. Wayland ScreenCast is compiled and untested in CI; a portal-capable
-lab would be the proof, not an Xvfb job. A symmetric NAT measurement needs
-two machines and a relay the operator runs outside this repository.
-Windows and macOS Flutter bundles are not built in CI yet. The macOS
-plugin file is a CocoaPods podspec. Flutter 3.47's generated Swift package
-on this machine did not list that plugin, so a macOS bundle is not proven.
+Prove the Windows and macOS debug bundles and the arm64 Android APK on
+Actions. The macOS plugin is a CocoaPods podspec, and the workflow turns
+Swift Package Manager off before `flutter build macos`. Wayland ScreenCast
+is compiled and untested in CI; a portal-capable lab would be the proof,
+not an Xvfb job. A symmetric NAT measurement needs two machines and a
+relay the operator runs outside this repository. Android capture is
+MediaProjection after the system dialog and is scaled so the longer side
+is at most 960. It has not been clicked through on a device in this run.
 
-CI on `c01d0fb` is green on Ubuntu 24.04, Windows 2022, and macOS 14.
-The commit that adds the shell, device audio, and the motion test is not
-green until Actions finishes.
+`c01d0fb` is green on Ubuntu 24.04, Windows 2022, and macOS 14. `80534bf`
+is not. The commit after it is not green until Actions finishes.
 
-Still out of this run: hardware codecs, Flutter mobile, compressed file
-chunks, SPAKE2, OPAQUE, and DHT blinding. ADR-007 and ADR-008 are still
-Proposed. The fork import stays closed for capture, codec, and input
-(ADR-015). M0's fork-builds exit stays unmet. T-MED-004 is not a
-60-second soak. The pacer targets 33 ms. A 1080p frame interval has not
-been measured. Nobody has confirmed they heard the microphone path.
+Still out of this run: hardware codecs, an iOS shell, compressed file
+chunks, OPAQUE, and DHT blinding. ADR-007 stays Proposed. ADR-008 is
+Accepted for `spake2` 0.4.0 and has not had an external review. The fork
+import stays closed for capture, codec, and input (ADR-015). M0's
+fork-builds exit stays unmet. T-MED-004 is not a 60-second soak. The pacer
+targets 33 ms. A 1080p frame interval has not been measured. Nobody has
+confirmed they heard the microphone path. `clipboard-win` 5.4.1, pulled by
+arboard 3.7.0, is yanked; `cargo audit` reports it as an allowed warning.

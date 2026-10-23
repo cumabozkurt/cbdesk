@@ -10,6 +10,16 @@ use cbdesk_codec::{vp8_is_inter, Vp8Encoder, Vp8StreamDecoder};
 
 use crate::error::DeskError;
 
+/// One packet the host can send without capturing the display.
+pub struct PreviewPacket {
+    /// VP8 bytes.
+    pub bytes: Vec<u8>,
+    /// True when a decoder can start on this packet.
+    pub keyframe: bool,
+    /// Picture those bytes represent.
+    pub picture: Picture,
+}
+
 /// Keyframe, inter frame, and the decoded inter picture.
 pub struct MotionPair {
     /// First packet. A decoder can start here.
@@ -18,6 +28,23 @@ pub struct MotionPair {
     pub inter: Vec<u8>,
     /// Decoded inter picture, I420.
     pub picture: Picture,
+}
+
+/// The motion pair as two packets the host loop can send in order.
+pub fn motion_preview() -> Result<Vec<PreviewPacket>, DeskError> {
+    let pair = motion_pair()?;
+    Ok(vec![
+        PreviewPacket {
+            bytes: pair.key,
+            keyframe: true,
+            picture: band(0),
+        },
+        PreviewPacket {
+            bytes: pair.inter,
+            keyframe: false,
+            picture: pair.picture,
+        },
+    ])
 }
 
 /// Encode a white block, then the same block 16 pixels to the right.

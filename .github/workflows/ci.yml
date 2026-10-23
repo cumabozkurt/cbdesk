@@ -192,4 +192,45 @@ jobs:
       - name: Linux debug bundle
         if: runner.os == 'Linux'
         working-directory: app/desktop
-        run: flutter build linux --debug
+        run: |
+          flutter build linux --debug
+          test -f build/linux/x64/debug/bundle/lib/libcbdesk_ffi.so
+
+      - name: Windows debug bundle
+        if: runner.os == 'Windows'
+        working-directory: app/desktop
+        shell: bash
+        run: |
+          flutter build windows --debug
+          test -f build/windows/x64/runner/Debug/cbdesk.exe
+          dll=$(find build/windows -name 'cbdesk_ffi.dll' -o -name 'libcbdesk_ffi.dll' | head -n 1)
+          test -n "$dll"
+          echo "linked $dll"
+
+      - name: macOS debug bundle
+        if: runner.os == 'macOS'
+        working-directory: app/desktop
+        run: |
+          flutter config --no-enable-swift-package-manager
+          flutter build macos --debug
+          app="build/macos/Build/Products/Debug/cbdesk.app/Contents/MacOS/cbdesk"
+          test -f "$app"
+          lib=$(find build/macos -name 'libcbdesk_ffi.a' | head -n 1)
+          test -n "$lib"
+          nm "$lib" | grep -q flutter_rust_bridge
+          nm "$app" | grep -q flutter_rust_bridge
+
+      - name: Android debug bundle
+        if: runner.os == 'Linux'
+        working-directory: app/desktop
+        run: |
+          sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          test -n "$sdk"
+          sdkmanager=$(find "$sdk/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)
+          test -n "$sdkmanager"
+          rustup target add aarch64-linux-android
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" "ndk;28.2.13676358" "platforms;android-36"
+          flutter config --android-sdk "$sdk"
+          flutter build apk --debug --target-platform android-arm64
+          unzip -l build/app/outputs/flutter-apk/app-debug.apk | grep 'libcbdesk_ffi.so'

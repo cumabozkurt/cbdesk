@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'desk_api.dart';
 import 'l10n/app_localizations.dart';
@@ -12,6 +14,8 @@ class CbDeskApp extends StatefulWidget {
     super.key,
     required this.api,
     this.poll = const Duration(seconds: 1),
+    this.shareScreen,
+    this.ensureMic,
   });
 
   /// Core the screens call.
@@ -19,6 +23,12 @@ class CbDeskApp extends StatefulWidget {
 
   /// How often to re-read the snapshot. Null disables the timer.
   final Duration? poll;
+
+  /// Android system capture dialog. Null on desktop, where the core captures.
+  final Future<bool> Function()? shareScreen;
+
+  /// Android microphone permission. Null where the core opens the device.
+  final Future<bool> Function()? ensureMic;
 
   @override
   State<CbDeskApp> createState() => _CbDeskAppState();
@@ -33,10 +43,15 @@ class _CbDeskAppState extends State<CbDeskApp> {
   final Set<String> _ticked = {};
   bool _explicitHighRisk = false;
   final _connect = TextEditingController();
+  final _code = TextEditingController();
   final _fileName = TextEditingController();
+  final _fileBody = TextEditingController();
+  final _clipboard = TextEditingController();
   final _contactName = TextEditingController();
   final _contactId = TextEditingController();
   final _relay = TextEditingController();
+  final _remoteFocus = FocusNode();
+  bool _mic = false;
 
   @override
   void initState() {
@@ -52,10 +67,14 @@ class _CbDeskAppState extends State<CbDeskApp> {
   void dispose() {
     _timer?.cancel();
     _connect.dispose();
+    _code.dispose();
     _fileName.dispose();
+    _fileBody.dispose();
+    _clipboard.dispose();
     _contactName.dispose();
     _contactId.dispose();
     _relay.dispose();
+    _remoteFocus.dispose();
     super.dispose();
   }
 
@@ -132,10 +151,15 @@ class _CbDeskAppState extends State<CbDeskApp> {
               ticked: _ticked,
               explicitHighRisk: _explicitHighRisk,
               connect: _connect,
+              code: _code,
               fileName: _fileName,
+              fileBody: _fileBody,
+              clipboard: _clipboard,
+              mic: _mic,
               contactName: _contactName,
               contactId: _contactId,
               relay: _relay,
+              remoteFocus: _remoteFocus,
               onSection: (index) => setState(() => _section = index),
               onToggle: (name, value) => setState(() {
                 if (value) {
@@ -147,7 +171,9 @@ class _CbDeskAppState extends State<CbDeskApp> {
               onExplicit: (value) => setState(() => _explicitHighRisk = value),
               onConnect: () => unawaited(
                 _run(
-                  () => widget.api.connect(_connect.text.trim()),
+                  () => widget.api.connect(
+                    _join(_connect.text, _code.text),
+                  ),
                   section: 2,
                 ),
               ),
@@ -161,6 +187,33 @@ class _CbDeskAppState extends State<CbDeskApp> {
               onStage: () => unawaited(
                 _run(() => widget.api.stageFile(_fileName.text.trim())),
               ),
+              onSendFile: () => unawaited(
+                _run(
+                  () => widget.api.sendFile(
+                    _fileName.text.trim(),
+                    utf8.encode(_fileBody.text),
+                  ),
+                ),
+              ),
+              onPointer: (x, y, buttons, wheel) => unawaited(
+                _run(() => widget.api.sendPointer(x, y, buttons, wheel)),
+              ),
+              onKey: (keycode, down) => unawaited(
+                _run(
+                  () => widget.api.sendKey(
+                    keycode,
+                    down,
+                    _modifiers(HardwareKeyboard.instance),
+                  ),
+                ),
+              ),
+              onClipboard: () => unawaited(
+                _run(() => widget.api.setClipboard(_clipboard.text)),
+              ),
+              onMic: (enabled) => unawaited(_setMic(enabled)),
+              onShare: widget.shareScreen == null
+                  ? null
+                  : () => unawaited(_share()),
               onAddContact: () => unawaited(
                 _run(
                   () => widget.api.addContact(
@@ -179,6 +232,38 @@ class _CbDeskAppState extends State<CbDeskApp> {
     );
   }
 
+  Future<void> _setMic(bool enabled) async {
+    if (enabled) {
+      final ensure = widget.ensureMic;
+      if (ensure != null && !await ensure()) {
+        if (!mounted) {
+          return;
+        }
+        setState(() => _actionError = 'mic_denied');
+        return;
+      }
+    }
+    await _run(() => widget.api.setMic(enabled));
+    if (!mounted) {
+      return;
+    }
+    if (_actionError == null) {
+      setState(() => _mic = enabled);
+    }
+  }
+
+  Future<void> _share() async {
+    final share = widget.shareScreen;
+    if (share == null) {
+      return;
+    }
+    final accepted = await share();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _actionError = accepted ? null : 'share_denied');
+  }
+
   Future<void> _saveRelay() async {
     final text = _relay.text.trim();
     if (!_relayOk(text)) {
@@ -187,6 +272,70 @@ class _CbDeskAppState extends State<CbDeskApp> {
     }
     await _run(() => widget.api.setRelay(text));
   }
+}
+
+String _join(String ticket, String code) {
+  final trimmedTicket = ticket.trim();
+  final trimmedCode = code.trim();
+  if (trimmedTicket.isEmpty) {
+    return trimmedCode;
+  }
+  if (trimmedCode.isEmpty) {
+    return trimmedTicket;
+  }
+  return '$trimmedTicket $trimmedCode';
+}
+
+int _modifiers(HardwareKeyboard keyboard) {
+  var mods = 0;
+  if (keyboard.isShiftPressed) {
+    mods |= 1;
+  }
+  if (keyboard.isControlPressed) {
+    mods |= 2;
+  }
+  if (keyboard.isAltPressed) {
+    mods |= 4;
+  }
+  if (keyboard.isMetaPressed) {
+    mods |= 8;
+  }
+  return mods;
+}
+
+int? _keycode(LogicalKeyboardKey key) {
+  if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter) {
+    return 0xE000;
+  }
+  if (key == LogicalKeyboardKey.escape) {
+    return 0xE001;
+  }
+  if (key == LogicalKeyboardKey.backspace) {
+    return 0xE002;
+  }
+  if (key == LogicalKeyboardKey.tab) {
+    return 0xE003;
+  }
+  if (key == LogicalKeyboardKey.arrowLeft) {
+    return 0xE004;
+  }
+  if (key == LogicalKeyboardKey.arrowRight) {
+    return 0xE005;
+  }
+  if (key == LogicalKeyboardKey.arrowUp) {
+    return 0xE006;
+  }
+  if (key == LogicalKeyboardKey.arrowDown) {
+    return 0xE007;
+  }
+  final label = key.keyLabel;
+  if (label.length == 1) {
+    final code = label.codeUnitAt(0);
+    if (code >= 32 && code < 127) {
+      return code;
+    }
+  }
+  return null;
 }
 
 bool _relayOk(String text) {
@@ -269,7 +418,11 @@ class _Home extends StatelessWidget {
     required this.ticked,
     required this.explicitHighRisk,
     required this.connect,
+    required this.code,
     required this.fileName,
+    required this.fileBody,
+    required this.clipboard,
+    required this.mic,
     required this.contactName,
     required this.contactId,
     required this.relay,
@@ -281,11 +434,18 @@ class _Home extends StatelessWidget {
     required this.onReject,
     required this.onBlock,
     required this.onStage,
+    required this.onSendFile,
+    required this.onPointer,
+    required this.onKey,
+    required this.onClipboard,
+    required this.onMic,
+    required this.onShare,
     required this.onAddContact,
     required this.onRemoveContact,
     required this.onLocale,
     required this.onSaveRelay,
     required this.onRefreshAudio,
+    required this.remoteFocus,
   });
 
   final DeskView view;
@@ -295,10 +455,15 @@ class _Home extends StatelessWidget {
   final Set<String> ticked;
   final bool explicitHighRisk;
   final TextEditingController connect;
+  final TextEditingController code;
   final TextEditingController fileName;
+  final TextEditingController fileBody;
+  final TextEditingController clipboard;
+  final bool mic;
   final TextEditingController contactName;
   final TextEditingController contactId;
   final TextEditingController relay;
+  final FocusNode remoteFocus;
   final ValueChanged<int> onSection;
   final void Function(String name, bool value) onToggle;
   final ValueChanged<bool> onExplicit;
@@ -307,6 +472,12 @@ class _Home extends StatelessWidget {
   final VoidCallback onReject;
   final VoidCallback onBlock;
   final VoidCallback onStage;
+  final VoidCallback onSendFile;
+  final void Function(int x, int y, int buttons, int wheel) onPointer;
+  final void Function(int keycode, bool down) onKey;
+  final VoidCallback onClipboard;
+  final ValueChanged<bool> onMic;
+  final VoidCallback? onShare;
   final VoidCallback onAddContact;
   final ValueChanged<String> onRemoveContact;
   final ValueChanged<String> onLocale;
@@ -317,10 +488,25 @@ class _Home extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final pages = [
-      _DevicePage(view: view),
-      _ConnectPage(controller: connect, onConnect: onConnect),
-      _RemotePage(view: view),
-      _FilesPage(view: view, name: fileName, onStage: onStage),
+      _DevicePage(view: view, onShare: onShare),
+      _ConnectPage(ticket: connect, code: code, onConnect: onConnect),
+      _RemotePage(
+        view: view,
+        focusNode: remoteFocus,
+        clipboard: clipboard,
+        mic: mic,
+        onPointer: onPointer,
+        onKey: onKey,
+        onClipboard: onClipboard,
+        onMic: onMic,
+      ),
+      _FilesPage(
+        view: view,
+        name: fileName,
+        body: fileBody,
+        onStage: onStage,
+        onSend: onSendFile,
+      ),
       _AddressPage(
         view: view,
         name: contactName,
@@ -422,7 +608,12 @@ class _Home extends StatelessWidget {
 String _errorText(AppLocalizations l10n, String code) {
   switch (code) {
     case 'short_code':
+    case 'short_code_needs_ticket':
       return l10n.errorShortCode;
+    case 'mic_denied':
+      return l10n.micDenied;
+    case 'share_denied':
+      return l10n.shareDenied;
     case 'blocked':
       return l10n.errorBlocked;
     case 'no_prompt':
@@ -440,9 +631,10 @@ String _errorText(AppLocalizations l10n, String code) {
 }
 
 class _DevicePage extends StatelessWidget {
-  const _DevicePage({required this.view});
+  const _DevicePage({required this.view, required this.onShare});
 
   final DeskView view;
+  final VoidCallback? onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -474,15 +666,29 @@ class _DevicePage extends StatelessWidget {
         Text(l10n.ticketIsNotAGrant),
         const SizedBox(height: 12),
         Text(l10n.phaseLabel(view.phase)),
+        const SizedBox(height: 16),
+        if (onShare == null)
+          Text(l10n.desktopCaptureNote, key: const Key('desktop-capture'))
+        else
+          FilledButton(
+            key: const Key('share-screen'),
+            onPressed: onShare,
+            child: Text(l10n.shareScreen),
+          ),
       ],
     );
   }
 }
 
 class _ConnectPage extends StatelessWidget {
-  const _ConnectPage({required this.controller, required this.onConnect});
+  const _ConnectPage({
+    required this.ticket,
+    required this.code,
+    required this.onConnect,
+  });
 
-  final TextEditingController controller;
+  final TextEditingController ticket;
+  final TextEditingController code;
   final VoidCallback onConnect;
 
   @override
@@ -498,8 +704,14 @@ class _ConnectPage extends StatelessWidget {
         const SizedBox(height: 16),
         TextField(
           key: const Key('connect-field'),
-          controller: controller,
+          controller: ticket,
           decoration: InputDecoration(hintText: l10n.connectHint),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const Key('connect-code'),
+          controller: code,
+          decoration: InputDecoration(hintText: l10n.connectCodeHint),
         ),
         const SizedBox(height: 12),
         FilledButton(
@@ -513,9 +725,25 @@ class _ConnectPage extends StatelessWidget {
 }
 
 class _RemotePage extends StatelessWidget {
-  const _RemotePage({required this.view});
+  const _RemotePage({
+    required this.view,
+    required this.focusNode,
+    required this.clipboard,
+    required this.mic,
+    required this.onPointer,
+    required this.onKey,
+    required this.onClipboard,
+    required this.onMic,
+  });
 
   final DeskView view;
+  final FocusNode focusNode;
+  final TextEditingController clipboard;
+  final bool mic;
+  final void Function(int x, int y, int buttons, int wheel) onPointer;
+  final void Function(int keycode, bool down) onKey;
+  final VoidCallback onClipboard;
+  final ValueChanged<bool> onMic;
 
   @override
   Widget build(BuildContext context) {
@@ -542,21 +770,90 @@ class _RemotePage extends StatelessWidget {
             key: const Key('frame-kind'),
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            key: const Key('remote-frame'),
-            width: view.frameWidth * 4,
-            height: view.frameHeight * 4,
-            child: CustomPaint(
-              painter: _RgbaPainter(
-                view.frameRgba,
-                view.frameWidth,
-                view.frameHeight,
+          Text(l10n.pointerHint),
+          const SizedBox(height: 8),
+          KeyboardListener(
+            focusNode: focusNode,
+            onKeyEvent: (event) {
+              final code = _keycode(event.logicalKey);
+              if (code == null) {
+                return;
+              }
+              final down = event is KeyDownEvent;
+              if (event is! KeyDownEvent && event is! KeyUpEvent) {
+                return;
+              }
+              onKey(code, down);
+            },
+            child: GestureDetector(
+              key: const Key('remote-frame'),
+              onTapDown: (details) => _at(details.localPosition, 1),
+              onTapUp: (details) => _at(details.localPosition, 0),
+              onSecondaryTapDown: (details) => _at(details.localPosition, 2),
+              onPanUpdate: (details) => _at(details.localPosition, 1),
+              child: SizedBox(
+                width: view.frameWidth * 4,
+                height: view.frameHeight * 4,
+                child: CustomPaint(
+                  painter: _RgbaPainter(
+                    view.frameRgba,
+                    view.frameWidth,
+                    view.frameHeight,
+                  ),
+                ),
               ),
             ),
           ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            key: const Key('send-enter'),
+            onPressed: () {
+              onKey(0xE000, true);
+              onKey(0xE000, false);
+            },
+            child: Text(l10n.sendEnter),
+          ),
         ],
+        const SizedBox(height: 16),
+        Text(l10n.lastInputLabel(view.lastInput), key: const Key('last-input')),
+        const SizedBox(height: 12),
+        TextField(
+          key: const Key('clipboard-field'),
+          controller: clipboard,
+          decoration: InputDecoration(hintText: l10n.clipboardHint),
+        ),
+        const SizedBox(height: 8),
+        FilledButton(
+          key: const Key('clipboard-set'),
+          onPressed: onClipboard,
+          child: Text(l10n.setClipboard),
+        ),
+        Text(l10n.clipboardLabel(view.clipboard), key: const Key('clipboard-value')),
+        const SizedBox(height: 12),
+        SwitchListTile(
+          key: const Key('mic'),
+          value: mic,
+          onChanged: onMic,
+          title: Text(l10n.micLabel),
+          subtitle: Text(l10n.micHonest),
+        ),
+        Text(
+          l10n.audioPacketsLabel(view.audioPackets),
+          key: const Key('audio-packets'),
+        ),
       ],
     );
+  }
+
+  void _at(Offset local, int buttons) {
+    final width = view.frameWidth;
+    final height = view.frameHeight;
+    if (width <= 0 || height <= 0) {
+      return;
+    }
+    final x = (local.dx / 4).floor().clamp(0, width - 1);
+    final y = (local.dy / 4).floor().clamp(0, height - 1);
+    onPointer(x, y, buttons, 0);
   }
 }
 
@@ -607,12 +904,16 @@ class _FilesPage extends StatelessWidget {
   const _FilesPage({
     required this.view,
     required this.name,
+    required this.body,
     required this.onStage,
+    required this.onSend,
   });
 
   final DeskView view;
   final TextEditingController name;
+  final TextEditingController body;
   final VoidCallback onStage;
+  final VoidCallback onSend;
 
   @override
   Widget build(BuildContext context) {
@@ -635,6 +936,18 @@ class _FilesPage extends StatelessWidget {
           key: const Key('file-stage'),
           onPressed: onStage,
           child: Text(l10n.stageFile),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          key: const Key('file-body'),
+          controller: body,
+          decoration: InputDecoration(hintText: l10n.fileBodyHint),
+        ),
+        const SizedBox(height: 8),
+        FilledButton(
+          key: const Key('file-send'),
+          onPressed: onSend,
+          child: Text(l10n.sendFile),
         ),
         const SizedBox(height: 16),
         Text(l10n.staged),

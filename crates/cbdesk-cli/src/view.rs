@@ -64,6 +64,7 @@ pub async fn view_remote(args: &ViewArgs) -> Result<(), CliError> {
 pub fn view_window(args: &ViewArgs) -> Result<(), CliError> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
+        .thread_stack_size(8 * 1024 * 1024)
         .build()
         .map_err(|err| CliError::new(err.to_string()))?;
     let live = runtime.block_on(connect_view(args))?;

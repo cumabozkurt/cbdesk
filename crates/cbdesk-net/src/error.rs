@@ -49,6 +49,12 @@ pub enum NetError {
     /// The control stream did not carry one `cbdesk/1` frame.
     #[error("control frame was rejected")]
     BadControl,
+    /// The first stream was not a SPAKE2 pairing handshake.
+    #[error("pairing is required")]
+    PairingRequired,
+    /// The SPAKE2 confirmation tags did not match.
+    #[error("pairing failed")]
+    PairingFailed,
     /// A video or input frame was the wrong size or could not be parsed.
     #[error("media frame was rejected")]
     BadMedia,

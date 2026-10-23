@@ -6,7 +6,7 @@ import 'fake_desk.dart';
 
 void main() {
   testWidgets(
-    'home shows the device id and says the short code is not a credential',
+    'home shows the device id and says the words confirm pairing',
     (tester) async {
       final desk = FakeDesk();
       await tester.pumpWidget(CbDeskApp(api: desk, poll: null));
@@ -15,7 +15,9 @@ void main() {
       expect(find.text(desk.view.deviceId), findsOneWidget);
       expect(find.text(desk.view.shortCode), findsOneWidget);
       expect(
-        find.text('Bu kısa kod kimseyi doğrulamaz. Parola değildir.'),
+        find.text(
+          'İki sözcük bu cihazla eşleşmeyi doğrular. Bir bilgisayar bulmazlar ve sunucunun yine onaylaması gerekir.',
+        ),
         findsOneWidget,
       );
       expect(
@@ -41,7 +43,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Kısa kod kimseyi doğrulamaz. Bileti yapıştırın.'),
+      find.text(
+        'Kısa kod bir bilgisayar bulmaz. Bileti, sonra kodu yapıştırın.',
+      ),
       findsOneWidget,
     );
     expect(desk.connected, isNull);
@@ -230,9 +234,90 @@ void main() {
     expect(find.text('Ara kare'), findsOneWidget);
     expect(
       find.text(
-        'Bu görüntü, çekirdeğin çözdüğü karedir. Bu kabuk tam ekran yakalaması göstermez.',
+        'Bu görüntü, çekirdeğin çözdüğü karedir. Masaüstü sunucu kabulden sonra işletim sistemi yakalamasını gönderir. Android, sistem yakalama onayından sonra kare gönderir.',
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('a ticket and a short code are sent together', (tester) async {
+    final desk = FakeDesk();
+    await tester.pumpWidget(CbDeskApp(api: desk, poll: null));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('nav-connect')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('connect-field')), 'abcd');
+    await tester.enterText(
+      find.byKey(const Key('connect-code')),
+      '100-elma-armut',
+    );
+    await tester.tap(find.byKey(const Key('connect-submit')));
+    await tester.pumpAndSettle();
+    expect(desk.connected, 'abcd 100-elma-armut');
+  });
+
+  testWidgets('the remote view forwards a click, Enter, and clipboard', (
+    tester,
+  ) async {
+    final desk = FakeDesk();
+    await tester.pumpWidget(CbDeskApp(api: desk, poll: null));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('nav-connect')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('connect-field')), 'abcd');
+    await tester.tap(find.byKey(const Key('connect-submit')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('remote-frame')));
+    await tester.pumpAndSettle();
+    expect(desk.pointer, isNotNull);
+
+    await tester.ensureVisible(find.byKey(const Key('send-enter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('send-enter')));
+    await tester.pumpAndSettle();
+    expect(desk.keyEvent, 'key 57344 0 0');
+
+    await tester.ensureVisible(find.byKey(const Key('clipboard-field')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('clipboard-field')), 'merhaba');
+    await tester.ensureVisible(find.byKey(const Key('clipboard-set')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('clipboard-set')));
+    await tester.pumpAndSettle();
+    expect(find.text('Pano: merhaba'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('mic')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('mic')));
+    await tester.pumpAndSettle();
+    expect(desk.mic, isTrue);
+  });
+
+  testWidgets('send writes file bytes and still refuses a parent path', (
+    tester,
+  ) async {
+    final desk = FakeDesk();
+    await tester.pumpWidget(CbDeskApp(api: desk, poll: null));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('nav-files')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('file-name')), '../secret');
+    await tester.enterText(find.byKey(const Key('file-body')), 'nope');
+    await tester.ensureVisible(find.byKey(const Key('file-send')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('file-send')));
+    await tester.pumpAndSettle();
+    expect(find.text('refused'), findsOneWidget);
+    expect(desk.fileBytes, isNull);
+
+    await tester.enterText(find.byKey(const Key('file-name')), 'note.txt');
+    await tester.enterText(find.byKey(const Key('file-body')), 'hello');
+    await tester.ensureVisible(find.byKey(const Key('file-send')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('file-send')));
+    await tester.pumpAndSettle();
+    expect(desk.fileBytes, [104, 101, 108, 108, 111]);
+    expect(desk.view.files, ['note.txt']);
   });
 }

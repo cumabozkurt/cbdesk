@@ -2,22 +2,23 @@
 
 //! Listen for one controller, and dial a ticket from this desk.
 //!
-//! The ticket is checked, then thrown away. Admission uses the consent
-//! prompt. A short code never reaches this module.
+//! The ticket is checked, then thrown away. A desk host runs SPAKE2 on the
+//! first stream before it shows the consent prompt. Admission still uses
+//! that prompt. A short code alone does not locate a peer.
 
 use std::net::{IpAddr, SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use cbdesk_crypto::DeviceId;
-use cbdesk_discovery::{sign_ticket, ReplayCache};
+use cbdesk_crypto::{password_bytes, DeviceId};
+use cbdesk_discovery::{sign_ticket, ReplayCache, ShortCode};
 use cbdesk_net::{
-    admit_invited, dial_verified_ticket, open_controller, recv_view_frame, ConsentAnswer,
-    ControllerSession, EndpointConfig, HostLink, QuicConn, QuicEndpoint,
+    accept_pairing, admit_invited, dial_verified_ticket, offer_pairing, open_controller,
+    ConsentAnswer, ControllerSession, EndpointConfig, Pairing, QuicConn, QuicEndpoint,
 };
 use cbdesk_proto::{
-    local_capabilities, AuthMethod, Codec, Hello, InvitePurpose, InviteTicket, Permission,
-    Platform, ProtoMessage, UnknownFields, VideoFrameHeader, PROTO_MAJOR, PROTO_MINOR,
+    local_capabilities, AuthMethod, Hello, InvitePurpose, InviteTicket, Permission, Platform,
+    ProtoMessage, UnknownFields, PROTO_MAJOR, PROTO_MINOR,
 };
 use cbdesk_session::{PeerFacts, RateLimiter};
 use tokio::runtime::Handle;
@@ -25,7 +26,7 @@ use zeroize::Zeroize;
 
 use crate::error::DeskError;
 use crate::hexutil;
-use crate::preview::motion_pair;
+use crate::session;
 use crate::state::{self, Inner};
 
 pub async fn bind_endpoint(inner: &Mutex<Inner>) -> Result<QuicEndpoint, DeskError> {
@@ -108,14 +109,13 @@ async fn serve_one(inner: &Mutex<Inner>, conn: QuicConn) -> Result<(), DeskError
     if is_blocked(inner, &peer)? {
         return Err(DeskError::Blocked);
     }
+    if let Err(err) = pair_host(inner, &conn).await {
+        note_error(inner, &err.to_string());
+        return Err(err);
+    }
     let now = clock(inner)?;
     let (tx, rx) = tokio::sync::oneshot::channel();
-    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel::<()>();
     arm(inner, &peer, tx)?;
-    {
-        let mut guard = lock(inner)?;
-        guard.cancel = Some(cancel_tx);
-    }
     let source = IpAddr::from([127, 0, 0, 1]);
     let answer = async move {
         match rx.await {
@@ -133,7 +133,7 @@ async fn serve_one(inner: &Mutex<Inner>, conn: QuicConn) -> Result<(), DeskError
         answer,
     )
     .await;
-    let mut link = match admitted {
+    let link = match admitted {
         Ok(link) => link,
         Err(failed) => {
             return match failed.error {
@@ -142,27 +142,44 @@ async fn serve_one(inner: &Mutex<Inner>, conn: QuicConn) -> Result<(), DeskError
             };
         }
     };
-    let motion = motion_pair()?;
-    send_frame(&mut link, &motion.key, 1, true).await?;
-    send_frame(&mut link, &motion.inter, 2, false).await?;
-    store_picture(inner, &motion.picture, true)?;
-    tokio::select! {
-        _ = link.read_control() => {}
-        _ = cancel_rx => {}
+    let (cmd_tx, cmd_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
+    let session_id = session::install(inner, cmd_tx, cancel_tx)?;
+    session::host_session(inner, link, cmd_rx, cancel_rx, session_id).await
+}
+
+async fn pair_host(inner: &Mutex<Inner>, conn: &QuicConn) -> Result<(), DeskError> {
+    let pairing = host_pairing(inner)?;
+    let paired =
+        tokio::time::timeout(Duration::from_secs(20), accept_pairing(conn, &pairing)).await;
+    match paired {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(_)) | Err(_) => Err(DeskError::Message("pairing failed".into())),
     }
-    finish_host(inner)?;
-    Ok(())
+}
+
+fn host_pairing(inner: &Mutex<Inner>) -> Result<Pairing, DeskError> {
+    let guard = lock(inner)?;
+    Ok(Pairing::host(
+        password_bytes(&guard.short_code.words),
+        guard.short_code.slot,
+        *guard.identity.device_id().as_bytes(),
+    ))
 }
 
 pub async fn dial_and_show(
-    inner: &Mutex<Inner>,
+    inner: Arc<Mutex<Inner>>,
     endpoint: &QuicEndpoint,
     ticket: &InviteTicket,
+    code: Option<ShortCode>,
 ) -> Result<(), DeskError> {
     let mut replay = ReplayCache::new();
     let conn = dial_verified_ticket(endpoint, ticket, unix_now(), &mut replay)
         .await
         .map_err(|err| DeskError::Message(err.to_string()))?;
+    if let Some(code) = code.as_ref() {
+        pair_controller(&inner, &conn, code).await?;
+    }
     let grant = match open_controller(&conn, &viewer_hello())
         .await
         .map_err(|err| DeskError::Message(err.to_string()))?
@@ -172,77 +189,59 @@ pub async fn dial_and_show(
             return Err(DeskError::Message(format!("host closed: {:?}", close.code)));
         }
     };
-    let (_first, key_payload) = recv_view_frame(&conn)
-        .await
-        .map_err(|err| DeskError::Message(err.to_string()))?;
-    let (second, inter_payload) = recv_view_frame(&conn)
-        .await
-        .map_err(|err| DeskError::Message(err.to_string()))?;
-    if second.keyframe || !cbdesk_codec::vp8_is_inter(&inter_payload) {
-        return Err(DeskError::Message(
-            "remote picture was not an inter frame".into(),
-        ));
+    let (cmd_tx, cmd_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
+    let session_id = session::install(&inner, cmd_tx, cancel_tx)?;
+    let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+    let task_inner = Arc::clone(&inner);
+    tokio::spawn(async move {
+        session::viewer_session(
+            task_inner,
+            conn,
+            grant,
+            cmd_rx,
+            cancel_rx,
+            Some(ready_tx),
+            session_id,
+        )
+        .await;
+    });
+    match tokio::time::timeout(Duration::from_secs(30), ready_rx).await {
+        Ok(Ok(Ok(()))) => Ok(()),
+        Ok(Ok(Err(err))) => Err(DeskError::Message(err)),
+        Ok(Err(_)) => Err(DeskError::Message(
+            "session ended before an inter frame".into(),
+        )),
+        Err(_) => Err(DeskError::Message(
+            "timed out waiting for an inter frame".into(),
+        )),
     }
-    let mut decoder = cbdesk_codec::Vp8StreamDecoder::new();
-    decoder
-        .decode(&key_payload)
-        .map_err(|err| DeskError::Message(err.to_string()))?;
-    let picture = decoder
-        .decode(&inter_payload)
-        .map_err(|err| DeskError::Message(err.to_string()))?;
-    store_picture(inner, &picture, true)?;
-    {
-        let mut guard = lock(inner)?;
-        guard.viewer_live = true;
-    }
-    grant
-        .release()
-        .await
-        .map_err(|err| DeskError::Message(err.to_string()))?;
-    Ok(())
 }
 
-async fn send_frame(
-    link: &mut HostLink,
-    payload: &[u8],
-    frame_no: u64,
-    keyframe: bool,
-) -> Result<(), DeskError> {
-    let header = VideoFrameHeader {
-        display_id: 1,
-        codec: Codec::Vp8,
-        frame_no,
-        capture_ts_us: 1_000,
-        keyframe,
-        unknown: UnknownFields::new(),
-    };
-    link.send_view_frame(&header, payload)
-        .await
-        .map_err(|err| DeskError::Message(err.to_string()))
-}
-
-fn store_picture(
+async fn pair_controller(
     inner: &Mutex<Inner>,
-    picture: &cbdesk_capture::Picture,
-    inter: bool,
+    conn: &QuicConn,
+    code: &ShortCode,
 ) -> Result<(), DeskError> {
-    let rgba = picture
-        .to_rgba()
-        .map_err(|err| DeskError::Message(err.to_string()))?;
-    let mut guard = lock(inner)?;
-    guard.frame_width = picture.width;
-    guard.frame_height = picture.height;
-    guard.frame_is_inter = inter;
-    guard.frame_rgba = rgba;
-    Ok(())
+    let pairing = {
+        let guard = lock(inner)?;
+        Pairing::controller(
+            password_bytes(&code.words),
+            code.slot,
+            *guard.identity.device_id().as_bytes(),
+        )
+    };
+    let paired = tokio::time::timeout(Duration::from_secs(20), offer_pairing(conn, &pairing)).await;
+    match paired {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(_)) | Err(_) => Err(DeskError::Message("pairing failed".into())),
+    }
 }
 
-fn finish_host(inner: &Mutex<Inner>) -> Result<(), DeskError> {
-    let mut guard = lock(inner)?;
-    let _ = guard
-        .session
-        .close_with(cbdesk_session::CloseReason::LocalClose);
-    Ok(())
+fn note_error(inner: &Mutex<Inner>, text: &str) {
+    if let Ok(mut guard) = inner.lock() {
+        guard.error = text.to_string();
+    }
 }
 
 fn is_blocked(inner: &Mutex<Inner>, peer: &DeviceId) -> Result<bool, DeskError> {
@@ -268,7 +267,14 @@ fn viewer_hello() -> Hello {
         app_version: "0.0.0".into(),
         platform: Platform::Unspecified,
         caps: local_capabilities().to_vec(),
-        wanted_perms: vec![Permission::View, Permission::Audio],
+        wanted_perms: vec![
+            Permission::View,
+            Permission::Input,
+            Permission::Clipboard,
+            Permission::Audio,
+            Permission::FileRead,
+            Permission::FileWrite,
+        ],
         auth_offer: vec![AuthMethod::Interactive],
         unknown: UnknownFields::new(),
         ..Hello::default()

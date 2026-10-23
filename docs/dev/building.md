@@ -35,8 +35,31 @@ flutter build linux --debug
 ```
 
 `flutter test` uses a fake desk and does not load `libcbdesk_ffi`. The debug
-bundle does. That bundle's remote view is the core's 48×16 motion frame.
-`cbdesk --screen` remains the operating-system capture path.
+bundle does. A desktop host encodes `capture_picture` when no picture is
+queued. The 48×16 motion pair is the queued test picture.
+
+Windows and macOS debug bundles:
+
+```sh
+flutter build windows --debug
+flutter config --no-enable-swift-package-manager
+flutter build macos --debug
+```
+
+The macOS plugin is a CocoaPods podspec. Flutter 3.47's Swift package
+generator left that plugin's dependencies empty, so the macOS build turns
+Swift Package Manager off and links `libcbdesk_ffi.a` with `-force_load`.
+
+Android, after the SDK and NDK 28.2.13676358 are installed:
+
+```sh
+rustup target add aarch64-linux-android
+flutter build apk --debug --target-platform android-arm64
+```
+
+The APK is the same shell. Screen pixels are read only after the system
+capture dialog returns acceptance. The longer side is scaled to at most
+960 before `submit_frame`. A denial does not create a virtual display.
 
 `cargo test` includes an Argon2id vector at the backup parameters (64 MiB,
 3 passes). That test takes a fraction of a second on a desktop and longer on
@@ -106,12 +129,12 @@ do not unify (`ed25519-dalek` 3, `getrandom` 0.4).
 
 ## What will not build
 
-Installers and mobile targets have no code in the workspace. Some plan
+Installers have no code in the workspace. iOS has no shell. Some plan
 directories still contain only a README and are not Cargo workspace
-members. Plain-text clipboard sync is in the CLI, not in
-`cbdesk-clipboard`. File bytes live in `cbdesk-fs` and chunks are
+members. Plain-text clipboard sync is in the CLI and the desk session, not
+in `cbdesk-clipboard`. File bytes live in `cbdesk-fs` and chunks are
 uncompressed. Opus and the cpal devices live in `cbdesk-audio`. The Flutter
-shell does not start those devices. Mobile targets and installers are not
-in this tree. Windows and macOS Flutter bundles are not built in CI.
-The macOS plugin file is a CocoaPods podspec, and Flutter 3.47's generated
-Swift package did not list it.
+microphone switch opens the default device. A missing device does not end
+the desk session. The macOS plugin file is a CocoaPods podspec. Flutter
+3.47's generated Swift package did not list it, so the macOS build turns
+Swift Package Manager off.

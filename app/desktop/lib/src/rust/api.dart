@@ -28,7 +28,7 @@ abstract class Desktop implements RustOpaqueInterface {
   /// Reject this prompt and refuse the same device id later.
   Future<void> block();
 
-  /// Dial `text`. A short code is refused. A ticket is only a locator.
+  /// Dial `text`. A ticket locates the host. A second field is the short code.
   Future<void> connect({required String text});
 
   /// End the prompt or the active session. This is the indicator's Kes button.
@@ -47,8 +47,35 @@ abstract class Desktop implements RustOpaqueInterface {
   /// Remove a contact. Unknown ids are left as they were.
   Future<void> removeContact({required String deviceId});
 
+  /// Send one audio packet. Requires Audio.
+  Future<void> sendAudio({required List<int> bytes});
+
+  /// Send file bytes. The receiver jails `name`. Requires FileWrite.
+  Future<void> sendFile({required String name, required List<int> bytes});
+
+  /// Send a key transition. Requires an Input grant.
+  Future<void> sendKey({
+    required int keycode,
+    required bool down,
+    required int modifiers,
+  });
+
+  /// Send a pointer sample. Requires an Input grant.
+  Future<void> sendPointer({
+    required int x,
+    required int y,
+    required int buttons,
+    required int wheel,
+  });
+
+  /// Send clipboard text. Empty clears. Requires Clipboard.
+  Future<void> setClipboard({required String text});
+
   /// `tr` or `en`. The short code already on screen stays as it was.
   Future<void> setLocale({required String locale});
+
+  /// Open or drop the default microphone on this controller.
+  Future<void> setMic({required bool enabled});
 
   /// Store an operator relay URL. Empty clears it. This process does not
   /// start a relay.
@@ -59,6 +86,16 @@ abstract class Desktop implements RustOpaqueInterface {
 
   /// Jail `name` under the transfer directory and remember it.
   Future<void> stageFile({required String name});
+
+  /// Queue one RGBA frame for the host encoder.
+  ///
+  /// Android calls this after the person accepts the system capture dialog.
+  /// Odd sizes are refused. This does not capture by itself.
+  Future<void> submitFrame({
+    required int width,
+    required int height,
+    required List<int> rgba,
+  });
 }
 
 /// One address-book row.
@@ -113,10 +150,10 @@ class UiSnapshot {
   /// Display fingerprint. Not enough to authenticate a peer.
   final String shortFingerprint;
 
-  /// `NNN-WORD-WORD`. Not a credential in this build.
+  /// `NNN-WORD-WORD`. The words confirm pairing. They do not locate a peer.
   final String shortCode;
 
-  /// Always false until a PAKE exists.
+  /// True when the words can confirm pairing. The ticket is still the locator.
   final bool shortCodeAuthenticates;
 
   /// Signed invite ticket, hex. A locator, not a grant.
@@ -188,6 +225,15 @@ class UiSnapshot {
   /// Device ids this desk will not prompt for.
   final List<String> blocked;
 
+  /// Latest clipboard text this desk applied or received.
+  final String clipboard;
+
+  /// Opus packets the host has accepted.
+  final int audioPackets;
+
+  /// Last input event the host recorded or injected.
+  final String lastInput;
+
   const UiSnapshot({
     required this.deviceId,
     required this.shortFingerprint,
@@ -216,6 +262,9 @@ class UiSnapshot {
     required this.relay,
     required this.error,
     required this.blocked,
+    required this.clipboard,
+    required this.audioPackets,
+    required this.lastInput,
   });
 
   @override
@@ -246,7 +295,10 @@ class UiSnapshot {
       audioOutput.hashCode ^
       relay.hashCode ^
       error.hashCode ^
-      blocked.hashCode;
+      blocked.hashCode ^
+      clipboard.hashCode ^
+      audioPackets.hashCode ^
+      lastInput.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -279,5 +331,8 @@ class UiSnapshot {
           audioOutput == other.audioOutput &&
           relay == other.relay &&
           error == other.error &&
-          blocked == other.blocked;
+          blocked == other.blocked &&
+          clipboard == other.clipboard &&
+          audioPackets == other.audioPackets &&
+          lastInput == other.lastInput;
 }

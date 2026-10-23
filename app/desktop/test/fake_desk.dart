@@ -26,6 +26,18 @@ class FakeDesk implements DeskApi {
   /// How many times disconnect was called.
   int disconnects = 0;
 
+  /// Last pointer sample.
+  String? pointer;
+
+  /// Last key transition.
+  String? keyEvent;
+
+  /// Last file body.
+  List<int>? fileBytes;
+
+  /// Whether the microphone switch is on.
+  bool mic = false;
+
   @override
   Future<DeskView> snapshot() async => view;
 
@@ -43,10 +55,11 @@ class FakeDesk implements DeskApi {
 
   @override
   Future<void> connect(String text) async {
-    if (text.contains('-') && !text.startsWith('aa')) {
-      throw DeskFailure('short_code');
+    final trimmed = text.trim();
+    if (!trimmed.contains(' ') && trimmed.contains('-')) {
+      throw DeskFailure('short_code_needs_ticket');
     }
-    connected = text;
+    connected = trimmed;
     view = _copy(
       phase: 'active',
       indicatorVisible: true,
@@ -130,13 +143,64 @@ class FakeDesk implements DeskApi {
 
   @override
   Future<void> stageFile(String name) async {
+    _jail(name);
+    view = _copy(staged: [...view.staged, name]);
+  }
+
+  @override
+  Future<void> sendPointer(int x, int y, int buttons, int wheel) async {
+    pointer = 'pointer $x $y $buttons $wheel';
+    view = _copy(lastInput: 'pointer $x $y');
+  }
+
+  @override
+  Future<void> sendKey(int keycode, bool down, int modifiers) async {
+    keyEvent = 'key $keycode ${down ? 1 : 0} $modifiers';
+    view = _copy(lastInput: 'key $keycode ${down ? 1 : 0}');
+  }
+
+  @override
+  Future<void> sendFile(String name, List<int> bytes) async {
+    _jail(name);
+    fileBytes = bytes;
+    view = _copy(files: [...view.files, name]);
+  }
+
+  @override
+  Future<void> setClipboard(String text) async {
+    view = _copy(clipboard: text);
+  }
+
+  @override
+  Future<void> sendAudio(List<int> bytes) async {
+    if (bytes.length > 4096) {
+      throw DeskFailure('message:audio packet is too large');
+    }
+    view = _copy(audioPackets: view.audioPackets + 1);
+  }
+
+  @override
+  Future<void> setMic(bool enabled) async {
+    mic = enabled;
+  }
+
+  @override
+  Future<void> submitFrame(int width, int height, List<int> rgba) async {
+    view = _copy(
+      frameWidth: width,
+      frameHeight: height,
+      frameRgba: rgba,
+      frameIsInter: true,
+    );
+  }
+
+  void _jail(String name) {
     if (name.contains('..') ||
         name.startsWith('/') ||
         name.contains('\\') ||
         name.contains(':')) {
       throw DeskFailure('message:refused');
     }
-    view = _copy(staged: [...view.staged, name]);
   }
 
   DeskView _copy({
@@ -150,12 +214,16 @@ class FakeDesk implements DeskApi {
     int? frameHeight,
     List<int>? frameRgba,
     bool? frameIsInter,
+    List<String>? files,
     List<DeskContact>? contacts,
     List<String>? staged,
     String? audioInput,
     String? audioOutput,
     String? relay,
     List<String>? blocked,
+    String? clipboard,
+    int? audioPackets,
+    String? lastInput,
   }) {
     return DeskView(
       deviceId: view.deviceId,
@@ -177,7 +245,7 @@ class FakeDesk implements DeskApi {
       frameWidth: frameWidth ?? view.frameWidth,
       frameHeight: frameHeight ?? view.frameHeight,
       frameIsInter: frameIsInter ?? view.frameIsInter,
-      files: view.files,
+      files: files ?? view.files,
       contacts: contacts ?? view.contacts,
       staged: staged ?? view.staged,
       audioInput: audioInput ?? view.audioInput,
@@ -185,6 +253,9 @@ class FakeDesk implements DeskApi {
       relay: relay ?? view.relay,
       error: view.error,
       blocked: blocked ?? view.blocked,
+      clipboard: clipboard ?? view.clipboard,
+      audioPackets: audioPackets ?? view.audioPackets,
+      lastInput: lastInput ?? view.lastInput,
     );
   }
 }
@@ -195,7 +266,7 @@ DeskView sampleView() {
     deviceId: 'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz',
     shortFingerprint: '1-2-3-4',
     shortCode: '100-elma-armut',
-    shortCodeAuthenticates: false,
+    shortCodeAuthenticates: true,
     ticketHex: 'abcd',
     locale: 'tr',
     phase: 'idle',
@@ -219,6 +290,9 @@ DeskView sampleView() {
     relay: '',
     error: '',
     blocked: [],
+    clipboard: '',
+    audioPackets: 0,
+    lastInput: '',
   );
 }
 
@@ -229,7 +303,7 @@ DeskView awaitingView({bool acceptEnabled = false}) {
     deviceId: base.deviceId,
     shortFingerprint: base.shortFingerprint,
     shortCode: base.shortCode,
-    shortCodeAuthenticates: false,
+    shortCodeAuthenticates: true,
     ticketHex: base.ticketHex,
     locale: 'tr',
     phase: 'awaiting',
@@ -253,5 +327,8 @@ DeskView awaitingView({bool acceptEnabled = false}) {
     relay: '',
     error: '',
     blocked: const [],
+    clipboard: '',
+    audioPackets: 0,
+    lastInput: '',
   );
 }

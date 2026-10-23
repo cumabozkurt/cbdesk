@@ -7,9 +7,9 @@
 
 //! Hand-written Flutter API.
 //!
-//! The manual clock and the test-only consent arm are not on this surface.
-//! A short code still does not authenticate anyone. The session indicator
-//! still has no off switch.
+//! The manual clock, the motion-preview queue, and the input-record flag are
+//! not on this surface. The two short-code words confirm pairing. They do not
+//! locate a computer. The session indicator still has no off switch.
 
 use std::path::Path;
 
@@ -65,9 +65,53 @@ impl Desktop {
         self.desk.stage_file(&name).map_err(as_code)
     }
 
-    /// Dial `text`. A short code is refused. A ticket is only a locator.
+    /// Dial `text`. A ticket locates the host. A second field is the short code.
     pub fn connect(&self, text: String) -> Result<(), String> {
         self.desk.connect(&text).map_err(as_code)
+    }
+
+    /// Send a pointer sample. Requires an Input grant.
+    pub fn send_pointer(&self, x: i32, y: i32, buttons: u32, wheel: i32) -> Result<(), String> {
+        self.desk
+            .send_pointer(x, y, buttons, wheel)
+            .map_err(as_code)
+    }
+
+    /// Send a key transition. Requires an Input grant.
+    pub fn send_key(&self, keycode: u32, down: bool, modifiers: u32) -> Result<(), String> {
+        self.desk
+            .send_key(keycode, down, modifiers)
+            .map_err(as_code)
+    }
+
+    /// Send file bytes. The receiver jails `name`. Requires FileWrite.
+    pub fn send_file(&self, name: String, bytes: Vec<u8>) -> Result<(), String> {
+        self.desk.send_file(&name, &bytes).map_err(as_code)
+    }
+
+    /// Send clipboard text. Empty clears. Requires Clipboard.
+    pub fn set_clipboard(&self, text: String) -> Result<(), String> {
+        self.desk.set_clipboard(&text).map_err(as_code)
+    }
+
+    /// Send one audio packet. Requires Audio.
+    pub fn send_audio(&self, bytes: Vec<u8>) -> Result<(), String> {
+        self.desk.send_audio(&bytes).map_err(as_code)
+    }
+
+    /// Open or drop the default microphone on this controller.
+    pub fn set_mic(&self, enabled: bool) -> Result<(), String> {
+        self.desk.set_mic(enabled).map_err(as_code)
+    }
+
+    /// Queue one RGBA frame for the host encoder.
+    ///
+    /// Android calls this after the person accepts the system capture dialog.
+    /// Odd sizes are refused. This does not capture by itself.
+    pub fn submit_frame(&self, width: u32, height: u32, rgba: Vec<u8>) -> Result<(), String> {
+        self.desk
+            .submit_frame(width, height, &rgba)
+            .map_err(as_code)
     }
 
     /// Approve the current prompt. Too early, and the prompt stays up.
@@ -132,9 +176,9 @@ pub struct UiSnapshot {
     pub device_id: String,
     /// Display fingerprint. Not enough to authenticate a peer.
     pub short_fingerprint: String,
-    /// `NNN-WORD-WORD`. Not a credential in this build.
+    /// `NNN-WORD-WORD`. The words confirm pairing. They do not locate a peer.
     pub short_code: String,
-    /// Always false until a PAKE exists.
+    /// True when the words can confirm pairing. The ticket is still the locator.
     pub short_code_authenticates: bool,
     /// Signed invite ticket, hex. A locator, not a grant.
     pub ticket_hex: String,
@@ -182,6 +226,12 @@ pub struct UiSnapshot {
     pub error: String,
     /// Device ids this desk will not prompt for.
     pub blocked: Vec<String>,
+    /// Latest clipboard text this desk applied or received.
+    pub clipboard: String,
+    /// Opus packets the host has accepted.
+    pub audio_packets: u32,
+    /// Last input event the host recorded or injected.
+    pub last_input: String,
 }
 
 impl From<DeskSnapshot> for UiSnapshot {
@@ -221,13 +271,16 @@ impl From<DeskSnapshot> for UiSnapshot {
             relay: snap.relay,
             error: snap.error,
             blocked: snap.blocked,
+            clipboard: snap.clipboard,
+            audio_packets: snap.audio_packets,
+            last_input: snap.last_input,
         }
     }
 }
 
 fn as_code(err: DeskError) -> String {
     match err {
-        DeskError::ShortCodeDoesNotAuthenticate => "short_code".into(),
+        DeskError::ShortCodeNeedsTicket => "short_code_needs_ticket".into(),
         DeskError::Blocked => "blocked".into(),
         DeskError::NoPrompt => "no_prompt".into(),
         DeskError::LooseSeed => "loose_seed".into(),
@@ -245,11 +298,11 @@ mod tests {
         let desk = Desktop::open(dir.path().to_string_lossy().into_owned()).unwrap();
         let snap = desk.snapshot().unwrap();
         assert_eq!(snap.device_id.len(), 52);
-        assert!(!snap.short_code_authenticates);
+        assert!(snap.short_code_authenticates);
         assert!(!snap.indicator_can_be_disabled);
         assert!(!snap.indicator_visible);
         let err = desk.connect(snap.short_code.clone()).unwrap_err();
-        assert_eq!(err, "short_code");
+        assert_eq!(err, "short_code_needs_ticket");
         let offers = permission_offers();
         assert!(offers
             .iter()

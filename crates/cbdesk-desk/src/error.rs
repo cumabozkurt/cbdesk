@@ -7,11 +7,11 @@ use thiserror::Error;
 /// Why a desktop action stopped.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum DeskError {
-    /// A short code was typed where a ticket was required.
+    /// A short code was typed without a ticket.
     ///
-    /// ADR-008 has no PAKE. The words are not a credential.
-    #[error("a short code does not authenticate anyone")]
-    ShortCodeDoesNotAuthenticate,
+    /// The words can confirm pairing. They do not locate a computer.
+    #[error("a short code does not locate a computer")]
+    ShortCodeNeedsTicket,
     /// This device id is on the local block list.
     #[error("that device is blocked")]
     Blocked,

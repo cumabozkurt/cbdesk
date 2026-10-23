@@ -4,15 +4,15 @@
 
 //! Identity keys and the small set of cryptographic helpers CBDesk calls directly.
 //!
-//! Password-authenticated key exchange and OPAQUE are not implemented here.
-//! Short-code PAKE is specified in ADR-008 and belongs to a later milestone,
-//! after a cryptographer has reviewed the transcript binding. This crate does
-//! not invent a new primitive.
+//! Short-code pairing uses the published `spake2` 0.4.0 crate (ADR-008). This
+//! crate does not invent a cipher. OPAQUE is still not implemented. The
+//! SPAKE2 transcript binding in this repository has not had an external review.
 
 mod error;
 mod identity;
 mod kdf;
 mod keystore;
+mod pake;
 mod redacted;
 mod z32;
 
@@ -25,6 +25,7 @@ pub use kdf::{
 pub use keystore::{
     identity_from_os, identity_from_store, IdentityStore, MemoryKeyStore, OsKeyStore,
 };
+pub use pake::{password_bytes, tags_match, transcript, Confirmation, Handshake, Side};
 pub use redacted::Redacted;
 
 #[cfg(test)]

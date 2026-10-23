@@ -37,10 +37,14 @@ Flutter is pinned to 3.47.7. The bridge is flutter_rust_bridge 2.12.0 over
 the unsafe file. Screens in this tree are home (device id and short code),
 connect, consent, remote view, file panel, address book, and settings, in
 Turkish and English. The session indicator is painted above the pages and
-has no off switch. The remote view shows the core's decoded 48×16 motion
-frame after consent. It does not show an operating-system capture. The file
-panel stages a name; `cbdesk view --put` is still the QUIC transfer. Settings
-show microphone and speaker names and do not start those devices. A short
-code does not authenticate. Widget tests use a fake desk. CI runs
-`flutter analyze` and `flutter test` on Linux, Windows, and macOS, and
-`flutter build linux --debug` on Ubuntu.
+has no off switch. The remote view shows the frame the core decoded.
+A desktop host sends the operating-system capture when no picture is
+queued. Android calls `submit_frame` only after the system capture dialog.
+The file panel sends bytes over QUIC after the jail accepts the name. The
+remote view forwards a pointer sample, Enter, clipboard text, and a
+microphone switch. The two short-code words confirm pairing and do not
+locate a computer. Widget tests use a fake desk. CI runs
+`flutter analyze` and `flutter test` on Linux, Windows, and macOS,
+`flutter build linux --debug` and an arm64 debug APK on Ubuntu, and the
+Windows and macOS debug bundles on those runners. Those bundles are not
+proven until Actions finishes.

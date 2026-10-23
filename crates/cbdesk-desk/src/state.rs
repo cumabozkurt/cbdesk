@@ -2,11 +2,13 @@
 
 //! Saved desktop state. There is no key that hides the session indicator.
 
+use std::collections::VecDeque;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use cbdesk_capture::Picture;
 use cbdesk_crypto::{DeviceId, Identity};
 use cbdesk_discovery::{Language, ShortCode};
 use cbdesk_session::{ApprovalMode, HostSession, Phase, SecurityConfig, CONSENT_DELAY_MS};
@@ -54,9 +56,9 @@ pub struct DeskSnapshot {
     pub device_id: String,
     /// Display fingerprint. Not enough to authenticate a peer.
     pub short_fingerprint: String,
-    /// `NNN-WORD-WORD`. Not a credential in this build.
+    /// `NNN-WORD-WORD`. The words confirm pairing. They do not locate a peer.
     pub short_code: String,
-    /// Always false until ADR-008 has a PAKE.
+    /// True when the words can confirm pairing. The ticket is still the locator.
     pub short_code_authenticates: bool,
     /// Signed invite ticket, hex. A locator, not a grant.
     pub ticket_hex: String,
@@ -105,6 +107,12 @@ pub struct DeskSnapshot {
     pub error: String,
     /// Device ids this desk will not prompt for.
     pub blocked: Vec<String>,
+    /// Latest clipboard text this desk applied or received.
+    pub clipboard: String,
+    /// Opus packets the host has accepted in this process.
+    pub audio_packets: u32,
+    /// Last input event the host recorded or injected.
+    pub last_input: String,
 }
 
 pub struct Inner {
@@ -129,6 +137,15 @@ pub struct Inner {
     pub audio_output: String,
     pub error: String,
     pub viewer_live: bool,
+    pub preview: VecDeque<crate::preview::PreviewPacket>,
+    pub submitted: VecDeque<Picture>,
+    pub preview_hold: bool,
+    pub record_input: bool,
+    pub last_input: String,
+    pub clipboard: String,
+    pub audio_packets: u32,
+    pub commands: Option<(u64, tokio::sync::mpsc::UnboundedSender<crate::session::Cmd>)>,
+    pub session_id: u64,
     pub manual: bool,
     pub manual_ms: u64,
     pub started: Instant,
@@ -180,6 +197,15 @@ pub fn load_dir(dir: &Path, manual: bool) -> Result<Inner, DeskError> {
         audio_output: names.output.unwrap_or_else(|| "unavailable".into()),
         error: String::new(),
         viewer_live: false,
+        preview: VecDeque::new(),
+        submitted: VecDeque::new(),
+        preview_hold: false,
+        record_input: false,
+        last_input: String::new(),
+        clipboard: String::new(),
+        audio_packets: 0,
+        commands: None,
+        session_id: 0,
         manual,
         manual_ms: 0,
         started: Instant::now(),
@@ -197,7 +223,7 @@ pub fn snapshot(inner: &Inner, now_ms: u64) -> DeskSnapshot {
         device_id: inner.identity.device_id().to_z32(),
         short_fingerprint: inner.identity.device_id().short_fingerprint().to_string(),
         short_code: inner.short_code.format(),
-        short_code_authenticates: false,
+        short_code_authenticates: true,
         ticket_hex: inner.ticket_hex.clone(),
         locale: inner.settings.locale.clone(),
         phase: phase.into(),
@@ -221,6 +247,9 @@ pub fn snapshot(inner: &Inner, now_ms: u64) -> DeskSnapshot {
         relay: inner.settings.relay.clone(),
         error: inner.error.clone(),
         blocked: inner.blocked.clone(),
+        clipboard: inner.clipboard.clone(),
+        audio_packets: inner.audio_packets,
+        last_input: inner.last_input.clone(),
     }
 }
 

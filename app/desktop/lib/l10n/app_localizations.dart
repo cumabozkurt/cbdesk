@@ -167,7 +167,7 @@ abstract class AppLocalizations {
   /// No description provided for @shortCodeDoesNotAuthenticate.
   ///
   /// In en, this message translates to:
-  /// **'This short code does not authenticate anyone. It is not a password.'**
+  /// **'The two words confirm pairing with this device. They do not locate a computer, and the host still has to approve.'**
   String get shortCodeDoesNotAuthenticate;
 
   /// No description provided for @ticketLocator.
@@ -197,8 +197,14 @@ abstract class AppLocalizations {
   /// No description provided for @connectHint.
   ///
   /// In en, this message translates to:
-  /// **'Paste an invite ticket'**
+  /// **'Paste the invite ticket'**
   String get connectHint;
+
+  /// No description provided for @connectCodeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Short code, after the ticket'**
+  String get connectCodeHint;
 
   /// No description provided for @connectButton.
   ///
@@ -209,7 +215,7 @@ abstract class AppLocalizations {
   /// No description provided for @errorShortCode.
   ///
   /// In en, this message translates to:
-  /// **'A short code does not authenticate anyone. Paste the ticket instead.'**
+  /// **'A short code does not locate a computer. Paste the ticket, then the code.'**
   String get errorShortCode;
 
   /// No description provided for @errorBlocked.
@@ -353,8 +359,68 @@ abstract class AppLocalizations {
   /// No description provided for @remoteHonest.
   ///
   /// In en, this message translates to:
-  /// **'This picture is a frame the core decoded. This shell does not show a full-screen capture.'**
+  /// **'This picture is the frame the core decoded. A desktop host sends the operating-system capture after you accept. Android sends a frame only after the system capture consent.'**
   String get remoteHonest;
+
+  /// No description provided for @pointerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A click on the picture is sent after an Input grant.'**
+  String get pointerHint;
+
+  /// No description provided for @sendEnter.
+  ///
+  /// In en, this message translates to:
+  /// **'Send Enter'**
+  String get sendEnter;
+
+  /// No description provided for @lastInputLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Last input: {text}'**
+  String lastInputLabel(String text);
+
+  /// No description provided for @clipboardHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Clipboard text'**
+  String get clipboardHint;
+
+  /// No description provided for @setClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Set clipboard'**
+  String get setClipboard;
+
+  /// No description provided for @clipboardLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Clipboard: {text}'**
+  String clipboardLabel(String text);
+
+  /// No description provided for @micLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone'**
+  String get micLabel;
+
+  /// No description provided for @micHonest.
+  ///
+  /// In en, this message translates to:
+  /// **'This switch opens the default microphone and sends packets after an Audio grant. A missing device does not fail the session. This build does not record that anyone heard the audio.'**
+  String get micHonest;
+
+  /// No description provided for @micDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'The microphone stays off until you allow it.'**
+  String get micDenied;
+
+  /// No description provided for @audioPacketsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio packets: {count}'**
+  String audioPacketsLabel(int count);
 
   /// No description provided for @remoteEmpty.
   ///
@@ -391,6 +457,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Stage'**
   String get stageFile;
+
+  /// No description provided for @fileBodyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Text to send as file bytes'**
+  String get fileBodyHint;
+
+  /// No description provided for @sendFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get sendFile;
 
   /// No description provided for @staged.
   ///
@@ -485,8 +563,26 @@ abstract class AppLocalizations {
   /// No description provided for @audioHonest.
   ///
   /// In en, this message translates to:
-  /// **'This screen shows the device names. Microphone and speaker audio is the cbdesk host --mic and --speaker path.'**
+  /// **'These are the default device names. The remote view switch sends microphone packets after an Audio grant.'**
   String get audioHonest;
+
+  /// No description provided for @desktopCaptureNote.
+  ///
+  /// In en, this message translates to:
+  /// **'This desktop host captures the display inside the core after the other side connects and you accept.'**
+  String get desktopCaptureNote;
+
+  /// No description provided for @shareScreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Share this screen'**
+  String get shareScreen;
+
+  /// No description provided for @shareDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Screen capture stays off until you accept the system dialog.'**
+  String get shareDenied;
 
   /// No description provided for @refreshAudio.
   ///

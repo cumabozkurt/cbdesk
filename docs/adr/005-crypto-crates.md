@@ -30,8 +30,10 @@ Accepted for the primitives that are called:
   3 passes, parallelism 1.
 
 OPAQUE is the selected design for a permanent password and is not integrated.
-Short-code PAKE is ADR-008 and is Proposed. No production path may hash a
-password with a raw SHA-2 or compare secrets with `==` on a signature.
+Short-code pairing is ADR-008 and uses the published `spake2` 0.4.0 crate.
+No production path may hash a password with a raw SHA-2 or compare secrets
+with `==` on a signature. The SPAKE2 transcript has not had an external
+review.
 
 ## Consequences
 

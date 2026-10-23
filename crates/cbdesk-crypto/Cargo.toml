@@ -15,6 +15,7 @@ argon2.workspace = true
 # them directly stops caret ranges from selecting Rust 1.85-only releases.
 base64ct.workspace = true
 blake3.workspace = true
+spake2.workspace = true
 ed25519-dalek.workspace = true
 getrandom.workspace = true
 hashbrown.workspace = true

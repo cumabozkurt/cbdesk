@@ -22,6 +22,7 @@ mod dial;
 mod error;
 mod media;
 mod memory;
+mod pake;
 mod path;
 mod policy;
 mod quic;
@@ -37,6 +38,7 @@ pub use dial::{connect_candidates, dial_verified_ticket, direct_candidates, Dial
 pub use error::NetError;
 pub use media::{recv_clipboard_text, recv_view_frame, send_clipboard_text, send_input_event};
 pub use memory::{Conn, MemoryEndpoint, MemoryHub};
+pub use pake::{accept_pairing, offer_pairing, Pairing};
 pub use path::{apply, PathEvent, PathState};
 pub use policy::{
     check_hints, relay_host, validate_endpoint, EndpointConfig, RelayHint, FORBIDDEN_RELAY_SUFFIXES,
