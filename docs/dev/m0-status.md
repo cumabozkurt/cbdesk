@@ -27,10 +27,10 @@ sources is derived from that project.
   then linked `cbdesk_ffi.dll`. Flutter on macOS built the static archive
   and the link failed for CoreAudio, AudioToolbox, CoreMedia,
   SystemConfiguration, and Carbon. `b01e162` names those frameworks and
-  the app builds. The following symbol check then exits because `nm` is
-  piped to `grep -q` and llvm-nm reports a closed pipe. The following
-  commit reads `nm` into a file and checks the framework inside the app.
-  It is not green until Actions finishes.
+  the app builds. `617fb1e` still ran Apple `nm` on the static archive.
+  Xcode 15.4 cannot read the Rust 1.91 object files inside it. The
+  following commit checks the linked framework in the app, which is a
+  Mach-O. It is not green until Actions finishes.
 - Contribution documents: `CONTRIBUTING.md`, `GOVERNANCE.md`, `SECURITY.md`,
   `PRIVACY.md`, `TRADEMARK.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, `NOTICE`.
 - ADRs 001–015. ADR-015 declines a fork for capture, codec, and input.
@@ -227,9 +227,10 @@ bridge. That APK was not installed on a device, and the system capture
 dialog was not accepted. Windows and macOS bundles are in the workflow.
 `46337c5` linked the Windows DLL. `b01e162` built `cbdesk.app` after the
 pod linked AudioToolbox, CoreAudio, CoreMedia, SystemConfiguration, and
-Carbon. The symbol check then failed because `nm` was piped into `grep -q`.
-The following commit checks the framework inside the app from a file. That
-check is not proven until Actions finishes.
+Carbon. `617fb1e` built the app again, and Apple `nm` exited on the static
+archive because Xcode 15.4 cannot read those Rust 1.91 objects. The
+following commit checks the linked framework inside the app. That check
+is not proven until Actions finishes.
 
 ## Recommended next run
 
@@ -245,9 +246,10 @@ MediaProjection after the system dialog and is scaled so the longer side
 is at most 960. It has not been clicked through on a device in this run.
 
 `c01d0fb` is green on Ubuntu 24.04, Windows 2022, and macOS 14. `80534bf`
-and `2febc4d` are not. `46337c5` failed the macOS link. `b01e162` built
-the macOS app and failed the piped `nm` check. The commit after it is not
-green until Actions finishes.
+and `2febc4d` are not. `46337c5` failed the macOS link. `b01e162` and
+`617fb1e` built the macOS app. `617fb1e` failed while reading the static
+archive with Apple `nm`. The commit after it is not green until Actions
+finishes.
 
 Still out of this run: hardware codecs, an iOS shell, compressed file
 chunks, OPAQUE, and DHT blinding. ADR-007 stays Proposed. ADR-008 is

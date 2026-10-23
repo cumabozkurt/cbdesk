@@ -224,17 +224,14 @@ jobs:
           flutter build macos --debug
           app="build/macos/Build/Products/Debug/cbdesk.app/Contents/MacOS/cbdesk"
           test -f "$app"
-          # find | head and nm | grep -q die under pipefail: llvm-nm reports
-          # "write on a pipe with no reader" when grep exits on the first hit.
-          lib=$(find build/macos -name 'libcbdesk_ffi.a' -print -quit)
-          test -n "$lib"
+          # Xcode 15.4 nm cannot read Rust 1.91 object files inside the static
+          # archive (LLVM 21 attributes). The linked framework is a Mach-O.
           framework=$(find "build/macos/Build/Products/Debug/cbdesk.app" -type f -name 'cbdesk_ffi' -print -quit)
           test -n "$framework"
-          nm "$lib" > "$RUNNER_TEMP/nm-lib.txt"
+          echo "framework $framework"
           nm "$framework" > "$RUNNER_TEMP/nm-framework.txt"
-          grep -q flutter_rust_bridge "$RUNNER_TEMP/nm-lib.txt"
           grep -q flutter_rust_bridge "$RUNNER_TEMP/nm-framework.txt"
-          echo "linked $lib and $framework"
+          echo "linked $framework"
 
       - name: Android debug bundle
         if: runner.os == 'Linux'

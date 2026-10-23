@@ -27,10 +27,10 @@ Version 0.0.0 is not a release.
   directory is a symlink. The crate path is resolved to the physical
   directory before the build looks up `crates/cbdesk-ffi`. The macOS pod
   links AudioToolbox, CoreAudio, CoreMedia, SystemConfiguration, and Carbon
-  with that archive. `b01e162` produced `cbdesk.app`. The symbol check
-  reads `nm` output from a file, because a pipe into `grep -q` makes
-  llvm-nm exit when the reader closes. The macOS bundle is not proven
-  until Actions finishes.
+  with that archive. The symbol check reads the linked `cbdesk_ffi`
+  framework inside the app. Apple `nm` from Xcode 15.4 cannot read the
+  Rust 1.91 object files inside the static archive. The macOS bundle is
+  not proven until Actions finishes.
 - VP8 inter frames and color. The first frame is a keyframe. A later frame
   of the same size is a motion-compensated inter frame: oxideav-vp8 diamond
   search (whole, half, and quarter pixel). A 48×16 test shifts a white block
