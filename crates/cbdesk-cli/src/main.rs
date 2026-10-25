@@ -20,6 +20,7 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
         Command::Host(host) => run_async(async move { cbdesk_cli::serve(&host).await }),
         Command::View(view) if view.window => cbdesk_cli::view_window(&view),
         Command::View(view) => run_async(async move { cbdesk_cli::view_remote(&view).await }),
+        Command::NetCheck(args) => run_async(async move { cbdesk_cli::run_net_check(&args).await }),
     }
 }
 

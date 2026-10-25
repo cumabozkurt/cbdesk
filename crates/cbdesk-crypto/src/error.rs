@@ -28,6 +28,15 @@ pub enum CryptoError {
     /// SPAKE2 pairing failed. The password is not included.
     #[error("pairing failed")]
     Pairing,
+    /// The password did not meet the length or strength rule.
+    #[error("password does not meet the strength rule")]
+    PasswordPolicy,
+    /// OPAQUE rejected the login. The password is not included.
+    #[error("password was rejected")]
+    PasswordRejected,
+    /// The OPAQUE messages could not be completed. The password is not included.
+    #[error("password protocol failed")]
+    PasswordProtocol,
     /// The operating-system credential store could not be used.
     ///
     /// The detail is omitted on purpose: some store errors attach the secret.

@@ -40,6 +40,9 @@ pub enum NetError {
     /// Relay-only mode was asked for without a relay URL.
     #[error("relay-only mode needs a user-configured relay")]
     RelayOnlyNeedsRelay,
+    /// Isolated mode was combined with a relay.
+    #[error("isolated mode does not use a relay")]
+    IsolatedRejectsRelay,
     /// The QUIC stack refused to bind or to move bytes.
     #[error("QUIC endpoint failed: {0}")]
     Quic(String),

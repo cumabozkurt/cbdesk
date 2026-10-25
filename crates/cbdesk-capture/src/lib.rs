@@ -16,9 +16,11 @@ mod error;
 mod fit;
 mod picture;
 mod screen;
+mod virtual_display;
 
 pub use barcode::{read_barcode, Frame, SyntheticCapturer, BARCODE_WIDTH};
 pub use error::CaptureError;
 pub use fit::fit_even;
 pub use picture::{crop_even, from_rgba, yuv_to_rgb, Picture};
 pub use screen::{capture_picture, capture_screen};
+pub use virtual_display::{open_virtual_display, VirtualDisplay};

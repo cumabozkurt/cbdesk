@@ -26,6 +26,10 @@ pub struct EndpointConfig {
     /// The default is false: a normal endpoint still binds a direct socket.
     /// A test sets this to prove a path that has no direct addresses.
     pub relay_only: bool,
+    /// Stay on the local network: no relay and no DHT publish.
+    ///
+    /// The default is false. Turning this on with a relay URL is rejected.
+    pub isolated: bool,
 }
 
 /// A relay the dialer was told about, usually from a ticket or a DHT record.
@@ -39,6 +43,9 @@ pub struct RelayHint {
 pub fn validate_endpoint(config: &EndpointConfig) -> Result<(), NetError> {
     if config.use_n0_defaults {
         return Err(NetError::N0DefaultsForbidden);
+    }
+    if config.isolated && (config.relay_only || !config.relays.is_empty()) {
+        return Err(NetError::IsolatedRejectsRelay);
     }
     let hints: Vec<RelayHint> = config
         .relays
@@ -114,11 +121,30 @@ mod tests {
             relays: Vec::new(),
             use_n0_defaults: true,
             relay_only: false,
+            isolated: false,
         };
         assert_eq!(
             validate_endpoint(&enabled),
             Err(NetError::N0DefaultsForbidden)
         );
+    }
+
+    #[test]
+    fn isolated_mode_rejects_a_relay() {
+        let config = EndpointConfig {
+            relays: vec!["https://203.0.113.9:443".to_string()],
+            isolated: true,
+            ..EndpointConfig::default()
+        };
+        assert_eq!(
+            validate_endpoint(&config),
+            Err(NetError::IsolatedRejectsRelay)
+        );
+        let quiet = EndpointConfig {
+            isolated: true,
+            ..EndpointConfig::default()
+        };
+        validate_endpoint(&quiet).expect("isolated without a relay");
     }
 
     #[test]

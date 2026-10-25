@@ -16,6 +16,8 @@ pub enum Command {
     Host(HostArgs),
     /// Dial a ticket or browse the LAN, then show frames.
     View(ViewArgs),
+    /// Print a local network diagnosis. This does not start a session.
+    NetCheck(crate::check::NetCheckArgs),
 }
 
 /// Host options. `--approve` is the person's decision.
@@ -80,6 +82,7 @@ pub fn parse(args: &[String]) -> Result<Command, CliError> {
     match command.as_str() {
         "host" => Ok(Command::Host(parse_host(&args[1..])?)),
         "view" => Ok(Command::View(parse_view(&args[1..])?)),
+        "net-check" | "doctor" => Ok(Command::NetCheck(parse_net_check(&args[1..])?)),
         _ => Err(usage()),
     }
 }
@@ -89,7 +92,9 @@ fn usage() -> CliError {
         "usage: cbdesk host --bind ADDR (--synthetic|--screen) [--approve view,input] \
          [--frames N] [--lan] [--relay URL] [--files-root DIR] [--tone|--mic] [--speaker]\n       \
          cbdesk view (--ticket HEX|--browse) (--ppm FILE|--window|--put FILE|--audio|--mic|--speaker) \
-         [--pointer X,Y] [--key NAME] [--relay URL]",
+         [--pointer X,Y] [--key NAME] [--relay URL]\n       \
+         cbdesk net-check [--json] [--anonymous] [--loopback]\n       \
+         cbdesk doctor [--json] [--anonymous] [--loopback]",
     )
 }
 
@@ -105,6 +110,23 @@ struct HostDraft {
     tone: bool,
     mic: bool,
     speaker: bool,
+}
+
+fn parse_net_check(args: &[String]) -> Result<crate::check::NetCheckArgs, CliError> {
+    let mut parsed = crate::check::NetCheckArgs {
+        json: false,
+        anonymous: false,
+        loopback: false,
+    };
+    for flag in args {
+        match flag.as_str() {
+            "--json" => parsed.json = true,
+            "--anonymous" => parsed.anonymous = true,
+            "--loopback" => parsed.loopback = true,
+            other => return Err(CliError::new(format!("unknown net-check argument {other}"))),
+        }
+    }
+    Ok(parsed)
 }
 
 fn parse_host(args: &[String]) -> Result<HostArgs, CliError> {
@@ -425,6 +447,19 @@ mod tests {
                 assert_eq!(view.relays, vec!["https://203.0.113.9:443".to_string()]);
             }
             Command::Host(_) => panic!("host"),
+            Command::NetCheck(_) => panic!("net-check"),
+        }
+    }
+
+    #[test]
+    fn net_check_and_doctor_share_flags() {
+        let command =
+            parse(&strings(&["doctor", "--json", "--anonymous", "--loopback"])).expect("parse");
+        match command {
+            Command::NetCheck(args) => {
+                assert!(args.json && args.anonymous && args.loopback);
+            }
+            _ => panic!("net-check"),
         }
     }
 }

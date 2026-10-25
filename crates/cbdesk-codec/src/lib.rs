@@ -9,7 +9,9 @@
 //! not need a system libvpx. A stream is a keyframe followed by inter frames.
 //! AV1 in this tree is still one still picture.
 
+mod bench;
 mod error;
+mod hardware;
 mod rate;
 mod vp8;
 
@@ -17,7 +19,12 @@ use cbdesk_capture::Frame as Picture;
 use rav1d_safe::src::managed::{Decoder, Planes};
 use rav1e::prelude::*;
 
+pub use bench::{measure_vp8, Vp8Timing};
 pub use error::CodecError;
+pub use hardware::{
+    open_hardware, probe_hardware, require_chroma, ChromaFormat, EncodedPacket, FrameEncoder,
+    HardwareKind, HardwareProbe, QualityPreset, HARDWARE_KINDS,
+};
 pub use rate::{BitrateControl, Pace};
 pub use vp8::{decode_vp8_luma, encode_vp8, vp8_is_inter, Vp8Encoder, Vp8StreamDecoder};
 

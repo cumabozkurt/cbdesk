@@ -8,4 +8,4 @@ quantizer. AV1 is rav1e with assembler and git tooling disabled, and
 rav1d-safe under AGPL-3.0-only, and each AV1 call is one still. Negotiation
 prefers VP8 when both peers offer it. The live quantizer moves with encode
 time and receiver feedback. The synthetic barcode stays at quantizer 0.
-This tree has no 1080p timing measurement.
+A 1080p timing is in `docs/dev/media-measurement.md` and is not 30 frames per second.

@@ -34,6 +34,17 @@ blake3 = { version = "=1.8.5", default-features = false, features = ["pure", "st
 # SPAKE2 for short-code pairing (ADR-008). 0.4.0 is the latest stable release.
 # 0.5.0-pre.0 is a pre-release and is not used.
 spake2 = "=0.4.0"
+# OPAQUE (RFC 9807) via the published opaque-ke 4.0.1 crate. 4.1.0 pre-releases
+# are not used. The argon2 feature is the key-stretching function. ristretto255
+# is the OPRF and key-exchange group. This is not a project-specific cipher.
+opaque-ke = { version = "=4.0.1", default-features = false, features = ["ristretto255", "std", "argon2"] }
+# Same rand 0.8 line opaque-ke uses. std is on so OsRng is available.
+rand = { version = "=0.8.8", default-features = false, features = ["std"] }
+# Password strength for the permanent password. Score is 0..=4.
+zxcvbn = "=3.1.1"
+# RFC 6238 TOTP. HMAC-SHA1 is the algorithm in the RFC test vectors.
+hmac = "=0.12.1"
+sha1 = "=0.10.6"
 ed25519-dalek = { version = "=2.1.1", default-features = false, features = ["std", "fast", "zeroize"] }
 x25519-dalek = { version = "=2.0.1", default-features = false, features = ["static_secrets", "zeroize"] }
 hkdf = "=0.12.4"

@@ -316,6 +316,44 @@ impl QuicConn {
     pub fn remote_device_id(&self) -> [u8; 32] {
         self.remote_key()
     }
+
+    /// Snapshot of the open paths.
+    ///
+    /// A direct path on loopback is not a NAT hole punch. Relay paths appear
+    /// only when this connection was dialed through a relay.
+    pub fn observe_paths(&self) -> PathObservation {
+        let paths = self.inner.paths();
+        let mut observed = PathObservation {
+            direct_paths: 0,
+            relay_paths: 0,
+            selected_direct: false,
+            selected_relay: false,
+        };
+        for path in paths.iter() {
+            if path.is_ip() {
+                observed.direct_paths = observed.direct_paths.saturating_add(1);
+                observed.selected_direct |= path.is_selected();
+            }
+            if path.is_relay() {
+                observed.relay_paths = observed.relay_paths.saturating_add(1);
+                observed.selected_relay |= path.is_selected();
+            }
+        }
+        observed
+    }
+}
+
+/// Open paths on one QUIC connection, counted at a single instant.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PathObservation {
+    /// Paths whose remote address is an IP socket.
+    pub direct_paths: usize,
+    /// Paths whose remote address is a relay.
+    pub relay_paths: usize,
+    /// The path selected for application data is a direct IP path.
+    pub selected_direct: bool,
+    /// The path selected for application data is a relay path.
+    pub selected_relay: bool,
 }
 
 const PROBE_MAX: usize = 64 * 1024;
@@ -493,6 +531,7 @@ mod tests {
             relays: Vec::new(),
             use_n0_defaults: true,
             relay_only: false,
+            isolated: false,
         };
         assert_eq!(
             QuicEndpoint::bind(&defaults, addr, &seed(1))
@@ -504,6 +543,7 @@ mod tests {
             relays: vec!["https://foo.iroh.link:443".to_string()],
             use_n0_defaults: false,
             relay_only: false,
+            isolated: false,
         };
         assert!(matches!(
             QuicEndpoint::bind(&forbidden, addr, &seed(1)).await,
@@ -513,6 +553,7 @@ mod tests {
             relays: vec!["https://203.0.113.9:443".to_string()],
             use_n0_defaults: false,
             relay_only: false,
+            isolated: false,
         };
         let bound = QuicEndpoint::bind(&operator, addr, &seed(1))
             .await
@@ -582,6 +623,7 @@ mod tests {
             relays: vec![text.clone()],
             use_n0_defaults: false,
             relay_only: true,
+            isolated: false,
         };
         let host_seed = seed(71);
         let client_seed = seed(72);

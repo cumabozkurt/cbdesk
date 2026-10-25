@@ -1,64 +1,91 @@
-# Threat model v0.1
+# Threat model v0.2
 
-This is a first draft for the code that exists. It is not an external review
-and it is not a model of screen capture, because capture does not exist.
+This is a draft written with the code. It is not an external review. ADR-007
+(DHT blinding), ADR-008 (the SPAKE2 transcript), and the OPAQUE composition
+have not had that review.
 
 ## Assets
 
 - The Ed25519 seed. Loss of the seed is impersonation of the device.
-- Session contents, once a real transport exists: screen, input, files,
-  clipboard, audio.
+- The OPAQUE `HostSetup`. It is the server's OPRF state, not the password,
+  and losing it lets a new password file be minted.
+- The OPAQUE `PasswordRecord`. It is about as sensitive as a password hash.
+  The password itself is not stored.
+- Session contents after a grant: screen, input, files, clipboard, audio.
 - The person's decision at the host: which permissions were granted, and
-  whether a session is in progress.
+  whether a session is in progress. The indicator cannot be turned off.
 
 ## Adversaries
 
 - A network attacker who can read, drop, or replay packets.
-- A peer who sends unexpected protocol bytes, reused tickets, or a request
-  for high-risk permissions on first contact.
+- A peer who sends unexpected protocol bytes, reused tickets, a wrong
+  short code, or a wrong password.
 - A person who calls the host and tries to talk them through an install.
-  This is the fraud case. The product answer is a warning and a consent step,
-  not a technical proof.
-- A future relay operator. They are honest-but-curious about metadata and
-  must not be trusted with plaintext.
+  The product answer is a warning and a consent step, not a technical proof.
+- A relay operator. They can see addresses and traffic volume. QUIC payloads
+  are encrypted by iroh. A relay is not trusted with the password.
+- Someone who later reads the host's password record. Argon2id is the
+  stretching function. It does not make a weak password safe; the policy
+  refuses passwords shorter than 10 characters or with a zxcvbn score below 3.
 
 ## Controls in this tree
 
-- Device ids are Ed25519 public keys. Signatures use the dalek implementation.
-  No new primitive is defined here.
-- Tickets expire within 15 minutes, bind to the signing key, and are remembered
-  by signature so a replay fails. Expired tickets are not stored in the replay
-  cache.
-- The host session does not open media before a grant. The indicator is
-  visible while consent is pending and while the session is active, and the
-  disable function is a constant false.
+- Device ids are Ed25519 public keys (`ed25519-dalek`). No new signature
+  primitive is defined here.
+- Tickets expire within 15 minutes, bind to the signing key, and are
+  remembered by signature so a replay fails.
+- Short-code pairing uses `spake2` 0.4.0. The words are the password. A
+  wrong code does not open the consent prompt. The transcript has not had
+  an external review.
+- A permanent password uses `opaque-ke` 4.0.1 (RFC 9807) with Ristretto255
+  and Argon2id (19 MiB, 2 passes, 1 lane; the `argon2` crate defaults).
+  Host functions do not take the password. A test checks that the password
+  bytes are absent from the registration and login messages. The CLI does
+  not enroll a password, so this control is a library. The composition has
+  not had an external review.
+- TOTP is HMAC-SHA1 as in RFC 6238, checked against that RFC's SHA-1
+  vectors. It is not wired to the consent prompt.
+- QUIC uses iroh 1.4.1 with `presets::Minimal`, an empty relay list by
+  default, and no n0 discovery. Isolated mode rejects a relay and refuses
+  DHT publish.
+- The host session does not open media before a grant. The indicator stays
+  on. Privacy mode, block-input, and recording do not change the operating
+  system in this build. Recording is refused unless the host was told.
+  Terminal and tunnel gates do not spawn a shell or bind a port.
 - Unattended grants are a fixed safe set. High-risk permissions are not in
-  that set. First contact must opt in before file write, terminal, block
-  input, or privacy mode can be included in an interactive grant.
-- Quick Support cannot be combined with unattended access. A settings file
-  with an unknown `stealth` key fails to parse.
-- Authentication failures lock the device id and the source prefix. Consent
-  prompts are limited to one per minute, then silenced after three rejects.
-- Relay configuration rejects the known public-relay suffixes and rejects
-  `use_n0_defaults`. The default list is empty.
-- Blinded DHT publish fails closed. The HKDF epoch seed is derived from the
-  long-term secret, so it is not the public blinding construction.
+  that set. Quick Support cannot be combined with unattended access.
+- Authentication failures lock the device id and the source prefix.
+- DHT records are signed with the long-term device id. That signature is
+  linkable to the device. Blinded publish returns `BlindingPendingReview`.
+  The HKDF epoch seed is not the blinding construction.
+- An access log entry is chained with BLAKE3. The log is in memory. It is
+  not a signed transparency log.
 
 ## Gaps
 
-- No encrypted transport, so there is no proof of end-to-end confidentiality
-  on the wire yet.
-- No packet capture test that a socket stays silent.
-- No second factor implementation. The session state machine can pause for a
-  TOTP step; it does not check a TOTP code.
-- No PAKE and no OPAQUE. Short codes are generated and parsed only.
-- Rate limits are in memory. A process restart clears them.
+- No live symmetric-NAT measurement and no hole-punch success rate.
+  `cbdesk net-check` classifies local addresses and can show a loopback
+  path. UPnP and DHT reachability are not probed.
+- DHT records are linkable to the device id until ADR-007 is accepted.
+- The SPAKE2 transcript and the OPAQUE composition have no external review.
+- The password CLI is not wired. A caller who types a password still holds
+  it in their own buffer. Local enrollment, if added later, would see the
+  password in that process for the duration of registration.
+- TOTP is not required by the session state machine.
+- Rate limits and the access log are in memory. A process restart clears
+  them.
+- Privacy mode does not blank a display. Block-input does not grab the
+  local keyboard. Recording does not write an encrypted file.
+- No organization certificate parser (ADR-011) and no CRDT address book
+  (ADR-012). No updater and no TUF root (ADR-013).
 - Word lists still contain edit-distance-1 pairs.
-- Social engineering is not solved by the 3 second first-contact delay. The
-  delay only stops a mis-click. The fraud warning has to be shown by a UI
-  that does not exist yet.
+- Social engineering is not solved by the 3 second first-contact delay.
+- Hardware encoders are not linked. A measured 1080p software VP8 frame
+  is not a 30 frame-per-second result. See `docs/dev/media-measurement.md`.
+- Wayland ScreenCast is not executed in CI. See
+  `docs/dev/wayland-screencast.md`.
 
-## Out of scope for v0.1
+## Out of scope for v0.2
 
 Kernel drivers, virtual displays, clipboard malware, supply-chain compromise
 of a future updater, and physical access to an unlocked host.

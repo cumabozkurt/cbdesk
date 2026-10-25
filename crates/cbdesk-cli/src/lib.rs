@@ -16,6 +16,7 @@
 //! after that same grant.
 
 mod args;
+mod check;
 mod clipboard;
 mod error;
 mod files;
@@ -28,6 +29,7 @@ mod view;
 mod window;
 
 pub use args::{parse, Command, HostArgs, ViewArgs};
+pub use check::{run_net_check, NetCheckArgs};
 pub use error::CliError;
 pub use host::serve;
 pub use view::{view_remote, view_window};

@@ -29,11 +29,14 @@ Accepted for the primitives that are called:
 - Argon2id version 0x13 for a future identity-backup key. Parameters: 64 MiB,
   3 passes, parallelism 1.
 
-OPAQUE is the selected design for a permanent password and is not integrated.
-Short-code pairing is ADR-008 and uses the published `spake2` 0.4.0 crate.
-No production path may hash a password with a raw SHA-2 or compare secrets
-with `==` on a signature. The SPAKE2 transcript has not had an external
-review.
+OPAQUE is integrated with the published `opaque-ke` 4.0.1 crate
+(Ristretto255, TripleDH, Argon2id from the `argon2` 0.5 defaults: 19 MiB,
+2 passes, 1 lane). Host functions do not take the password. The CLI does
+not enroll one. Short-code pairing is ADR-008 and uses the published
+`spake2` 0.4.0 crate. TOTP is HMAC-SHA1 from RFC 6238 and is not attached
+to the consent prompt. No production path may hash a password with a raw
+SHA-2 or compare secrets with `==` on a signature. The SPAKE2 transcript
+and the OPAQUE composition have not had an external review.
 
 ## Consequences
 

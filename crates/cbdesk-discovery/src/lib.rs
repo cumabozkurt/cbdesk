@@ -15,9 +15,13 @@ mod mdns;
 mod presence;
 mod slot;
 mod ticket;
+mod wol;
 mod words;
 
-pub use dht::{sign_dht_record, verify_dht_record, DhtKeyMode};
+pub use dht::{
+    dht_linkability, prepare_dht_publish, sign_dht_record, verify_dht_record, DhtKeyMode,
+    DhtLinkability,
+};
 pub use error::DiscoveryError;
 pub use lan::{
     lan_should_announce, LanPacket, MdnsTxt, NetworkProfile, GENERIC_DEVICE_NAME,
@@ -33,4 +37,5 @@ pub use slot::{slot_epoch, slot_key, SLOT_EPOCH_SECS};
 pub use ticket::{
     sign_ticket, ticket_grants_access, verify_ticket, ReplayCache, MAX_TICKET_TTL_SECS,
 };
+pub use wol::magic_packet;
 pub use words::{parse_code, word_list, Language, ShortCode};

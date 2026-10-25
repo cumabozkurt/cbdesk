@@ -7,12 +7,37 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- `cbdesk net-check` and `cbdesk doctor` report local UDP binds, CGNAT
+  (`100.64.0.0/10`), and an address class. Symmetric NAT, UPnP, DHT, and
+  hole punching are reported as not measured. `--loopback` records an iroh
+  path on this machine and says that path is not a NAT hole punch. A
+  mapping classifier covers the endpoint-dependent case in a unit test.
+  See `docs/dev/nat-measurement.md`.
+- DHT publish under a blinded key still fails closed. Long-term records
+  are documented as linkable to the device id. Isolated mode rejects a
+  relay and a DHT publish. ADR-007 stays Proposed.
+- Permanent passwords use `opaque-ke` 4.0.1 with Argon2id (19 MiB, 2
+  passes, 1 lane). The password is not an argument of the host functions.
+  Length is at least 10 characters and the zxcvbn score is at least 3.
+  The CLI does not enroll a password. TOTP is HMAC-SHA1 (RFC 6238) and is
+  not attached to consent. Neither the OPAQUE composition nor the SPAKE2
+  transcript has had an external review.
+- A software Opus loopback encodes, buffers, and decodes a tone without
+  opening a device. A 1920×1080 software VP8 timing is recorded in
+  `docs/dev/media-measurement.md` and is not 30 frames per second.
+  Hardware encoders are unavailable. 4:4:4 is refused.
+- Library gates for permission presets, an in-memory BLAKE3 access log,
+  session deadlines, privacy mode, block-input, recording notice, terminal,
+  tunnel, side switch, whiteboard strokes, a Wake-on-LAN payload, and a
+  virtual display. The operating-system effects and the iOS, installer,
+  audit, and TUF work are not done. See `docs/dev/deployment.md` and
+  `docs/dev/wayland-screencast.md`.
 - Short-code pairing with the published `spake2` 0.4.0 crate. The password
   is the two lowercase words. The slot and both device keys are transcript
   only. The words are not written into the ticket. A desk host requires the
   exchange before consent. A wrong code does not open the prompt. The host
   still approves. The CLI host does not run this exchange. The transcript
-  has not had an external review. OPAQUE is still not implemented.
+  has not had an external review.
 - The Flutter shell sends the live session. A desktop host encodes
   `capture_picture` when no picture is queued. The remote view forwards a
   click and Enter after an Input grant, clipboard text after a Clipboard
@@ -37,8 +62,8 @@ Version 0.0.0 is not a release.
   by 16 pixels at quantizer 96 and checks the moved columns. The barcode
   test at quantizer 0 still reads that barcode on an inter frame. The live
   path keeps the capture's even size. The pacer targets 33 ms and raises the
-  quantizer when encode time, loss, or delay says so. This tree has no 1080p
-  timing measurement.
+  quantizer when encode time, loss, or delay says so. A later note in
+  this changelog records a 1080p timing that is not 30 frames per second.
 - A scripted pointer and Enter travel over QUIC and the host prints them
   after an Input grant. The window uses that mapping. The host sends an
   empty acknowledgement so the last event is still read if the viewer then
@@ -56,7 +81,7 @@ Version 0.0.0 is not a release.
   fail closed. The default endpoint still has an empty relay list. With a
   relay set, HTTPS net-report probes run only against that relay so a home
   relay can be chosen. A loopback relay test carries one probe with UDP
-  off. Symmetric NAT is unmeasured. This project does not run a relay.
+  off. A live symmetric NAT is still unmeasured. This project does not run a relay.
 - Workspace layout and the first crates: protocol codec, identity, discovery
   records, in-memory transport, host session policy, and test doubles.
 - Direct QUIC endpoint on iroh 1.4.1 with n0 relays and n0 discovery left

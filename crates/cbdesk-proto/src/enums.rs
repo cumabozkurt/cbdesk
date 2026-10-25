@@ -72,7 +72,7 @@ pub enum AuthMethod {
     PakeCode,
     /// One-time password.
     OneTimePassword,
-    /// OPAQUE permanent password. Not implemented in this milestone.
+    /// OPAQUE permanent password. The protocol lives in `cbdesk-crypto`. The CLI does not enroll one.
     OpaquePassword,
     /// Organization certificate. Not implemented in this milestone.
     OrgCert,

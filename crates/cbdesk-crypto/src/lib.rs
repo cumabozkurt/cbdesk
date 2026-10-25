@@ -4,16 +4,19 @@
 
 //! Identity keys and the small set of cryptographic helpers CBDesk calls directly.
 //!
-//! Short-code pairing uses the published `spake2` 0.4.0 crate (ADR-008). This
-//! crate does not invent a cipher. OPAQUE is still not implemented. The
-//! SPAKE2 transcript binding in this repository has not had an external review.
+//! Short-code pairing uses the published `spake2` 0.4.0 crate (ADR-008).
+//! A permanent password uses the published `opaque-ke` 4.0.1 crate. This
+//! crate does not invent a cipher. Neither the SPAKE2 transcript nor the
+//! OPAQUE composition has had an external review.
 
 mod error;
 mod identity;
 mod kdf;
 mod keystore;
 mod pake;
+mod password;
 mod redacted;
+mod totp;
 mod z32;
 
 pub use error::CryptoError;
@@ -26,7 +29,14 @@ pub use keystore::{
     identity_from_os, identity_from_store, IdentityStore, MemoryKeyStore, OsKeyStore,
 };
 pub use pake::{password_bytes, tags_match, transcript, Confirmation, Handshake, Side};
+pub use password::{
+    accept_password, argon2_parameters, keys_match, login_finish, login_host_finish, login_request,
+    login_response, registration_record, registration_request, registration_response,
+    registration_upload, HostSetup, PasswordRecord, PendingHostLogin, PendingLogin,
+    PendingRegistration, MAX_PASSWORD_BYTES, MIN_PASSWORD_CHARS, MIN_ZXCVBN_SCORE,
+};
 pub use redacted::Redacted;
+pub use totp::{codes_match, totp, TOTP_DIGITS, TOTP_STEP_SECS};
 
 #[cfg(test)]
 mod tests {

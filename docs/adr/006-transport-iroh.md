@@ -80,6 +80,8 @@ accepts that certificate. Other relay hosts keep normal verification.
 
 The loopback proof starts iroh's test relay helper in the test process,
 binds two endpoints with UDP transports cleared, and echoes one probe.
-That helper is a dev-dependency. The CLI does not spawn it. Symmetric NAT
-is unmeasured. T-NET-001 is still the direct loopback echo with an empty
-relay list and zero DNS queries.
+That helper is a dev-dependency. The CLI does not spawn it. `cbdesk net-check`
+reports local UDP binds, CGNAT address space, and an optional loopback path.
+A live symmetric NAT is still unmeasured. The mapping classifier is a
+decision rule in tests. T-NET-001 is still the direct loopback echo with an
+empty relay list and zero DNS queries.

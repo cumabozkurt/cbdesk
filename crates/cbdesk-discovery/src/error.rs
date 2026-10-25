@@ -55,6 +55,9 @@ pub enum DiscoveryError {
     /// DHT publishing under a blinded key is not available yet.
     #[error("DHT public-key blinding is not enabled until ADR-007 is accepted")]
     BlindingPendingReview,
+    /// Isolated mode does not publish a DHT record.
+    #[error("isolated mode does not publish a DHT record")]
+    IsolatedNetwork,
     /// The record contains direct addresses while IP publishing is off.
     #[error("DHT record withholds IP but still contains a direct address")]
     IpNotPublished,

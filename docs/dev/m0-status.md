@@ -102,6 +102,55 @@ sources is derived from that project.
 - Crate directories from the layout that have no code yet contain a README
   and are not workspace members.
 
+## Network, password, and later-phase pass
+
+This pass stays on `cursor/m0-foundation-0838`. The plan checkboxes in
+`docs/MASTER_PLAN.md` are still unchecked.
+
+- `cbdesk net-check` and `cbdesk doctor` print a local UDP and address-class
+  report. CGNAT is `100.64.0.0/10`. Symmetric NAT, UPnP, DHT, and hole
+  punching are explicitly not measured. `--loopback` connects two endpoints
+  on this machine and says a direct path there is not a NAT hole punch.
+  The test locks that. `classify_mappings` is the endpoint-dependent rule
+  and is fed by a fixture, not by a live NAT. See `docs/dev/nat-measurement.md`.
+- DHT blinded publish still returns `BlindingPendingReview`. A long-term
+  record's `signer_pk` is the device id, and `dht_linkability` says so.
+  Isolated mode refuses a relay and refuses DHT publish. ADR-007 stays
+  Proposed. No blinding construction was added.
+- Permanent passwords use `opaque-ke` 4.0.1 with Argon2id (19 MiB, 2 passes,
+  1 lane). Host functions do not take the password. A test checks the
+  password bytes are absent from the OPAQUE messages. zxcvbn score must be
+  at least 3 and the password must be at least 10 characters. The CLI does
+  not enroll a password. TOTP is HMAC-SHA1 and matches the RFC 6238 SHA-1
+  vectors. It is not wired to the consent prompt. Neither composition has
+  had an external review.
+- Opus `software_loopback` encodes, buffers, and decodes a tone without
+  opening a device. The mean absolute error in that test is below 0.2.
+  Nobody has confirmed they heard it.
+- Software VP8 at 1920×1080, two frames, quantizer 32, on this machine:
+  19577 ms in debug and 416 ms in release (29550 bytes, one keyframe).
+  Release is about 208 ms per frame, under 5 frames per second, not 30.
+  Hardware encoders are named and `open_hardware` fails. 4:4:4 is refused.
+  Quality presets are quantizer indexes.
+- Wayland ScreenCast remains unrun in CI. The manual plan is
+  `docs/dev/wayland-screencast.md`.
+- Later-phase gates that exist as library checks, not as product behavior:
+  permission presets that omit high-risk permissions, in-memory BLAKE3
+  access log, session and idle deadlines, privacy mode and block-input that
+  do not touch the operating system, recording that requires a host notice
+  and does not write a file, terminal and tunnel gates that do not spawn or
+  bind, side-switch that needs both consents, whiteboard strokes that need
+  the indicator, a Wake-on-LAN payload that is not sent, and a virtual
+  display that fails closed.
+- Still blocked, and not pretended otherwise: GitHub organization settings,
+  trademark search, an external audit, signed installers and store listings,
+  an iOS target, a TUF root (ADR-013), an organization certificate parser
+  (ADR-011), a CRDT library (ADR-012), DHT blinding (ADR-007), a shipped
+  relay daemon, a live symmetric NAT, a 72-hour soak, and a reproducible
+  build. Notes that were not executed are in `docs/dev/deployment.md`.
+  This pass does not start the next unchecked product phase on its own
+  beyond the gates above.
+
 ## M0 items still open
 
 The M0 exit criterion is not met. The plan's exit is a fork that builds on
@@ -148,8 +197,10 @@ substitute, not that exit.
   installed. `RelayMode::Default` is not selected. A relay named only on a
   ticket is ignored. HTTPS net-report probes run only when that list is
   non-empty, and only against those relays. A loopback relay test echoes
-  one probe with UDP transports cleared. Symmetric NAT is unmeasured. The
-  test relay is iroh's test helper, not a process this project ships.
+  one probe with UDP transports cleared. A live symmetric NAT is unmeasured.
+  `cbdesk net-check` and the mapping classifier are described in
+  `docs/dev/nat-measurement.md`. The test relay is iroh's test helper, not a
+  process this project ships.
 - A verified invite ticket dials `direct_addrs` through that endpoint, then
   a relay this endpoint was already configured to use. The connection is
   handed to `HostSession`. The ticket is not a grant.
@@ -165,7 +216,8 @@ substitute, not that exit.
   seconds on a first contact before `--approve` can grant.
 - Synthetic capturer, a VP8 barcode stream, and an AV1 fallback. The live
   path sends color YUV at the capture's even size. The pacer targets 33 ms
-  and adapts the VP8 quantizer. This tree has no 1080p timing measurement.
+  and adapts the VP8 quantizer. A 1080p debug timing is in
+  `docs/dev/media-measurement.md` and is not 30 frames per second.
   The Flutter desk encodes that live capture when no picture is queued.
   The 48×16 motion pair is the queued test picture.
   Ubuntu CI proves the X11 path under Xvfb, including a viewer window that
@@ -194,7 +246,7 @@ substitute, not that exit.
 
 | Id | What the test covers | What it does not cover |
 | --- | --- | --- |
-| T-NET-001 | Loopback QUIC echo on an endpoint with no n0 relays, no n0 discovery, and a resolver that recorded no names. Forbidden relay suffixes still fail before bind. A verified ticket dial does not query DNS for its relay URL. A separate test installs one operator URL and, on loopback only, echoes a probe with UDP off | A capture of every packet the runner sends, including traffic to GitHub. Symmetric NAT. A relay process shipped by this project |
+| T-NET-001 | Loopback QUIC echo on an endpoint with no n0 relays, no n0 discovery, and a resolver that recorded no names. Forbidden relay suffixes still fail before bind. A verified ticket dial does not query DNS for its relay URL. A separate test installs one operator URL and, on loopback only, echoes a probe with UDP off. `net-check` classifies local addresses and a loopback path test requires a direct path | A capture of every packet the runner sends, including traffic to GitHub. A live symmetric NAT. A relay process shipped by this project |
 | T-AUTH-018 | An unanswered approval closes at 30 seconds and the controller receives `TIMEOUT_USER_RESPONSE`. The 30 second sleep is the production wait; the loopback test uses that close path with a ready deadline | A visible approval window |
 | T-AUTH-011 | Fifth failure locks 60 seconds, later failures double up to one hour | Password UI |
 | T-AUTH-012 | Counters are per device id and per IPv4 /24 or IPv6 /56 | Distributed clients |
@@ -203,7 +255,7 @@ substitute, not that exit.
 | T-PERM-002 | `authorize` refuses a permission that was not granted | A file browser UI |
 | T-PERM-006 | Media and `authorize` fail before the grant. An echo probe is answered with `PROTOCOL_VIOLATION` and is not reflected. A unidirectional stream before the grant is the same close. After `authorize(View)`, frame streams are delivered. After `authorize(Input)`, an input event is returned and is not injected by the test. After `authorize(Clipboard)`, text is delivered. File and audio follow their grants and close the session without them. Clipboard, input, file, or audio without the grant closes the session | Moving the real pointer |
 | T-MED-001 | Both peers offering only VP8 select VP8. VP8 outranks AV1 when both are offered. AV1 is selected when VP8 is absent | VP9, H.264, and H.265 |
-| T-MED-004 | A short VP8 stream keeps the barcode readable at quantizer 0, including one inter frame. A 48×16 test shifts a white block by 16 pixels at quantizer 96. Color sampling keeps a solid color dominant | A 60-second soak, a hardware encoder, and a measured 1080p frame rate |
+| T-MED-004 | A short VP8 stream keeps the barcode readable at quantizer 0, including one inter frame. A 48×16 test shifts a white block by 16 pixels at quantizer 96. Color sampling keeps a solid color dominant. A separate ignored test times two 1080p frames and does not require 30 fps | A 60-second soak and a hardware encoder |
 | T-UI-004 | First contact cannot be approved before 3 seconds. The shell keeps Accept disabled until the desk says the delay has elapsed | A wall-clock widget that sleeps 3 seconds |
 | T-UI-005 | `indicator_can_be_disabled` is constant false. The shell has no hide control, paints the indicator above consent, and the settings page says it cannot be turned off | A tray icon on a logged-in desktop |
 | T-UI-007 / T-I18N-001 | JSON catalog keys and Flutter ARB keys match across Turkish and English | A spoken usability test |
@@ -234,28 +286,14 @@ is not proven until Actions finishes.
 
 ## Recommended next run
 
-Prove the macOS debug bundle on Actions. The Windows debug bundle linked
-`cbdesk_ffi.dll` on `46337c5`. The arm64 Android
-APK job on `2febc4d` succeeded. The macOS plugin is a CocoaPods podspec,
-and the workflow turns Swift Package Manager off before `flutter build macos`.
-Wayland ScreenCast
-is compiled and untested in CI; a portal-capable lab would be the proof,
-not an Xvfb job. A symmetric NAT measurement needs two machines and a
-relay the operator runs outside this repository. Android capture is
-MediaProjection after the system dialog and is scaled so the longer side
-is at most 960. It has not been clicked through on a device in this run.
-
-`c01d0fb` is green on Ubuntu 24.04, Windows 2022, and macOS 14. `80534bf`
-and `2febc4d` are not. `46337c5` failed the macOS link. `b01e162` and
-`617fb1e` built the macOS app. `617fb1e` failed while reading the static
-archive with Apple `nm`. The commit after it is not green until Actions
-finishes.
-
-Still out of this run: hardware codecs, an iOS shell, compressed file
-chunks, OPAQUE, and DHT blinding. ADR-007 stays Proposed. ADR-008 is
-Accepted for `spake2` 0.4.0 and has not had an external review. The fork
+CI on this branch still has to be green after the network and password
+pass. Wayland ScreenCast stays a manual plan
+(`docs/dev/wayland-screencast.md`). A live symmetric NAT still needs two
+networks and a relay the operator runs. Android capture has not been
+clicked through on a device. iOS, signed packages, the GitHub organization,
+the trademark search, and an external audit stay with the owner.
+ADR-007, ADR-011, ADR-012, and ADR-013 stay where they are. The fork
 import stays closed for capture, codec, and input (ADR-015). M0's
-fork-builds exit stays unmet. T-MED-004 is not a 60-second soak. The pacer
-targets 33 ms. A 1080p frame interval has not been measured. Nobody has
-confirmed they heard the microphone path. `clipboard-win` 5.4.1, pulled by
-arboard 3.7.0, is yanked; `cargo audit` reports it as an allowed warning.
+fork-builds exit stays unmet. T-MED-004 is not a 60-second soak. Nobody
+has confirmed they heard the microphone path. `clipboard-win` 5.4.1, pulled
+by arboard 3.7.0, is yanked; `cargo audit` reports it as an allowed warning.

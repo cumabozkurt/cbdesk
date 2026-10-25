@@ -187,6 +187,66 @@ impl Default for JitterBuffer {
     }
 }
 
+/// Result of a software microphone-to-speaker path.
+///
+/// No capture device and no playback device are opened. The samples are a
+/// synthetic tone. A person has not confirmed they heard it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LoopbackStats {
+    /// Frames that were decoded after the jitter buffer.
+    pub decoded_frames: u32,
+    /// Mean absolute sample error against the encoded PCM.
+    pub mean_abs_error: f32,
+    /// Energy of the decoded samples.
+    pub decoded_energy: f32,
+    /// Always false for [`software_loopback`].
+    pub device_opened: bool,
+}
+
+/// Encode a tone, hold it in the jitter buffer, and decode it.
+///
+/// This is the codec path a microphone packet would take before a speaker
+/// played it. `frames` must be at least 2 so the jitter buffer can prime.
+pub fn software_loopback(frames: u32) -> Result<LoopbackStats, AudioError> {
+    if frames < 2 {
+        return Err(AudioError::Codec("length"));
+    }
+    let mut codec = PacketCodec::new()?;
+    let mut jitter = JitterBuffer::new();
+    let mut pending = std::collections::VecDeque::new();
+    let mut error_sum = 0.0_f32;
+    let mut compared = 0.0_f32;
+    let mut decoded_energy = 0.0_f32;
+    let mut decoded_frames = 0_u32;
+    for index in 0..frames {
+        let pcm = tone(index);
+        let packet = codec.encode_pcm(&pcm)?;
+        pending.push_back(pcm);
+        jitter.push(packet);
+        if let Some(packet) = jitter.pop() {
+            let source = pending.pop_front().ok_or(AudioError::Codec("length"))?;
+            let decoded = codec.decode_packet(&packet)?;
+            error_sum += source
+                .iter()
+                .zip(decoded.iter())
+                .map(|(left, right)| (left - right).abs())
+                .sum::<f32>();
+            compared += decoded.len() as f32;
+            decoded_energy += decoded.iter().map(|sample| sample * sample).sum::<f32>();
+            decoded_frames = decoded_frames.saturating_add(1);
+        }
+    }
+    if decoded_frames == 0 || compared == 0.0 {
+        return Err(AudioError::Codec("length"));
+    }
+    Ok(LoopbackStats {
+        decoded_frames,
+        mean_abs_error: error_sum / compared,
+        decoded_energy,
+        device_opened: false,
+    })
+}
+
 fn tone(frame: u32) -> Vec<f32> {
     let mut pcm = vec![0_f32; FRAME_SAMPLES * CHANNELS];
     for sample in 0..FRAME_SAMPLES {
@@ -231,6 +291,15 @@ mod tests {
         assert!(!packet.is_empty());
         let decoded = codec.decode_packet(&packet).expect("decode");
         assert!(energy(&decoded) > 0.01);
+    }
+
+    #[test]
+    fn software_loopback_round_trips_a_tone_without_a_device() {
+        let stats = software_loopback(8).expect("loopback");
+        assert!(!stats.device_opened);
+        assert!(stats.decoded_frames >= 6);
+        assert!(stats.decoded_energy > 0.01);
+        assert!(stats.mean_abs_error < 0.2, "{}", stats.mean_abs_error);
     }
 
     #[test]

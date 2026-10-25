@@ -11,6 +11,11 @@ publish.workspace = true
 
 [dependencies]
 argon2.workspace = true
+hmac.workspace = true
+opaque-ke.workspace = true
+rand.workspace = true
+sha1.workspace = true
+zxcvbn.workspace = true
 # Version anchors. These crates are also transitive dependencies; depending on
 # them directly stops caret ranges from selecting Rust 1.85-only releases.
 base64ct.workspace = true

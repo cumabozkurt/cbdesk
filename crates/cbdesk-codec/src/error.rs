@@ -19,4 +19,7 @@ pub enum CodecError {
     /// The payload did not yield a picture.
     #[error("payload contained no picture")]
     NoFrame,
+    /// This encoder is not built in. Software VP8 and AV1 stills remain available.
+    #[error("encoder is unavailable: {0}")]
+    Unavailable(&'static str),
 }

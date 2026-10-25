@@ -67,4 +67,16 @@ pub enum SessionError {
     /// Repeated rejections silenced prompts for this peer.
     #[error("consent prompts are silenced for this peer")]
     PromptSilenced,
+    /// Recording was requested without telling the person at the host.
+    #[error("recording requires a notice on the host")]
+    RecordingNeedsNotice,
+    /// The session passed its time limit or its idle limit.
+    #[error("the session time limit has been reached")]
+    SessionExpired,
+    /// Both sides have not agreed to switch roles.
+    #[error("switching sides needs consent from both peers")]
+    SideSwitchNeedsBoth,
+    /// A markup stroke arrived while the session indicator was off.
+    #[error("markup requires the session indicator")]
+    MarkupNeedsIndicator,
 }
