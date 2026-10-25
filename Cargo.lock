@@ -1184,6 +1184,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "cbdesk-relayd"
+version = "0.0.0"
+dependencies = [
+ "cbdesk-crypto",
+ "cbdesk-discovery",
+ "cbdesk-net",
+ "cbdesk-proto",
+ "iroh-relay",
+ "rcgen",
+ "rustls",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
 name = "cbdesk-session"
 version = "0.0.0"
 dependencies = [

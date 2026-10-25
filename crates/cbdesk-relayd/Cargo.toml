@@ -1,0 +1,30 @@
+[package]
+name = "cbdesk-relayd"
+description = "Loopback relay for a CBDesk endpoint. Not a public relay."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "cbdesk-relayd"
+path = "src/main.rs"
+
+[dependencies]
+iroh-relay.workspace = true
+rcgen.workspace = true
+rustls = { workspace = true, features = ["ring", "std", "tls12"] }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["signal"] }
+
+[dev-dependencies]
+cbdesk-crypto = { path = "../cbdesk-crypto" }
+cbdesk-discovery = { path = "../cbdesk-discovery" }
+cbdesk-net = { path = "../cbdesk-net" }
+cbdesk-proto = { path = "../cbdesk-proto" }
+
+[lints]
+workspace = true
