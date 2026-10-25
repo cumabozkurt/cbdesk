@@ -1,0 +1,1 @@
+/* Empty file so CocoaPods emits a framework for this FFI plugin. */

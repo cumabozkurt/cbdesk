@@ -1,0 +1,72 @@
+# Supply-chain policy for cargo-deny 0.20.x.
+# Multiple versions warn. Wildcards and unknown sources are errors.
+
+[graph]
+targets = [
+    { triple = "x86_64-unknown-linux-gnu" },
+    { triple = "x86_64-pc-windows-msvc" },
+    { triple = "aarch64-apple-darwin" },
+]
+all-features = false
+
+[advisories]
+yanked = "warn"
+# cargo-deny 0.20 takes a scope here, not a lint level.
+unmaintained = "workspace"
+# opaque-ke 4.0.1 (latest stable) depends on elliptic-curve 0.13.8, which
+# depends on crypto-bigint 0.5.5. RUSTSEC-2026-0387 is fixed in crypto-bigint
+# >= 0.7.6. That line is not semver-compatible with elliptic-curve 0.13, and
+# no stable opaque-ke release uses elliptic-curve 0.14. 4.1.0 pre-releases
+# are not a fix and are not used. Remove this ignore in the same commit that
+# bumps opaque-ke, once `cargo tree -i crypto-bigint -p cbdesk-crypto` no
+# longer shows 0.5.5. Do not delete it while 0.5.5 remains in Cargo.lock.
+# This tree does not patch the arithmetic. See docs/threat-model.md.
+ignore = [
+    { id = "RUSTSEC-2026-0387", reason = "remove when a stable opaque-ke no longer depends on crypto-bigint 0.5.5; 4.0.1 cannot take the 0.7.6 fix" },
+]
+
+[licenses]
+version = 2
+confidence-threshold = 0.93
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "MPL-2.0",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "CC0-1.0",
+    # CA certificate bundle shipped by webpki-roots, a transitive dependency of iroh.
+    "CDLA-Permissive-2.0",
+    "AGPL-3.0-or-later",
+    # rav1d-safe is dual-licensed AGPL-3.0-only OR a commercial grant.
+    # This tree uses the AGPL side. See ADR-015.
+    "AGPL-3.0-only",
+    "GPL-3.0-or-later",
+    # clipboard-win, the Windows text clipboard behind arboard.
+    "BSL-1.0",
+]
+
+[licenses.private]
+ignore = false
+
+# allo-isolate ships Apache-2.0 in LICENSE and does not set `license`.
+[[licenses.clarify]]
+crate = "allo-isolate"
+expression = "Apache-2.0"
+license-files = [{ path = "LICENSE", hash = 0x0a6d4ed6 }]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+highlight = "all"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

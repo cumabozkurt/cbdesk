@@ -1,0 +1,119 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/cbdesk-proto",
+    "crates/cbdesk-crypto",
+    "crates/cbdesk-discovery",
+    "crates/cbdesk-net",
+    "crates/cbdesk-session",
+    "crates/cbdesk-capture",
+    "crates/cbdesk-codec",
+    "crates/cbdesk-input",
+    "crates/cbdesk-fs",
+    "crates/cbdesk-audio",
+    "crates/cbdesk-desk",
+    "crates/cbdesk-hostops",
+    "crates/cbdesk-controller",
+    "crates/cbdesk-ffi",
+    "crates/cbdesk-cli",
+    "crates/cbdesk-testkit",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+authors = ["CBDesk contributors"]
+repository = "https://github.com/cumabozkurt/cbdesk"
+rust-version = "1.91"
+publish = false
+
+# Exact versions stay. Rust is 1.91 because that is the rust-version of iroh
+# 1.4.1 (ADR-006). Do not float past it, and do not loosen these to a range.
+[workspace.dependencies]
+thiserror = "=1.0.69"
+blake3 = { version = "=1.8.5", default-features = false, features = ["pure", "std"] }
+# SPAKE2 for short-code pairing (ADR-008). 0.4.0 is the latest stable release.
+# 0.5.0-pre.0 is a pre-release and is not used.
+spake2 = "=0.4.0"
+# OPAQUE (RFC 9807) via the published opaque-ke 4.0.1 crate. 4.1.0 pre-releases
+# are not used. The argon2 feature is the key-stretching function. ristretto255
+# is the OPRF and key-exchange group. This is not a project-specific cipher.
+opaque-ke = { version = "=4.0.1", default-features = false, features = ["ristretto255", "std", "argon2"] }
+# Same rand 0.8 line opaque-ke uses. std is on so OsRng is available.
+rand = { version = "=0.8.8", default-features = false, features = ["std"] }
+# Password strength for the permanent password. Score is 0..=4.
+zxcvbn = "=3.1.1"
+# RFC 6238 TOTP. HMAC-SHA1 is the algorithm in the RFC test vectors.
+hmac = "=0.12.1"
+sha1 = "=0.10.6"
+ed25519-dalek = { version = "=2.1.1", default-features = false, features = ["std", "fast", "zeroize"] }
+x25519-dalek = { version = "=2.0.1", default-features = false, features = ["static_secrets", "zeroize"] }
+hkdf = "=0.12.4"
+sha2 = "=0.10.8"
+argon2 = "=0.5.3"
+zeroize = { version = "=1.9.1", features = ["derive"] }
+zeroize_derive = "=1.5.0"
+getrandom = "=0.2.15"
+# 1.53.3 includes the broadcast-channel soundness fix (RUSTSEC-2025-0023).
+# iroh 1.4.1 accepts tokio ^1.44.1. Features below are what this workspace calls.
+tokio = { version = "=1.53.3", features = ["rt", "rt-multi-thread", "sync", "macros", "time", "net", "io-util"] }
+async-trait = "=0.1.83"
+serde = { version = "=1.0.229", features = ["derive"] }
+# iroh 1.4.1 is built with presets::Minimal, RelayMode::Disabled, and no n0
+# address lookup. tls-ring is the pure-Rust TLS backend. portmapper stays off.
+iroh = { version = "=1.4.1", default-features = false, features = ["tls-ring"] }
+n0-error = "=1.0.1"
+serde_json = "=1.0.154"
+toml = "=0.8.23"
+toml_edit = "=0.22.27"
+proptest = "=1.5.0"
+tempfile = "=3.15.0"
+tracing = "=0.1.40"
+# Direct pins for transitive crates whose caret ranges now include Rust 1.85 releases.
+base64ct = { version = "=1.7.3", default-features = false }
+hashbrown = { version = "=0.16.1", default-features = false }
+indexmap = { version = "=2.13.1", default-features = false }
+# Software AV1. rav1e asm/nasm and git2 stay off. rav1d-safe is the pure-Rust
+# decoder (AGPL-3.0-only).
+rav1e = { version = "=0.8.1", default-features = false }
+rav1d-safe = { version = "=0.6.0", default-features = false, features = ["bitdepth_8"] }
+# Software VP8 keyframes. oxideav-vp8 is pure Rust (MIT). The registry
+# feature pulls oxideav-core and stays off. No system libvpx.
+oxideav-vp8 = { version = "=0.2.7", default-features = false }
+# Screen capture. 0.9.5 is the last release whose Linux deps are all on crates.io.
+xcap = "=0.9.5"
+# Pointer and keyboard injection. x11rb is the X11 path; wayland is the
+# compositor path. Neither feature is used unless a grant includes Input.
+enigo = { version = "=0.6.1", default-features = false, features = ["x11rb", "wayland"] }
+# Viewer window. Stable winit, not the 0.31 beta. softbuffer presents
+# decoded frames without a GPU toolkit.
+winit = "=0.30.13"
+softbuffer = "=0.4.8"
+# OS clipboard text. Tests use a memory double and do not call this.
+arboard = "=3.7.0"
+# OS credential store for the device seed. v1 is the small platform API.
+# The cli feature pulls every store and stays off.
+keyring = { version = "=4.2.0", default-features = false, features = ["v1"] }
+# SO_REUSEADDR / SO_REUSEPORT before an mDNS bind on port 5353.
+socket2 = "=0.6.5"
+# Pure-Rust Opus (BSD-3-Clause). No system libopus.
+rusty-opus = "=1.0.2"
+# Microphone and speaker. Linux links libasound. Tests accept a missing device.
+cpal = "=0.15.3"
+# Same rustls as iroh 1.4.1. Used only to accept a self-signed certificate
+# from a relay whose host is a literal loopback address.
+rustls = { version = "=0.23.46", default-features = false }
+# Flutter glue. Exact pin. Generated code is the only unsafe in cbdesk-ffi.
+flutter_rust_bridge = "=2.12.0"
+# X11 connection for a privacy window and a keyboard grab. Linux only.
+x11rb = "=0.13.2"
+# PTY open on Unix. Same 1.1 line already in the lock through x11rb.
+rustix = "=1.1.5"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

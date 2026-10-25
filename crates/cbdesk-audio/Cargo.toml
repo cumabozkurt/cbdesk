@@ -1,0 +1,18 @@
+[package]
+name = "cbdesk-audio"
+description = "Opus frames and microphone or speaker I/O for one consented audio grant."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+cpal.workspace = true
+rusty-opus.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

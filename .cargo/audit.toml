@@ -1,0 +1,10 @@
+# cargo-audit configuration. cargo-deny carries the same advisory id.
+# opaque-ke 4.0.1 depends on crypto-bigint 0.5.5 via elliptic-curve 0.13.8.
+# RUSTSEC-2026-0387 is fixed in crypto-bigint >= 0.7.6, which that curve
+# crate does not use. No stable opaque-ke release has moved. Delete this
+# ignore in the same commit that bumps opaque-ke, after
+# `cargo tree -i crypto-bigint -p cbdesk-crypto` no longer lists 0.5.5.
+# This tree does not vendor a patched bigint. See docs/threat-model.md.
+
+[advisories]
+ignore = ["RUSTSEC-2026-0387"]

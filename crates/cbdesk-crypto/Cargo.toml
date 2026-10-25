@@ -1,0 +1,37 @@
+[package]
+name = "cbdesk-crypto"
+description = "Device identity, fingerprints, and the key-derivation helpers CBDesk is willing to use."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+argon2.workspace = true
+hmac.workspace = true
+opaque-ke.workspace = true
+rand.workspace = true
+sha1.workspace = true
+zxcvbn.workspace = true
+# Version anchors. These crates are also transitive dependencies; depending on
+# them directly stops caret ranges from selecting Rust 1.85-only releases.
+base64ct.workspace = true
+blake3.workspace = true
+spake2.workspace = true
+ed25519-dalek.workspace = true
+getrandom.workspace = true
+hashbrown.workspace = true
+hkdf.workspace = true
+indexmap.workspace = true
+sha2.workspace = true
+keyring.workspace = true
+thiserror.workspace = true
+x25519-dalek.workspace = true
+zeroize.workspace = true
+zeroize_derive.workspace = true
+
+[lints]
+workspace = true

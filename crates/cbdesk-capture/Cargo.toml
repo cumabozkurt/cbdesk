@@ -1,0 +1,19 @@
+[package]
+name = "cbdesk-capture"
+description = "Synthetic barcode frames and operating-system screen capture."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+
+[target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))'.dependencies]
+xcap.workspace = true
+
+[lints]
+workspace = true

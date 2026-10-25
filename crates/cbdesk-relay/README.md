@@ -1,0 +1,1 @@
+Embedded community relay and the standalone relay binary. Not implemented. A relay must not be able to read session contents, and it must not be enabled as a hidden default. `cbdesk --relay` names a relay the operator runs. This crate does not start one.

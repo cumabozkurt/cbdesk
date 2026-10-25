@@ -1,0 +1,25 @@
+group = "org.cbdesk.cbdesk_ffi"
+version = "0.0.1"
+
+apply plugin: "com.android.library"
+
+android {
+    namespace = "org.cbdesk.cbdesk_ffi"
+    compileSdk = 36
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    defaultConfig {
+        minSdk = 24
+    }
+}
+
+apply from: "../cargokit/gradle/plugin.gradle"
+
+cargokit {
+    manifestDir = "../../../../crates/cbdesk-ffi"
+    libname = "cbdesk_ffi"
+}

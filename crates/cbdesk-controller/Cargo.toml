@@ -1,0 +1,16 @@
+[package]
+name = "cbdesk-controller"
+description = "View-side controller types that can be checked for an iOS target."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+cbdesk-proto = { path = "../cbdesk-proto" }
+
+[lints]
+workspace = true
