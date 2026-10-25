@@ -26,13 +26,17 @@ jobs:
 
       - name: Install mdBook 0.5.4
         run: |
-          curl -fsSL -o /tmp/mdbook.tar.gz \
+          archive=/tmp/mdbook-v0.5.4-x86_64-unknown-linux-gnu.tar.gz
+          curl -fsSL -o "$archive" \
             https://github.com/rust-lang/mdBook/releases/download/v0.5.4/mdbook-v0.5.4-x86_64-unknown-linux-gnu.tar.gz
-          tar -xzf /tmp/mdbook.tar.gz -C /tmp
+          # Release asset digest for mdbook-v0.5.4-x86_64-unknown-linux-gnu.tar.gz.
+          echo "3f28de05dafca9d0f2eab99c662116b0e37b89b1d96a08f8f430b9eeae958cd7  $archive" | sha256sum -c -
+          tar -xzf "$archive" -C /tmp
           mkdir -p "$HOME/.local/bin"
           install -m 755 /tmp/mdbook "$HOME/.local/bin/mdbook"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          "$HOME/.local/bin/mdbook" --version | grep -q 'mdbook 0.5.4'
+          version="$("$HOME/.local/bin/mdbook" --version)"
+          test "$version" = "mdbook v0.5.4"
 
       - name: Build and check links
         run: |
