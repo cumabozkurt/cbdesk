@@ -154,11 +154,10 @@ impl Read for Reader {
 fn spawn_shell() -> Result<HostShell, OsError> {
     use rustix::pty::{grantpt, openpt, ptsname, unlockpt, OpenptFlags};
 
-    let mut flags = OpenptFlags::RDWR | OpenptFlags::NOCTTY;
     #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd"))]
-    {
-        flags |= OpenptFlags::CLOEXEC;
-    }
+    let flags = OpenptFlags::RDWR | OpenptFlags::NOCTTY | OpenptFlags::CLOEXEC;
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd")))]
+    let flags = OpenptFlags::RDWR | OpenptFlags::NOCTTY;
     let master = openpt(flags).map_err(|err| OsError::Failed(err.to_string()))?;
     grantpt(&master).map_err(|err| OsError::Failed(err.to_string()))?;
     unlockpt(&master).map_err(|err| OsError::Failed(err.to_string()))?;

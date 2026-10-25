@@ -5,6 +5,13 @@ Version 0.0.0 is not a release.
 
 ## [Unreleased]
 
+### Fixed
+
+- The session-indicator widget test accepts the full live-region label.
+  Actions on `6a11de6` required that label to be exactly `Oturum`.
+  Non-Linux builds no longer call `mapped_size` on the unavailable cover,
+  and the Unix PTY flags are not `mut` on macOS.
+
 ### Added
 
 - Damage tracking on the software VP8 path. Unchanged pictures are not

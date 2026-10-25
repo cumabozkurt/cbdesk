@@ -78,7 +78,10 @@ have not had that review.
   `elliptic-curve` 0.13.8. RUSTSEC-2026-0387 is a timing issue fixed in
   `crypto-bigint` >= 0.7.6. That line does not fit `elliptic-curve` 0.13,
   and no stable `opaque-ke` uses 0.14. `deny.toml` and `.cargo/audit.toml`
-  ignore this one advisory. The arithmetic is not patched here.
+  ignore this one advisory until a stable `opaque-ke` newer than 4.0.1
+  no longer depends on `crypto-bigint` 0.5.5. Remove both ignores in that
+  bump, and not before `cargo tree -i crypto-bigint -p cbdesk-crypto`
+  drops 0.5.5. The arithmetic is not patched here.
 - Linux X11, when `cbdesk-hostops` is called with a permit, can grab the
   keyboard and pointer and map a black override-redirect window on the
   display the caller names. Tests use a private Xvfb. Wayland is not

@@ -159,8 +159,12 @@ RUSTSEC-2026-0387 (`crypto-bigint` 0.5.5 via `opaque-ke` 4.0.1 and
 [39919713548](https://github.com/cumabozkurt/cbdesk/actions/runs/39919713548)
 on `e69c781`. `deny.toml` and `.cargo/audit.toml` ignore that one advisory.
 The published fix is `crypto-bigint` >= 0.7.6, which `elliptic-curve` 0.13
-does not use, and no stable `opaque-ke` has moved. This tree does not patch
-the arithmetic. `clipboard-win` 5.4.1 stays a yanked warning.
+does not use, and no stable `opaque-ke` has moved. `opaque-ke` 4.1.0
+pre-releases are not used. Delete both ignores in the same commit that
+bumps `opaque-ke`, and only after
+`cargo tree -i crypto-bigint -p cbdesk-crypto` no longer lists 0.5.5.
+This tree does not patch the arithmetic. `clipboard-win` 5.4.1 stays a
+yanked warning.
 
 - Damage tracking compares 64×64 tiles, eight bytes at a time, on two
   threads when the picture has at least two tile rows. There are no SIMD
@@ -233,12 +237,14 @@ the arithmetic. `clipboard-win` 5.4.1 stays a yanked warning.
   Flatpak was not submitted to Flathub. `.github/workflows/release.yml` is
   `workflow_dispatch` only and uploads those unsigned Ubuntu artifacts.
   It does not run on this pull request.
-- The session indicator is a Flutter semantics live region. Its label is
-  the existing catalog string (`Session` / `Oturum`). Navigation icons use
-  the existing labels. No new ARB keys were added. The widget test expects
-  the Turkish label and `isLiveRegion`. Flutter is not installed in this
-  environment, so that test was not executed here. A person has not used a
-  screen reader against the shell.
+- The session indicator is a Flutter semantics live region. The node's
+  label includes the existing catalog title (`Session` / `Oturum`) and the
+  sentence that the indicator cannot be turned off, plus the status text.
+  Navigation icons use the existing labels. No new ARB keys were added.
+  The widget test checks the live-region flag and those Turkish substrings.
+  Actions on `6a11de6` failed that test because it required the label to
+  be exactly `Oturum`. Flutter is not installed in this environment.
+  A person has not used a screen reader against the shell.
 
 ## M0 items still open
 
@@ -374,19 +380,87 @@ archive because Xcode 15.4 cannot read those Rust 1.91 objects. The
 following commit checks the linked framework inside the app. That check
 is not proven until Actions finishes.
 
-## Recommended next run
+## Plan §18 ledger
 
-CI on the commit that ignores RUSTSEC-2026-0387 still has to finish green.
-The policy job on `5602049` is the failure that ignore is meant to clear.
-Wayland ScreenCast stays a manual plan
-(`docs/dev/wayland-screencast.md`). A live symmetric NAT still needs two
-networks and a relay the operator runs. Android capture has not been
-clicked through on a device. A signed iOS build, signing keys, the GitHub
-organization, the trademark search, and an external audit stay with the
-owner. The live host session does not yet hold the X11 grab, the privacy
-window, the shell, or the tunnel. ADR-007, ADR-011, ADR-012, and ADR-013
-stay where they are. The fork import stays closed for capture, codec, and
-input (ADR-015). M0's fork-builds exit stays unmet. T-MED-004 is not a
-60-second soak. Nobody has confirmed they heard the microphone path.
-`clipboard-win` 5.4.1, pulled by arboard 3.7.0, is yanked; `cargo audit`
-reports it as an allowed warning.
+The checkboxes in `docs/MASTER_PLAN.md` stay unchecked. This table is the
+closing map for that section. It does not start another feature. Actions
+on `6a11de6` ([40207159596](https://github.com/cumabozkurt/cbdesk/actions/runs/40207159596))
+were red: the Flutter test required the live-region label to be exactly
+`Oturum`, and non-Linux builds called `mapped_size` on `Unavailable`.
+macOS also rejected an unused `mut` on the PTY flags. The policy job and
+Ubuntu clippy and test on that run were green. This table ships with the
+fix. A green result belongs to the Actions run on this commit. This
+paragraph does not invent one.
+
+| Plan item | State | What is in the tree |
+| --- | --- | --- |
+| M0 GitHub org, branch protection, CODEOWNERS, DCO app, Discussions | Owner | The repo is `cumabozkurt/cbdesk`. CI runs a local DCO script. Org settings, protection, the GitHub DCO App, and Discussions are not configured from here. |
+| M0 trademark search and domain (R-012) | Owner | `docs/brand/` says the search was not done. |
+| M0 RustDesk fork and rebrand | Absent | ADR-002 started from empty crates. ADR-015 closes a later import of capture, codec, and input. `tools/rebrand-check.sh` runs in CI. There is no fork to clean. |
+| M0 licenses, NOTICE, SPDX headers, THIRD_PARTY_LICENSES | Done | Those files are in the tree. The release SBOM is a cargo-metadata list, not a signed third-party audit. |
+| M0 ADR-001 through ADR-006 accepted | Done | Those six are Accepted. ADR-007, ADR-011, ADR-012, and ADR-013 stay Proposed. |
+| M0 CI: lint, test, and build on Windows, macOS, and Linux | Partial | The workflow covers fmt, deny, audit, clippy, tests, and Flutter bundles on `ubuntu-24.04`, `windows-2022`, and `macos-14`. `6a11de6` failed as named above. |
+| M0 testkit and netlab profiles N0, N3, N4 | Partial | The crate and the profile files exist. The profiles do not create network namespaces. |
+| M0 UI wireframes S-01 through S-05 | Absent | No Penpot or Figma frames are in the tree. |
+| M0 threat model v0.1 | Partial | `docs/threat-model.md` is a draft written with the code. It is not an external review. |
+| M0 exit: the fork builds on three desktops, the rebrand scan is clean, ADRs are merged | Absent | There is no fork. A clean rebrand scan is the absence of that tree. ADR-001 through ADR-006 are accepted. A green CI run is not this exit. |
+| M1 iroh without n0 defaults, direct IP, LAN mDNS, invite ticket | Partial | Loopback QUIC, LAN announce and browse, and a verified ticket dial are tested. A live symmetric NAT is not measured. A loopback path is not a hole punch. |
+| M1 T-NET-001 in CI | Done | Loopback echo on an endpoint with no n0 relays and a resolver that recorded no names. It is not a capture of every packet the runner sends. |
+| M1 identity key and OS keychain on three desktops | Partial | The keyring path is compiled. A store that does not answer keeps a new identity in memory. CI does not prove three logged-in keychains. |
+| M1 RustDesk `message.proto` on the new transport, with VP8/VP9 and keyboard and mouse | Absent | The protocol is clean-room, not `message.proto`. VP8 and AV1 exist. VP9 does not. A scripted pointer and Enter are host stdout after an Input grant. |
+| M1 simple interactive approval | Partial | The Flutter consent panel and `cbdesk host --approve` exist. This is not a finished approval window. |
+| M1 synthetic capturer, recording injector, Linux to Windows end to end | Partial | Synthetic frames and the recording injector exist. No Linux-to-Windows session was run. |
+| M1 exit: LAN, N0 to N3, T-NET-002/003, T-DISC-001, T-MED-004, demo video | Partial | Same-machine LAN tests exist. Netlab namespaces were not created. T-MED-004 is a short barcode, one 48×16 inter frame, and ignored 1080p timings. It is not a 60-second soak. There is no demo video. |
+| M2 short code and PAKE, with a cryptography review | Partial | The desk host uses `spake2` 0.4.0 before consent. The CLI host does not. ADR-008 is Accepted. There has been no external review. |
+| M2 mainline DHT, blinding behind a flag | Partial | Records can be published in the clear. Blinded publish returns `BlindingPendingReview`. ADR-007 stays Proposed. |
+| M2 embedded community relay and relay discovery | Partial | An operator-configured relay URL can be installed. No relay daemon ships. n0 defaults stay off. |
+| M2 authentication, permission engine, connection manager | Partial | Consent, grants, and `authorize` exist. There is no separate connection-manager product. |
+| M2 Flutter screens S-01 through S-06, S-10, S-11 | Partial | Home, connect, consent, remote view, files, address book, and settings exist. They are not those wireframe ids. |
+| M2 fraud warning and an indicator that cannot be disabled | Done | The shell and the library both keep the indicator on. The indicator is a semantics live region. |
+| M2 Turkish and English | Partial | Catalogs cover the shell strings that exist, in both languages. There is no spoken usability test and no video tutorial. |
+| M2 portable Windows EXE, unsigned DMG, AppImage | Partial | `make-dmg.sh` and the AppImage script are templates and were not run. No Windows EXE installer was built. |
+| M2 exit: desktop smoke matrix, the named test ids, an alpha release | Absent | Version 0.0.0 is not a release. The smoke matrix was not run by a person. |
+| M3 service, agent, and netd split on three desktops | Absent | One host process. The split in §5.3 is not built. |
+| M3 OPAQUE password and TOTP | Partial | `opaque-ke` 4.0.1 and HMAC-SHA1 TOTP are libraries. The CLI does not enroll a password. TOTP is not on the consent prompt. RUSTSEC-2026-0387 is ignored until a stable `opaque-ke` no longer depends on `crypto-bigint` 0.5.5. |
+| M3 hardware codecs and a blocklist | Partial | `hw-vaapi`, `hw-mediafoundation`, `hw-videotoolbox`, and `hw-mediacodec` shell out to ffmpeg and are off by default. No successful hardware encode was recorded. There is no codec blocklist. |
+| M3 audio | Partial | Opus and a cpal device open exist. This tree does not record that a person heard the stream. |
+| M3 `cbdesk doctor`, CLI v1, `cbdesk-relayd`, Docker image | Partial | `cbdesk doctor` prints a local address report. It is not CLI v1. No relay daemon and no Docker image ship. |
+| M3 MSI, pkg, deb, rpm, Flatpak, winget, Homebrew, AUR | Partial | Unsigned deb, WiX, Flatpak, DMG, and AppImage templates exist. The deb was not built here. rpm, winget, Homebrew, AUR, and a signed pkg are absent. |
+| M3 DHT blinding on by default after review | Absent | Blinded publish still fails closed. There has been no review. |
+| M3 usability round T-UX-001 through T-UX-003 | Absent | No person ran that round. |
+| M3 exit: service, NAT, auth, and media tests, performance targets, a beta channel | Absent | A 1920×1080 software keyframe measured 201 ms on this machine. The 30 frame-per-second and glass-to-glass targets are not met. No beta channel exists. |
+| M4 Android host: MediaProjection, accessibility service, foreground service, F-Droid | Partial | CI builds an arm64 debug APK. Capture waits for the system dialog. That dialog was not accepted on a device. No accessibility service and no F-Droid submission. |
+| M4 iOS controller on TestFlight | Partial | macOS CI type-checks `cbdesk-controller` for `aarch64-apple-ios`. There is no signature, no TestFlight build, and no Apple Developer account. |
+| M4 CRDT sync of "my devices" | Absent | ADR-012 is not implemented. |
+| M4 terminal, tunnel, file paste, session recording, privacy mode | Partial | X11 grab and cover, a PTY or `cmd.exe` pipes, a loopback tunnel, a notice file, and Xvfb exist and are tested. The live `cbdesk host` session does not call them. File transfer is a QUIC stream under a path jail. Recording is not an encrypted file. |
+| M4 quick-support binary | Absent | Quick support stays banned in the session policy. |
+| M4 exit: mobile matrix and the terminal, tunnel, and admin tests | Absent | No device matrix was run. |
+| M5 organization root, certificates, policy documents, CRL | Absent | ADR-011 stays Proposed. No parser is linked. |
+| M5 GPO, Intune, Jamf, and Ansible examples | Absent | `docs/dev/deployment.md` records that those tools were not pointed at a package. |
+| M5 Windows indirect display, with signing started (R-007) | Partial | Linux `open_virtual_display` starts Xvfb. Windows indirect-display signing has not started. macOS has no virtual-display entitlement here. |
+| M5 whiteboard, side switch, 4:4:4 | Partial | Whiteboard strokes and side switch are library gates. `require_chroma` of 4:4:4 fails. |
+| M5 exit: auth and media tests, a volunteer pilot | Absent | No pilot was run. |
+| M6 independent security audit | Owner | Not commissioned. |
+| M6 performance work until every NFR holds | Absent | The numbers in `docs/dev/media-measurement.md` are one machine and synthetic frames. |
+| M6 72-hour soak and chaos tests | Absent | Not run. |
+| M6 finished Turkish and English docs, plus video tutorials | Partial | User notes and the shell catalogs exist in both languages. There are no video tutorials. |
+| M6 reproducible build checked by someone else | Partial | `tools/release/reproducible.sh` records `SOURCE_DATE_EPOCH`, `rustc -vV`, and the `Cargo.lock` digest. No second machine hashed a binary. |
+| M6 notice to antivirus vendors (R-011) | Owner | Not sent. |
+| M6 exit: release candidate and version 1.0.0 | Absent | The version is 0.0.0. Nothing was published. |
+| M7 Tor, multipath, hardware keys, HDR, pen, gamepad, KVM, protocol gateways, ADB, notification bridge, iOS view-only host, web client, address-book import | Absent | None of these are started. |
+
+RUSTSEC-2026-0387 stays ignored while `opaque-ke` 4.0.1 pulls `crypto-bigint`
+0.5.5 through `elliptic-curve` 0.13.8. The published fix is
+`crypto-bigint` >= 0.7.6. Remove the id from `deny.toml` and from
+`.cargo/audit.toml` in the commit that moves to a stable `opaque-ke` whose
+tree no longer contains 0.5.5. Confirm with
+`cargo tree -i crypto-bigint -p cbdesk-crypto` before deleting the ignore.
+A 4.1.0 pre-release is not that commit. The arithmetic is not patched in
+this tree.
+
+## Stop
+
+No further product phase starts from this note. Wayland ScreenCast remains
+the manual plan in `docs/dev/wayland-screencast.md`. The live host still
+does not hold the X11 grab, the privacy window, the shell, or the tunnel.
+`clipboard-win` 5.4.1, pulled by arboard 3.7.0, stays a yanked warning.

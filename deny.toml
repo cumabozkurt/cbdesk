@@ -16,10 +16,13 @@ unmaintained = "workspace"
 # opaque-ke 4.0.1 (latest stable) depends on elliptic-curve 0.13.8, which
 # depends on crypto-bigint 0.5.5. RUSTSEC-2026-0387 is fixed in crypto-bigint
 # >= 0.7.6. That line is not semver-compatible with elliptic-curve 0.13, and
-# no stable opaque-ke release uses elliptic-curve 0.14. This tree does not
-# patch the arithmetic. See docs/threat-model.md.
+# no stable opaque-ke release uses elliptic-curve 0.14. 4.1.0 pre-releases
+# are not a fix and are not used. Remove this ignore in the same commit that
+# bumps opaque-ke, once `cargo tree -i crypto-bigint -p cbdesk-crypto` no
+# longer shows 0.5.5. Do not delete it while 0.5.5 remains in Cargo.lock.
+# This tree does not patch the arithmetic. See docs/threat-model.md.
 ignore = [
-    { id = "RUSTSEC-2026-0387", reason = "opaque-ke 4.0.1 is stuck on crypto-bigint 0.5.5; the published fix is 0.7.6 and this tree does not patch the arithmetic" },
+    { id = "RUSTSEC-2026-0387", reason = "remove when a stable opaque-ke no longer depends on crypto-bigint 0.5.5; 4.0.1 cannot take the 0.7.6 fix" },
 ]
 
 [licenses]

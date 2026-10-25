@@ -150,25 +150,42 @@ mod tests {
                 return;
             }
         };
-        let name = display.name().to_string();
-        let first = block_local_input(
-            request_block_input(granted(Permission::BlockInput), true).expect("permit"),
-            Some(&name),
-        )
-        .expect("grab");
-        drop(first);
-        let second = block_local_input(
-            request_block_input(granted(Permission::BlockInput), true).expect("permit"),
-            Some(&name),
-        )
-        .expect("second grab");
-        drop(second);
-        let cover = cover_display(
-            request_privacy_mode(granted(Permission::PrivacyMode), true).expect("permit"),
-            Some(&name),
-        )
-        .expect("cover");
-        let (width, height) = cover.mapped_size().expect("size");
-        assert_eq!((width, height), (1280, 720));
+        #[cfg(target_os = "linux")]
+        {
+            let name = display.name().to_string();
+            let first = block_local_input(
+                request_block_input(granted(Permission::BlockInput), true).expect("permit"),
+                Some(&name),
+            )
+            .expect("grab");
+            drop(first);
+            let second = block_local_input(
+                request_block_input(granted(Permission::BlockInput), true).expect("permit"),
+                Some(&name),
+            )
+            .expect("second grab");
+            drop(second);
+            let cover = cover_display(
+                request_privacy_mode(granted(Permission::PrivacyMode), true).expect("permit"),
+                Some(&name),
+            )
+            .expect("cover");
+            let (width, height) = cover.mapped_size().expect("size");
+            assert_eq!((width, height), (1280, 720));
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = display;
+            assert!(block_local_input(
+                request_block_input(granted(Permission::BlockInput), true).expect("permit"),
+                None,
+            )
+            .is_err());
+            assert!(cover_display(
+                request_privacy_mode(granted(Permission::PrivacyMode), true).expect("permit"),
+                None,
+            )
+            .is_err());
+        }
     }
 }
