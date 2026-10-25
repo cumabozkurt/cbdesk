@@ -7,6 +7,9 @@ Version 0.0.0 is not a release.
 
 ### Fixed
 
+- The indexed-capture test retries a transient X connection when a display
+  is required. Xvfb can reset the handshake while another capture client
+  is connected. An index past the list is still refused.
 - The macOS event tap links CoreGraphics and CoreFoundation in separate
   `extern` blocks. One stacked pair of `#[link]` attributes fails
   `clippy::duplicated_attributes`.

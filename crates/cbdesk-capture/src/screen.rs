@@ -205,23 +205,46 @@ mod tests {
     #[test]
     fn an_index_past_the_list_is_refused_when_a_display_is_present() {
         let required = std::env::var_os("CBDESK_REQUIRE_DISPLAY").is_some();
-        let monitors = match list_monitors() {
-            Ok(monitors) => monitors,
-            Err(error) if !required => {
-                let _ = error;
-                return;
+        // Xvfb can reset a new client's handshake while another capture is
+        // still connected. The error is "Connection error, possible I/O
+        // error". The primary-display test above already retries that class
+        // of failure. An index past the list stays an error.
+        let mut last = None;
+        for _ in 0..5 {
+            match list_monitors() {
+                Ok(monitors) => {
+                    assert!(!monitors.is_empty());
+                    assert!(monitors.iter().filter(|monitor| monitor.primary).count() <= 1);
+                    let index = monitors
+                        .iter()
+                        .find(|monitor| monitor.primary)
+                        .map(|monitor| monitor.index)
+                        .unwrap_or(0);
+                    match capture_picture_on(index) {
+                        Ok(picture) => {
+                            assert!(picture.width >= 1 && picture.height >= 1);
+                            assert!(capture_picture_on(u32::MAX).is_err());
+                            return;
+                        }
+                        Err(error) if !required => {
+                            let _ = error;
+                            return;
+                        }
+                        Err(error) => last = Some(error),
+                    }
+                }
+                Err(error) if !required => {
+                    let _ = error;
+                    return;
+                }
+                Err(error) => last = Some(error),
             }
-            Err(error) => panic!("a display was required and listing failed: {error}"),
-        };
-        assert!(!monitors.is_empty());
-        assert!(monitors.iter().filter(|monitor| monitor.primary).count() <= 1);
-        let index = monitors
-            .iter()
-            .find(|monitor| monitor.primary)
-            .map(|monitor| monitor.index)
-            .unwrap_or(0);
-        let picture = capture_picture_on(index).expect("indexed capture");
-        assert!(picture.width >= 1 && picture.height >= 1);
-        assert!(capture_picture_on(u32::MAX).is_err());
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        panic!(
+            "a display was required and indexed capture failed: {}",
+            last.map(|error| error.to_string())
+                .unwrap_or_else(|| "no error".to_string())
+        );
     }
 }
