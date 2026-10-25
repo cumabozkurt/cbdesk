@@ -44,6 +44,8 @@ stays with the owner, and work that is absent, is listed on the
 - No Linux-to-Windows session was run. No 72-hour soak. No second machine
   compared binaries. No external security audit. No signed package and no
   store listing.
+- The release workflow was not run in this workspace. No archive was
+  packed here, and no GitHub Release was published.
 - GitHub organization settings, branch protection, the trademark search,
   and signing keys stay with the owner.
 

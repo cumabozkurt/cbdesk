@@ -4,12 +4,18 @@
 set -eu
 root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 cd "$root"
-version=0.0.0
+version=${CBDESK_VERSION:-0.0.0}
 if ! command -v dpkg-deb >/dev/null 2>&1; then
   echo "dpkg-deb is not installed" >&2
   exit 1
 fi
-cargo build --locked --release -p cbdesk-cli --bin cbdesk
+if [ "${CBDESK_REUSE_BINARY:-}" != 1 ]; then
+  cargo build --locked --release -p cbdesk-cli --bin cbdesk
+fi
+if [ ! -f target/release/cbdesk ]; then
+  echo "missing target/release/cbdesk" >&2
+  exit 1
+fi
 arch=$(dpkg --print-architecture)
 stage=$(mktemp -d)
 cleanup() { rm -rf "$stage"; }

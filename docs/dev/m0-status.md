@@ -258,13 +258,19 @@ yanked warning.
   key is in git. `tools/release/reproducible.sh` printed
   `SOURCE_DATE_EPOCH`, `rustc -vV`, and the sha256 of `Cargo.lock`. It does
   not compare two binaries, so this tree does not claim a reproducible
-  build. `packaging/deb/build.sh`, the AppImage script, `make-dmg.sh`, the
-  WiX source, and the Flatpak manifest are templates. The deb was not
+  build. `packaging/deb/build.sh` can build an unsigned deb.
+  `CBDESK_VERSION` defaults to `0.0.0`. The AppImage script, `make-dmg.sh`,
+  the WiX source, and the Flatpak manifest are templates. The deb was not
   built here. AppImage exits if `linuxdeploy` is missing and does not
   download it. The DMG script exits on Linux. WiX was not compiled.
-  Flatpak was not submitted to Flathub. `.github/workflows/release.yml` is
-  `workflow_dispatch` only and uploads those unsigned Ubuntu artifacts.
-  It does not run on this pull request.
+  Flatpak was not submitted to Flathub. `.github/workflows/release.yml`
+  runs on a `v*` tag and on `workflow_dispatch`. It builds unsigned CLI
+  archives for Linux, Windows, and macOS, Flutter desktop bundles, an
+  arm64 debug APK, the unsigned deb, and the SBOM, then the publish job
+  creates a GitHub prerelease. That job is the only one with
+  `contents: write`. The files are not signed. This pull request does not
+  run that workflow and publishes nothing. No phone was installed, and no
+  performance run of those binaries was recorded.
 - The session indicator is a Flutter semantics live region. The node's
   label includes the existing catalog title (`Session` / `Oturum`) and the
   sentence that the indicator cannot be turned off, plus the status text.
@@ -454,14 +460,14 @@ invent one.
 | M2 Flutter screens S-01 through S-06, S-10, S-11 | Partial | Home, connect, consent, remote view, files, address book, and settings exist. They are not those wireframe ids. |
 | M2 fraud warning and an indicator that cannot be disabled | Done | The shell and the library both keep the indicator on. The indicator is a semantics live region. |
 | M2 Turkish and English | Partial | Catalogs cover the shell strings that exist, in both languages. The language switch shows `Türkçe` and `English` from the ARB files, including when the UI is the other language. There is no spoken usability test and no video tutorial. |
-| M2 portable Windows EXE, unsigned DMG, AppImage | Partial | `make-dmg.sh` and the AppImage script are templates and were not run. No Windows EXE installer was built. |
-| M2 exit: desktop smoke matrix, the named test ids, an alpha release | Absent | Version 0.0.0 is not a release. The smoke matrix was not run by a person. |
+| M2 portable Windows EXE, unsigned DMG, AppImage | Partial | The release workflow can pack an unsigned Windows CLI zip and a Flutter Windows zip when a `v*` tag is pushed. It was not run here. `make-dmg.sh` and the AppImage script are templates and were not run. No signed installer was built. |
+| M2 exit: desktop smoke matrix, the named test ids, an alpha release | Absent | Version 0.0.0 is not a release. The release workflow can upload an unsigned prerelease after a `v*` tag. That tag was not pushed here. The smoke matrix was not run by a person. |
 | M3 service, agent, and netd split on three desktops | Absent | One host process. The split in §5.3 is not built. |
 | M3 OPAQUE password and TOTP | Partial | `opaque-ke` 4.0.1 and HMAC-SHA1 TOTP are libraries. The CLI does not enroll a password. TOTP is not on the consent prompt. RUSTSEC-2026-0387 is ignored until a stable `opaque-ke` no longer depends on `crypto-bigint` 0.5.5. |
 | M3 hardware codecs and a blocklist | Partial | `hw-vaapi`, `hw-mediafoundation`, `hw-videotoolbox`, and `hw-mediacodec` shell out to ffmpeg and are off by default. No successful hardware encode was recorded. There is no codec blocklist. |
 | M3 audio | Partial | Opus and a cpal device open exist. This tree does not record that a person heard the stream. |
 | M3 `cbdesk doctor`, CLI v1, `cbdesk-relayd`, Docker image | Partial | `cbdesk doctor` prints a local address report. It is not CLI v1. `cbdesk-relayd` is the loopback binary in `docs/dev/relayd.md`. `packaging/relayd/Dockerfile` was not built and no image was published. |
-| M3 MSI, pkg, deb, rpm, Flatpak, winget, Homebrew, AUR | Partial | Unsigned deb, WiX, Flatpak, DMG, and AppImage templates exist. The deb was not built here. rpm, winget, Homebrew, AUR, and a signed pkg are absent. |
+| M3 MSI, pkg, deb, rpm, Flatpak, winget, Homebrew, AUR | Partial | The release workflow can build the unsigned deb when a `v*` tag is pushed. It was not built in this workspace. WiX, Flatpak, DMG, and AppImage templates were not compiled or submitted. rpm, winget, Homebrew, AUR, and a signed pkg are absent. |
 | M3 DHT blinding on by default after review | Absent | Blinded publish still fails closed. There has been no review. |
 | M3 usability round T-UX-001 through T-UX-003 | Absent | No person ran that round. |
 | M3 exit: service, NAT, auth, and media tests, performance targets, a beta channel | Absent | A 1920×1080 software keyframe measured 201 ms, and a later solid-frame run measured 198 ms. Parallel strips of that solid frame took 52 ms and a quarter-size preview took 12 ms. Those are not the live inter-frame path and not a desktop. The 30 frame-per-second and glass-to-glass targets are not met. No beta channel exists. |
@@ -482,7 +488,7 @@ invent one.
 | M6 finished Turkish and English docs, plus video tutorials | Partial | User notes and the shell catalogs exist in both languages. The book has a limits page for owner-owned and absent work. There are no video tutorials. |
 | M6 reproducible build checked by someone else | Partial | `tools/release/reproducible.sh` records `SOURCE_DATE_EPOCH`, `rustc -vV`, and the `Cargo.lock` digest. No second machine hashed a binary. |
 | M6 notice to antivirus vendors (R-011) | Owner | Not sent. |
-| M6 exit: release candidate and version 1.0.0 | Absent | The version is 0.0.0. Nothing was published. |
+| M6 exit: release candidate and version 1.0.0 | Absent | The version is 0.0.0. Nothing was published. An unsigned prerelease workflow is not a release candidate. |
 | M7 Tor, multipath, hardware keys, HDR, pen, gamepad, KVM, protocol gateways, ADB, notification bridge, iOS view-only host, web client, address-book import | Absent | None of these are started. |
 
 RUSTSEC-2026-0387 stays ignored while `opaque-ke` 4.0.1 pulls `crypto-bigint`
@@ -498,8 +504,11 @@ this tree.
 
 The user guide source is `docs/book`. `.github/workflows/pages.yml` builds
 it on every push to `main` and deploys with GitHub Pages when the repository
-source is GitHub Actions. The site does not offer a download. This commit
-adds `cbdesk-relayd`, a loopback-only self-signed relay. It does not
+source is GitHub Actions. The site does not host a binary.
+`.github/workflows/release.yml` can attach unsigned prerelease files to
+GitHub Releases when a `v*` tag is pushed. This commit does not push that
+tag, does not run that workflow, and does not publish a file.
+`cbdesk-relayd` remains a loopback-only self-signed relay. It does not
 measure a symmetric NAT, and it does not publish an image. It does not add
 a Windows or macOS input grab or a device test.
 Wayland ScreenCast remains the manual plan in

@@ -22,6 +22,16 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- `.github/workflows/release.yml` builds unsigned CLI archives for Linux,
+  Windows, and macOS with `cargo build --release --locked`, Flutter desktop
+  bundles, an arm64 debug Android APK, the existing unsigned deb, and an
+  SBOM. A `v*` tag, or a manual run that names a tag, creates a GitHub
+  prerelease and uploads those files plus `SHA256SUMS`. Only the publish
+  job has `contents: write`. The files are an unsigned alpha. SmartScreen
+  and Gatekeeper can warn or block them. This commit does not push a tag,
+  does not run the workflow, and does not publish a file. No phone install
+  and no performance run of these binaries was recorded. Version 0.0.0 is
+  still not a release.
 - `cbdesk host --monitor N` captures the display at that index in
   `list_monitors`. The index is the position in that call, not a stable
   hardware id. Omitting it keeps the primary display. An index past the
@@ -30,7 +40,7 @@ Version 0.0.0 is not a release.
   `capture_picture`.
 - The user guide has a limits page in Turkish and English. It lists
   owner-owned work and work that is absent from this tree. Plan checkboxes
-  stay unchecked. There is still no download.
+  stay unchecked. A published file is still absent from this commit.
 - `cbdesk host --strips N` (default 1, at most 16) can send a VP8 picture
   as horizontal keyframe bands. The header fields `canvas_width`,
   `canvas_height`, `strip_index`, and `strip_count` are omitted when zero.
@@ -70,7 +80,8 @@ Version 0.0.0 is not a release.
   not 30 frames per second. Numbers are in `docs/dev/media-measurement.md`.
 - An mdBook user guide in `docs/book`, in Turkish and English, with a
   bilingual landing page. `.github/workflows/pages.yml` builds it on every
-  push to `main` and deploys with GitHub Pages. There is still no download.
+  push to `main` and deploys with GitHub Pages. The site does not host a
+  binary.
 - The Flatpak template id is `org.cbdesk.CBDesk`. It has not been submitted
   to Flathub.
 - Damage tracking on the software VP8 path. Unchanged pictures are not

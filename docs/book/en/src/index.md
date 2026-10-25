@@ -4,7 +4,10 @@
 
 CBDesk is a remote desktop under design. It is meant to ask before anyone
 sees your screen, and to keep a session indicator that cannot be switched
-off. This site is the user guide. It is not a product you can install.
+off. This site is the user guide. It does not host a binary. A download,
+after a maintainer pushes a `v*` tag, is an unsigned prerelease on GitHub
+Releases. This commit does not publish one. See
+[Install and download](install.md).
 
 There is no account to create and no CBDesk server that a session is
 required to pass through. A relay, if you configure one, is a machine you

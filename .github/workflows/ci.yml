@@ -58,6 +58,25 @@ jobs:
           tools/release/sign.sh "$RUNNER_TEMP/cbdesk.spdx.json"
           grep -q unsigned "$RUNNER_TEMP/cbdesk.spdx.json.sign-note"
           tools/release/reproducible.sh
+          python3 -m py_compile tools/release/pack.py
+          test "$(tools/release/release-tag.sh v0.1.0-alpha.1)" = "v0.1.0-alpha.1"
+          if tools/release/release-tag.sh 'not-a-tag' >/dev/null 2>&1; then
+            echo "bad tag was accepted" >&2
+            exit 1
+          fi
+          tmp=$(mktemp -d)
+          printf 'x' > "$tmp/cbdesk"
+          chmod +x "$tmp/cbdesk"
+          python3 tools/release/pack.py pack \
+            --output "$tmp/out.tar.gz" \
+            --format tar.gz \
+            --prefix cbdesk \
+            --input "$tmp/cbdesk" \
+            --note tools/release/UNSIGNED.txt
+          tar -tzf "$tmp/out.tar.gz" | grep -qx 'UNSIGNED.txt'
+          tar -tzf "$tmp/out.tar.gz" | grep -qx 'cbdesk'
+          python3 tools/release/pack.py sum --file "$tmp/out.tar.gz" --sums "$tmp/SHA256SUMS"
+          grep -q '  out.tar.gz$' "$tmp/SHA256SUMS"
 
       - name: Android device script
         run: tools/android/device-check.sh

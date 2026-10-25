@@ -1,15 +1,52 @@
 # Install and download
 
-There is nothing to download. Version 0.0.0 is not a release. This site
-does not host an installer, a package repository, or a store listing.
+Version 0.0.0 in this tree is not a release. This site does not host an
+installer, a package, or a store listing. This commit does not publish a
+file.
 
-No MSI, DMG, deb, rpm, AppImage, or Flatpak has been signed or published.
-The repository contains unsigned templates only. The Flatpak manifest id is
+## Download
+
+A later `v*` tag can make GitHub attach unsigned prerelease files. A
+maintainer can also start `.github/workflows/release.yml` by hand and name
+the tag. The tag in this change has not been pushed. Until that workflow
+has run, the releases page can be empty:
+
+<https://github.com/cumabozkurt/cbdesk/releases>
+
+Those files, once the workflow has run, are an unsigned alpha. They are
+not version 1.0.0 and not a release candidate. Windows SmartScreen and
+macOS Gatekeeper can warn or block them. There is no notarization, no
+Apple Developer account, and no Authenticode certificate in the build.
+No real-device test and no performance test of these binaries was
+recorded. A 30 frame-per-second stream was not measured. The crate version
+can still say 0.0.0.
+
+The workflow is written to upload:
+
+- CLI archives from `cargo build --release --locked`. Linux is a `.tar.gz`
+  for `x86_64-unknown-linux-gnu`, built on `ubuntu-24.04`, and it links
+  system libraries from that image. Windows is a `.zip` with `cbdesk.exe`
+  for `x86_64-pc-windows-msvc`. macOS is a `.tar.gz` for
+  `aarch64-apple-darwin` from `macos-14`. That macOS file is Apple Silicon
+  only. It is not a universal binary and it is not notarized.
+- Flutter desktop bundles: a Linux release bundle `.tar.gz`, a Windows
+  release `.zip`, and a macOS `.app` `.zip` built with `--no-codesign`.
+- An arm64 Android debug APK. It is not a release-signed package. It was
+  not installed on a phone, and the system capture dialog was not accepted.
+- The unsigned deb and an SPDX SBOM. `CBDESK_SIGN_KEY` is unset, so the
+  checksum note says unsigned.
+- `SHA256SUMS`. That file is a list of digests. It is not a signature.
+
+No MSI, DMG, rpm, AppImage, or Flatpak has been signed or published.
+The repository still contains those templates. The Flatpak manifest id is
 `org.cbdesk.CBDesk`. It has not been submitted to Flathub. The Windows
 installer source has not been compiled. The DMG and AppImage scripts were
-not run. A debug Android APK can be built in CI and was not installed on a
-phone. The iOS controller crate can be type-checked on macOS. There is no
-TestFlight build and no Apple Developer account in this tree.
+not run. There is no TestFlight build and no Apple Developer account in
+this tree.
+
+If someone phoned you and told you to install remote-access software,
+refuse. Banks, government agencies, and support companies do not ask for
+that.
 
 ## Building from source
 
