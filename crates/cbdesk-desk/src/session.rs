@@ -26,8 +26,8 @@ use cbdesk_net::{
     send_input_event, ControllerGrant, HostLink, PeerEvent, QuicConn, UniBody,
 };
 use cbdesk_proto::{
-    ClipboardText, Codec, FileChunk, InputBody, InputEvent, KeyEvent, Permission, PointerEvent,
-    UnknownFields, VideoFrameHeader,
+    prepare_clipboard_text, ClipboardText, Codec, FileChunk, InputBody, InputEvent, KeyEvent,
+    Permission, PointerEvent, ProtoError, UnknownFields, VideoFrameHeader,
 };
 use tokio::sync::{mpsc, oneshot};
 
@@ -342,8 +342,13 @@ fn describe(event: &InputEvent) -> String {
 }
 
 fn remember_clipboard(inner: &Mutex<Inner>, text: &str) -> Result<(), DeskError> {
-    lock(inner)?.clipboard = text.to_string();
-    copy_to_os_clipboard(text);
+    let plain = match prepare_clipboard_text(text) {
+        Ok(plain) => plain,
+        Err(ProtoError::ClipboardSecret) => return Ok(()),
+        Err(err) => return Err(msg(err)),
+    };
+    lock(inner)?.clipboard = plain.clone();
+    copy_to_os_clipboard(&plain);
     Ok(())
 }
 
@@ -714,11 +719,13 @@ fn chunks_for(name: &str, bytes: &[u8]) -> Result<Vec<FileChunk>, String> {
 
 async fn send_clip(viewer: &Viewer, text: &str) -> Result<(), String> {
     require(&viewer.grant, Permission::Clipboard)?;
-    if text.len() > cbdesk_proto::CLIPBOARD_TEXT_MAX_BYTES {
-        return Err("clipboard text is too long".into());
-    }
+    let text = match prepare_clipboard_text(text) {
+        Ok(text) => text,
+        Err(ProtoError::ClipboardSecret) => return Ok(()),
+        Err(err) => return Err(err.to_string()),
+    };
     let clip = ClipboardText {
-        text: text.to_string(),
+        text,
         generation: 1,
         unknown: UnknownFields::new(),
     };

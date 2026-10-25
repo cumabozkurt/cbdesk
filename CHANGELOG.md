@@ -19,6 +19,9 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- Clipboard text that contains HTML is reduced to plain text before it is
+  sent or written. A line that is `cbdesk-secret` is not shared. That mark
+  is not password detection. File paste is not implemented.
 - `list_monitors` and `capture_picture_on` select a display the capturer
   reports. `capture_picture` and `cbdesk host --screen` stay on the primary
   display. A second physical monitor was not attached here.

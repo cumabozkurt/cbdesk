@@ -45,4 +45,7 @@ pub enum ProtoError {
     /// An input message did not contain exactly one body.
     #[error("input message must contain exactly one body")]
     InputBody,
+    /// A clipboard snapshot carried the `cbdesk-secret` mark and was not shared.
+    #[error("clipboard text is marked cbdesk-secret and was not shared")]
+    ClipboardSecret,
 }

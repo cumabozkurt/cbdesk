@@ -304,9 +304,11 @@ substitute, not that exit.
   text. A view frame is a unidirectional QUIC stream opened only after
   `authorize(View)`. An input event is a separate unidirectional stream
   accepted only after `authorize(Input)`. Clipboard text is a bidirectional
-  stream accepted only after `authorize(Clipboard)`. A side stream before the
-  grant, or a clipboard or input stream without its grant, is
-  `PROTOCOL_VIOLATION`.
+  stream accepted only after `authorize(Clipboard)`. HTML in that text is
+  reduced to plain text before it is sent or written. A line that is
+  `cbdesk-secret` is not shared. That mark is not password detection.
+  File paste is not implemented. A side stream before the grant, or a
+  clipboard or input stream without its grant, is `PROTOCOL_VIOLATION`.
 - `QuicEndpoint` on iroh 1.4.1 via `presets::Minimal`. The default relay
   list is empty, which selects `RelayMode::Disabled`. No n0 discovery
   service is installed. T-NET-001 is a loopback echo; the endpoint resolver
