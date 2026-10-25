@@ -18,3 +18,23 @@ They are not done.
   owner, because a team that does not exist would fail the ruleset.
 - Do not enable a public release, a package registry, or a hosted runner with
   secrets for this milestone. There is nothing to ship.
+
+## Status on 2026-10-25 (done through the GitHub API)
+
+- Done: PR #1 merged into `main` with a merge commit (history kept, branch
+  `cursor/m0-foundation-0838` kept).
+- Done: Discussions on; repository description and topics (remote-desktop,
+  rust, flutter, quic, p2p, privacy, agpl); vulnerability alerts, Dependabot
+  security updates, private vulnerability reporting, secret scanning and push
+  protection on.
+- Done: branch protection on `main`: pull request required (0 approvals,
+  because there is one maintainer; stale reviews dismissed), the seven CI
+  checks required by name, force-push and deletion forbidden. Admin bypass is
+  on (`enforce_admins` false) so the owner is not locked out.
+- DCO: `tools/check-dco.sh` runs in the `fmt, policy, supply chain` job, so
+  the check is already a required status. Commits need `git commit -s`. A
+  commit made in the GitHub web editor has no trailer and fails that check
+  (the owner can bypass as admin). The DCO GitHub App is not installed (it
+  cannot be installed through the API); it is optional second layer.
+- Not done (needs the owner): organization creation, second maintainer,
+  CODEOWNERS team. See `docs/dev/owner-todo.md`.
