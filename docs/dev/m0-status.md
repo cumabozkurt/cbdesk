@@ -388,9 +388,11 @@ on `6a11de6` ([40207159596](https://github.com/cumabozkurt/cbdesk/actions/runs/4
 were red: the Flutter test required the live-region label to be exactly
 `Oturum`, and non-Linux builds called `mapped_size` on `Unavailable`.
 macOS also rejected an unused `mut` on the PTY flags. The policy job and
-Ubuntu clippy and test on that run were green. This table ships with the
-fix. A green result belongs to the Actions run on this commit. This
-paragraph does not invent one.
+Ubuntu clippy and test on that run were green. `0abb194` then left only
+Windows clippy and test red: the Unix ffmpeg stub left `Write` and
+`tempfile_dir` unused. Those two are now compiled on Unix only. A green
+result belongs to the Actions run on this commit. This paragraph does not
+invent one.
 
 | Plan item | State | What is in the tree |
 | --- | --- | --- |

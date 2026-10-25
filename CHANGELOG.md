@@ -10,7 +10,9 @@ Version 0.0.0 is not a release.
 - The session-indicator widget test accepts the full live-region label.
   Actions on `6a11de6` required that label to be exactly `Oturum`.
   Non-Linux builds no longer call `mapped_size` on the unavailable cover,
-  and the Unix PTY flags are not `mut` on macOS.
+  and the Unix PTY flags are not `mut` on macOS. The ffmpeg stub helpers
+  are compiled only on Unix, which is what Windows clippy on `0abb194`
+  rejected.
 
 ### Added
 

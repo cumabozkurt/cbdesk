@@ -409,7 +409,6 @@ fn unavailable_message(err: std::io::Error) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
 
     #[test]
     fn hardware_features_fail_closed_until_a_device_and_encoder_exist() {
@@ -465,6 +464,8 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn a_stub_ffmpeg_lists_vp8_and_returns_bytes() {
+        use std::io::Write;
+
         let dir = tempfile_dir();
         let path = dir.join("ffmpeg");
         let mut file = std::fs::File::create(&path).expect("script");
@@ -499,6 +500,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    #[cfg(unix)]
     fn tempfile_dir() -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
             "cbdesk-ffmpeg-{}-{}",
