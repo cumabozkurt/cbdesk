@@ -294,4 +294,10 @@ class AppLocalizationsTr extends AppLocalizations {
   String grantedLabel(String names) {
     return 'Verilenler: $names';
   }
+
+  @override
+  String get languageTurkish => 'Türkçe';
+
+  @override
+  String get languageEnglish => 'English';
 }

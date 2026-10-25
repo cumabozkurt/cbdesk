@@ -128,5 +128,7 @@
     "placeholders": {
       "names": {"type": "String"}
     }
-  }
+  },
+  "languageTurkish": "Türkçe",
+  "languageEnglish": "English"
 }

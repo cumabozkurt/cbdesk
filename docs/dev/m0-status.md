@@ -447,7 +447,7 @@ invent one.
 | M2 authentication, permission engine, connection manager | Partial | Consent, grants, and `authorize` exist. There is no separate connection-manager product. |
 | M2 Flutter screens S-01 through S-06, S-10, S-11 | Partial | Home, connect, consent, remote view, files, address book, and settings exist. They are not those wireframe ids. |
 | M2 fraud warning and an indicator that cannot be disabled | Done | The shell and the library both keep the indicator on. The indicator is a semantics live region. |
-| M2 Turkish and English | Partial | Catalogs cover the shell strings that exist, in both languages. There is no spoken usability test and no video tutorial. |
+| M2 Turkish and English | Partial | Catalogs cover the shell strings that exist, in both languages. The language switch shows `Türkçe` and `English` from the ARB files, including when the UI is the other language. There is no spoken usability test and no video tutorial. |
 | M2 portable Windows EXE, unsigned DMG, AppImage | Partial | `make-dmg.sh` and the AppImage script are templates and were not run. No Windows EXE installer was built. |
 | M2 exit: desktop smoke matrix, the named test ids, an alpha release | Absent | Version 0.0.0 is not a release. The smoke matrix was not run by a person. |
 | M3 service, agent, and netd split on three desktops | Absent | One host process. The split in §5.3 is not built. |
