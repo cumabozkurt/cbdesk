@@ -4,6 +4,8 @@
 eşleyen döküm
 [docs/dev/m0-status.md](https://github.com/cumabozkurt/cbdesk/blob/main/docs/dev/m0-status.md)
 dosyasındadır. Bu sayfa, kılavuzu okuyan biri için kısa biçimdir.
+Sahibinde kalan ve bu ağaçta bulunmayan iş [sınırlar](limits.md)
+sayfasındadır.
 
 ## Testlerin gerçekten çalıştırdığı
 

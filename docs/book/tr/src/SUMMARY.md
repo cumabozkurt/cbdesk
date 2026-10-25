@@ -8,3 +8,4 @@
 - [Gizlilik](privacy.md)
 - [Katkı](contributing.md)
 - [Durum ve sınırlar](status.md)
+- [Sahibinde kalan ve bulunmayan iş](limits.md)

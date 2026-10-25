@@ -22,6 +22,9 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- The user guide has a limits page in Turkish and English. It lists
+  owner-owned work and work that is absent from this tree. Plan checkboxes
+  stay unchecked. There is still no download.
 - `cbdesk host --strips N` (default 1, at most 16) can send a VP8 picture
   as horizontal keyframe bands. The header fields `canvas_width`,
   `canvas_height`, `strip_index`, and `strip_count` are omitted when zero.
