@@ -12,6 +12,8 @@ members = [
     "crates/cbdesk-fs",
     "crates/cbdesk-audio",
     "crates/cbdesk-desk",
+    "crates/cbdesk-hostops",
+    "crates/cbdesk-controller",
     "crates/cbdesk-ffi",
     "crates/cbdesk-cli",
     "crates/cbdesk-testkit",
@@ -104,6 +106,10 @@ cpal = "=0.15.3"
 rustls = { version = "=0.23.46", default-features = false }
 # Flutter glue. Exact pin. Generated code is the only unsafe in cbdesk-ffi.
 flutter_rust_bridge = "=2.12.0"
+# X11 connection for a privacy window and a keyboard grab. Linux only.
+x11rb = "=0.13.2"
+# PTY open on Unix. Same 1.1 line already in the lock through x11rb.
+rustix = "=1.1.5"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

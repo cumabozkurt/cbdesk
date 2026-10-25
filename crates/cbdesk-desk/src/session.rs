@@ -15,7 +15,10 @@ use std::time::{Duration, Instant};
 
 use cbdesk_audio::{CapturePump, PacketCodec, Speaker};
 use cbdesk_capture::{capture_picture, crop_even, Picture};
-use cbdesk_codec::{vp8_is_inter, BitrateControl, Vp8Encoder, Vp8StreamDecoder};
+use cbdesk_codec::{
+    composite_vp8, vp8_is_inter, BitrateControl, DamageEncoder, DamagePacket, PlacedFrame,
+    Vp8StreamDecoder,
+};
 use cbdesk_fs::{hash_bytes, plan_chunks, IncomingFile, CHUNK_DEFAULT};
 use cbdesk_input::inject_os;
 use cbdesk_net::{
@@ -144,6 +147,7 @@ pub(crate) async fn viewer_session(
         conn,
         grant,
         decoder: Vp8StreamDecoder::new(),
+        canvas: None,
         inner: Arc::clone(&inner),
         mic: None,
     };
@@ -190,6 +194,7 @@ struct Viewer {
     conn: QuicConn,
     grant: ControllerGrant,
     decoder: Vp8StreamDecoder,
+    canvas: Option<Picture>,
     inner: Arc<Mutex<Inner>>,
     mic: Option<CapturePump>,
 }
@@ -208,7 +213,7 @@ impl Heard {
 }
 
 struct Pump {
-    encoder: Vp8Encoder,
+    encoder: DamageEncoder,
     rate: BitrateControl,
     skip_next: bool,
     frame_no: u64,
@@ -218,7 +223,7 @@ struct Pump {
 impl Pump {
     fn new() -> Self {
         Self {
-            encoder: Vp8Encoder::new(),
+            encoder: DamageEncoder::new(),
             rate: BitrateControl::live(),
             skip_next: false,
             frame_no: 0,
@@ -409,7 +414,18 @@ async fn send_due(
         return Ok(());
     }
     if let Some(packet) = pop_preview(inner)? {
-        send_encoded(link, pump, &packet.bytes, packet.keyframe).await?;
+        let outgoing = DamagePacket {
+            bytes: packet.bytes,
+            keyframe: packet.keyframe,
+            unchanged: false,
+            origin_x: 0,
+            origin_y: 0,
+            width: packet.picture.width,
+            height: packet.picture.height,
+            region: false,
+            scan_us: 0,
+        };
+        send_encoded(link, pump, &outgoing).await?;
         store_picture(inner, &packet.picture, !packet.keyframe)?;
         pump.arm(false);
         return Ok(());
@@ -459,21 +475,23 @@ async fn encode_and_send(
     let qindex = pump.rate.qindex();
     let started = Instant::now();
     let encoder = std::mem::take(&mut pump.encoder);
-    let (encoder, bytes, keyframe) = encode_on_thread(encoder, picture.clone(), qindex).await?;
+    let (encoder, packet) = encode_on_thread(encoder, picture.clone(), qindex).await?;
     pump.encoder = encoder;
     if pump.rate.observe_encode(elapsed_ms(started)) == cbdesk_codec::Pace::SkipNext {
         pump.skip_next = true;
     }
-    send_encoded(link, pump, &bytes, keyframe).await?;
-    store_picture(inner, &picture, !keyframe)?;
+    if !packet.unchanged {
+        send_encoded(link, pump, &packet).await?;
+        store_picture(inner, &picture, !packet.keyframe || packet.region)?;
+    }
     Ok(())
 }
 
 async fn encode_on_thread(
-    encoder: Vp8Encoder,
+    encoder: DamageEncoder,
     picture: Picture,
     qindex: u8,
-) -> Result<(Vp8Encoder, Vec<u8>, bool), DeskError> {
+) -> Result<(DamageEncoder, DamagePacket), DeskError> {
     tokio::task::spawn_blocking(move || {
         let handle = std::thread::Builder::new()
             .name("cbdesk-encode".into())
@@ -487,8 +505,8 @@ async fn encode_on_thread(
         let (encoder, encoded) = handle
             .join()
             .map_err(|_| DeskError::Message("encode thread panicked".into()))?;
-        let (bytes, keyframe) = encoded.map_err(msg)?;
-        Ok((encoder, bytes, keyframe))
+        let packet = encoded.map_err(msg)?;
+        Ok((encoder, packet))
     })
     .await
     .map_err(msg)?
@@ -497,19 +515,26 @@ async fn encode_on_thread(
 async fn send_encoded(
     link: &mut HostLink,
     pump: &mut Pump,
-    payload: &[u8],
-    keyframe: bool,
+    packet: &DamagePacket,
 ) -> Result<(), DeskError> {
     pump.frame_no = pump.frame_no.saturating_add(1);
+    let region = packet.region;
     let header = VideoFrameHeader {
         display_id: 1,
         codec: Codec::Vp8,
         frame_no: pump.frame_no,
         capture_ts_us: 1_000,
-        keyframe,
+        keyframe: packet.keyframe && !region,
+        damage_x: if region { packet.origin_x } else { 0 },
+        damage_y: if region { packet.origin_y } else { 0 },
+        damage_width: if region { packet.width } else { 0 },
+        damage_height: if region { packet.height } else { 0 },
+        unchanged: false,
         unknown: UnknownFields::new(),
     };
-    link.send_view_frame(&header, payload).await.map_err(msg)
+    link.send_view_frame(&header, &packet.bytes)
+        .await
+        .map_err(msg)
 }
 
 fn store_picture(inner: &Mutex<Inner>, picture: &Picture, inter: bool) -> Result<(), DeskError> {
@@ -811,8 +836,20 @@ fn apply_video(
             "host sent a codec this build cannot decode".into(),
         ));
     }
-    let picture = viewer.decoder.decode(payload).map_err(msg)?;
-    let inter = !header.keyframe && vp8_is_inter(payload);
+    let picture = composite_vp8(
+        &mut viewer.canvas,
+        &mut viewer.decoder,
+        PlacedFrame {
+            unchanged: header.unchanged,
+            damage_x: header.damage_x,
+            damage_y: header.damage_y,
+            damage_width: header.damage_width,
+            damage_height: header.damage_height,
+            payload,
+        },
+    )
+    .map_err(msg)?;
+    let inter = header.damage_width > 0 || (!header.keyframe && vp8_is_inter(payload));
     store_picture(&viewer.inner, &picture, inter)?;
     if inter {
         if let Some(tx) = ready.take() {

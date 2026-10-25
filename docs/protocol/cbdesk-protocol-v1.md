@@ -83,10 +83,17 @@ frame. The bytes are:
 An empty header or an empty payload is rejected. The two lengths plus both
 bodies must be at most 16 MiB. The payload is one VP8 or AV1 picture.
 Negotiation selects VP8 when both peers offer it (`Codec::Vp8`) and falls
-back to AV1 (`Codec::Av1`). `keyframe` is true for the first VP8 frame and
-for every AV1 still. A later VP8 frame may clear that flag when it is an
-inter frame. A unidirectional stream, or an extra bidirectional stream,
-opened before the grant is `PROTOCOL_VIOLATION`. The session closes and no
+back to AV1 (`Codec::Av1`). `keyframe` is true for the first full VP8 frame
+and for every AV1 still. A later full VP8 frame may clear that flag when it
+is an inter frame. `damage_width` and `damage_height`, when both are
+non-zero, mean the payload is a keyframe of a crop. The origin is
+`damage_x`, `damage_y`. That header still has `keyframe` false. A viewer
+places the crop and must not feed those bytes to the full-frame decoder.
+Zero damage fields are a full frame, which is also how a header written
+before those fields existed decodes. `unchanged` is defined. The host does
+not send it: an empty payload is still rejected, and a picture that matches
+the previous one is skipped. A unidirectional stream, or an extra
+bidirectional stream, opened before the grant is `PROTOCOL_VIOLATION`. The session closes and no
 permission is granted. After a frame is sent, the host keeps the connection
 up until the controller finishes the control stream or the frame budget is
 exhausted and the controller leaves. The controller reads each frame before
@@ -96,9 +103,13 @@ positive count stops after that many frames and then waits for the
 controller.
 
 The picture is YUV. The live host sends the capture cropped to even
-dimensions. The synthetic host sends a gray barcode. Unchanged YUV is not
-sent again. Feedback from the viewer can lower or raise the VP8 quantizer
-on a live screen. The synthetic barcode stays at quantizer 0.
+dimensions. The synthetic host sends a gray barcode. A picture that matches
+the previous one is not sent again. A dirty region that covers at most a
+quarter of the picture, and is smaller than the frame on both axes, is
+cropped on a 16-pixel grid and sent as its own VP8 keyframe with the damage
+fields set. A larger change stays on the full-frame inter encoder. Feedback
+from the viewer can lower or raise the VP8 quantizer on a live screen. The
+synthetic barcode stays at quantizer 0.
 
 ## Side streams
 

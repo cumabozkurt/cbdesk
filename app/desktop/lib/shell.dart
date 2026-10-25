@@ -132,9 +132,15 @@ class _CbDeskAppState extends State<CbDeskApp> {
               Positioned(
                 top: 12,
                 right: 12,
-                child: _Indicator(
-                  view: view,
-                  onDisconnect: () => unawaited(_run(widget.api.disconnect)),
+                child: Semantics(
+                  key: const Key('session-indicator-live'),
+                  container: true,
+                  liveRegion: true,
+                  label: AppLocalizations.of(context).indicatorTitle,
+                  child: _Indicator(
+                    view: view,
+                    onDisconnect: () => unawaited(_run(widget.api.disconnect)),
+                  ),
                 ),
               ),
             ],
@@ -531,35 +537,50 @@ class _Home extends StatelessWidget {
             labelType: NavigationRailLabelType.all,
             destinations: [
               NavigationRailDestination(
-                icon: const Icon(Icons.home_outlined, key: Key('nav-home')),
+                icon: Icon(
+                  Icons.home_outlined,
+                  key: const Key('nav-home'),
+                  semanticLabel: l10n.navHome,
+                ),
                 label: Text(l10n.navHome),
               ),
               NavigationRailDestination(
-                icon: const Icon(Icons.link, key: Key('nav-connect')),
+                icon: Icon(
+                  Icons.link,
+                  key: const Key('nav-connect'),
+                  semanticLabel: l10n.navConnect,
+                ),
                 label: Text(l10n.navConnect),
               ),
               NavigationRailDestination(
-                icon: const Icon(
+                icon: Icon(
                   Icons.desktop_windows_outlined,
-                  key: Key('nav-remote'),
+                  key: const Key('nav-remote'),
+                  semanticLabel: l10n.navRemote,
                 ),
                 label: Text(l10n.navRemote),
               ),
               NavigationRailDestination(
-                icon: const Icon(Icons.folder_outlined, key: Key('nav-files')),
+                icon: Icon(
+                  Icons.folder_outlined,
+                  key: const Key('nav-files'),
+                  semanticLabel: l10n.navFiles,
+                ),
                 label: Text(l10n.navFiles),
               ),
               NavigationRailDestination(
-                icon: const Icon(
+                icon: Icon(
                   Icons.contacts_outlined,
-                  key: Key('nav-address'),
+                  key: const Key('nav-address'),
+                  semanticLabel: l10n.navAddress,
                 ),
                 label: Text(l10n.navAddress),
               ),
               NavigationRailDestination(
-                icon: const Icon(
+                icon: Icon(
                   Icons.settings_outlined,
-                  key: Key('nav-settings'),
+                  key: const Key('nav-settings'),
+                  semanticLabel: l10n.navSettings,
                 ),
                 label: Text(l10n.navSettings),
               ),

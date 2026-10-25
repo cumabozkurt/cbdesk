@@ -125,6 +125,11 @@ fn header() -> VideoFrameHeader {
         frame_no: 3,
         capture_ts_us: 8,
         keyframe: true,
+        damage_x: 0,
+        damage_y: 0,
+        damage_width: 0,
+        damage_height: 0,
+        unchanged: false,
         unknown: UnknownFields::new(),
     }
 }

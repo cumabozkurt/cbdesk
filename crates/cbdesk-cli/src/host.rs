@@ -8,7 +8,9 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use cbdesk_audio::{CapturePump, PacketCodec, Speaker, ToneCodec};
 use cbdesk_capture::{capture_picture, crop_even, Picture, SyntheticCapturer, BARCODE_WIDTH};
-use cbdesk_codec::{encode_luma, BitrateControl, CodecError, EncodeQuality, Pace, Vp8Encoder};
+use cbdesk_codec::{
+    encode_luma, BitrateControl, CodecError, DamageEncoder, DamagePacket, EncodeQuality, Pace,
+};
 use cbdesk_crypto::Identity;
 use cbdesk_discovery::sign_ticket;
 use cbdesk_input::{inject_os, Injector, InputLog};
@@ -33,7 +35,7 @@ use crate::lan::start_announce;
 const FRAME_INTERVAL: Duration = Duration::from_millis(33);
 
 struct Stream {
-    encoder: Vp8Encoder,
+    encoder: DamageEncoder,
     rate: BitrateControl,
     skip_next: bool,
     last_hash: Option<[u8; 32]>,
@@ -224,7 +226,7 @@ impl Stream {
             None
         };
         Ok(Self {
-            encoder: Vp8Encoder::new(),
+            encoder: DamageEncoder::new(),
             rate: BitrateControl::live(),
             skip_next: false,
             last_hash: None,
@@ -285,17 +287,27 @@ impl Stream {
         }
         let qindex = if screen { self.rate.qindex() } else { 0 };
         let started = Instant::now();
-        let (payload, keyframe) = self.encode(picture, codec, qindex, screen).await?;
+        let frame = self.encode(picture, codec, qindex, screen).await?;
         self.note_encode(screen, elapsed_ms(started));
+        if frame.unchanged {
+            self.last_hash = Some(digest);
+            self.arm_interval();
+            return Ok(());
+        }
         let header = VideoFrameHeader {
             display_id: 1,
             codec,
             frame_no,
             capture_ts_us: 1_000,
-            keyframe,
+            keyframe: frame.keyframe,
+            damage_x: frame.damage_x,
+            damage_y: frame.damage_y,
+            damage_width: frame.damage_width,
+            damage_height: frame.damage_height,
+            unchanged: false,
             unknown: UnknownFields::new(),
         };
-        link.send_view_frame(&header, &payload)
+        link.send_view_frame(&header, &frame.bytes)
             .await
             .map_err(|err| CliError::new(err.to_string()))?;
         self.sent = self.sent.saturating_add(1);
@@ -310,10 +322,20 @@ impl Stream {
         codec: Codec,
         qindex: u8,
         screen: bool,
-    ) -> Result<(Vec<u8>, bool), CliError> {
+    ) -> Result<OutgoingFrame, CliError> {
         match codec {
             Codec::Vp8 => encode_vp8_stream(&mut self.encoder, picture, qindex).await,
-            Codec::Av1 => encode_av1(picture, screen).await.map(|bytes| (bytes, true)),
+            Codec::Av1 => encode_av1(picture, screen)
+                .await
+                .map(|bytes| OutgoingFrame {
+                    bytes,
+                    keyframe: true,
+                    unchanged: false,
+                    damage_x: 0,
+                    damage_y: 0,
+                    damage_width: 0,
+                    damage_height: 0,
+                }),
             _ => Err(CliError::new("codec is not available")),
         }
     }
@@ -465,11 +487,34 @@ fn wants_frame(sent: u32, limit: u32) -> bool {
     limit == 0 || sent < limit
 }
 
+struct OutgoingFrame {
+    bytes: Vec<u8>,
+    keyframe: bool,
+    unchanged: bool,
+    damage_x: u32,
+    damage_y: u32,
+    damage_width: u32,
+    damage_height: u32,
+}
+
+fn place(packet: DamagePacket) -> OutgoingFrame {
+    let region = packet.region;
+    OutgoingFrame {
+        bytes: packet.bytes,
+        keyframe: packet.keyframe && !region,
+        unchanged: packet.unchanged,
+        damage_x: if region { packet.origin_x } else { 0 },
+        damage_y: if region { packet.origin_y } else { 0 },
+        damage_width: if region { packet.width } else { 0 },
+        damage_height: if region { packet.height } else { 0 },
+    }
+}
+
 async fn encode_vp8_stream(
-    encoder: &mut Vp8Encoder,
+    encoder: &mut DamageEncoder,
     picture: Picture,
     qindex: u8,
-) -> Result<(Vec<u8>, bool), CliError> {
+) -> Result<OutgoingFrame, CliError> {
     let taken = std::mem::take(encoder);
     let encoded = tokio::task::spawn_blocking(move || {
         let mut taken = taken;
@@ -479,7 +524,10 @@ async fn encode_vp8_stream(
     .await
     .map_err(|err| CliError::new(err.to_string()))?;
     *encoder = encoded.0;
-    encoded.1.map_err(|err| CliError::new(err.to_string()))
+    encoded
+        .1
+        .map(place)
+        .map_err(|err| CliError::new(err.to_string()))
 }
 
 async fn encode_av1(picture: Picture, screen: bool) -> Result<Vec<u8>, CliError> {

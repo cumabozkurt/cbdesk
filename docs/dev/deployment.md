@@ -1,17 +1,43 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
-# Deployment notes that were not executed
+# Deployment notes
 
-No installer was built or signed in this pass. The sketches below are not
-procedures that were run, and they are not a release.
+No installer was signed. No store listing was published. The files below
+are templates. A command that was not run is named as such.
 
 ## Packages
 
-Windows MSI, macOS pkg, deb, rpm, Flatpak, winget, Homebrew, AUR, F-Droid,
-and a Docker image of `cbdesk-relayd` are not published. This repository
-does not ship a relay daemon. GitHub Releases, a TUF root, and an update
-URL are not configured. ADR-013 stays the reason: no root key is checked
-into git, and no updater runs.
+`packaging/deb/build.sh` builds an unsigned deb of the release `cbdesk`
+binary, version `0.0.0`. It was not run in this pass. `packaging/appimage/build.sh`
+exits if `linuxdeploy` is missing and does not download it. It was not run.
+`packaging/macos/make-dmg.sh` uses `hdiutil` and does not notarize. It
+exits on Linux and was not run. `packaging/windows/cbdesk.wxs` is a WiX v4
+source with no certificate. It was not compiled, so it is not an MSI yet.
+`packaging/flatpak/com.cbdesk.CBDesk.yml` points at this tree and has not
+been submitted to Flathub.
+
+`.github/workflows/release.yml` is `workflow_dispatch` only. On Ubuntu it
+records build inputs, writes an SPDX file, checksums it without a key, and
+builds the unsigned deb. It does not run on pull requests, and it was not
+dispatched.
+
+Windows pkg alternatives, rpm, winget, Homebrew, AUR, F-Droid, and a Docker
+image of `cbdesk-relayd` are not published. This repository does not ship a
+relay daemon. GitHub Releases, a TUF root, and an update URL are not
+configured. ADR-013 stays the reason: no root key is checked into git, and
+no updater runs.
+
+## Checksums and build inputs
+
+`tools/release/sbom.py --locked --check` was run here and listed 813
+packages. The document is SPDX 2.3 JSON from `cargo metadata`.
+`filesAnalyzed` is false. A crate with no license field becomes
+`NOASSERTION`. `tools/release/sign.sh` writes a sha256 file. When
+`CBDESK_SIGN_KEY` is unset it writes a note that starts with `unsigned` and
+exits 0. No private key is stored in git. `tools/release/reproducible.sh`
+prints `SOURCE_DATE_EPOCH`, `rustc -vV`, and the sha256 of `Cargo.lock`.
+It does not build twice and does not claim the binary matches another
+machine.
 
 ## Organization rollout
 
@@ -20,21 +46,29 @@ would not disable the session indicator. Those tools were not pointed at a
 package, because there is no signed package. An organization certificate
 format is not parsed. ADR-011 stays Proposed.
 
-## iOS
+## iOS and Android
 
-An iOS controller needs an Apple Developer membership, a Mac with Xcode, and
-a device or TestFlight. This agent did not add an iOS target. A stub project
-would not be a controller and could not be signed here.
+`cbdesk-controller` is the view-side crate macOS CI can type-check for
+`aarch64-apple-ios` (`tools/ios/check-controller.sh`). A signed TestFlight
+build needs an Apple Developer membership, a provisioning profile, and a
+device. None of those are in this tree. The script was not run against the
+iphoneos SDK here because this machine is not macOS.
+
+`tools/android/device-check.sh` uses `adb` when a device is attached.
+`CBDESK_ANDROID_DEVICE=1` makes a missing device a failure. CI does not set
+that. This machine has no `adb` and no phone. The script names
+`org.cbdesk.cbdesk/.MainActivity` and does not accept the system capture
+dialog.
 
 ## Virtual display
 
-`open_virtual_display` fails. Windows indirect-display signing has not
-started. A headless host still needs a real display or it returns
-`Unavailable`.
+`open_virtual_display` starts `Xvfb` on Linux when that binary is installed
+and stops it when the value is dropped. Windows indirect-display signing
+has not started. macOS has no virtual-display entitlement here. The live
+capture path does not call `open_virtual_display`.
 
 ## Audit and soak
 
-An independent security audit has not been commissioned. A 72-hour soak and
-a reproducible-build check were not run. Antivirus vendors were not
-notified. Those are owner or external steps, not code that this tree can
-close by itself.
+An independent security audit has not been commissioned. A 72-hour soak
+was not run. Antivirus vendors were not notified. A bit-for-bit rebuild
+was not compared. Those stay with the owner or with another machine.

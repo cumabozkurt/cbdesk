@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- WiX template. No signing certificate is referenced. -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="CBDesk" Manufacturer="CBDesk contributors" Version="0.0.0.0" UpgradeCode="8C1A0B3E-7E2D-4C1A-9B5F-2A6D0E4C8F11">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of CBDesk is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="CBDesk">
+        <Component Id="CbdeskExe" Guid="B7E2A1C4-6D30-4F8A-9C21-5E0A7B3D1F66">
+          <File Source="$(var.CbdeskExe)" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+    <Feature Id="Main">
+      <ComponentRef Id="CbdeskExe" />
+    </Feature>
+  </Package>
+</Wix>

@@ -28,7 +28,7 @@ pub use config::{
 };
 pub use controls::{
     open_terminal, open_tunnel, request_block_input, request_privacy_mode, request_recording,
-    HostEffect, BLOCK_INPUT_OS, PRIVACY_MODE_OS,
+    OsPermit, PermitKind,
 };
 pub use deadline::SessionDeadline;
 pub use error::SessionError;

@@ -59,6 +59,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('session-indicator')), findsOneWidget);
+      final semantics = tester.ensureSemantics();
+      expect(
+        tester.getSemantics(find.byKey(const Key('session-indicator-live'))),
+        matchesSemantics(label: 'Oturum', isLiveRegion: true),
+      );
+      semantics.dispose();
       expect(find.text('Bu gösterge kapatılamaz.'), findsWidgets);
       expect(find.textContaining('Bankalar'), findsOneWidget);
       expect(

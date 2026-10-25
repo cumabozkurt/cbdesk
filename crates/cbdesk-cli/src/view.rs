@@ -15,7 +15,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use cbdesk_audio::{CapturePump, PacketCodec, Speaker};
 use cbdesk_capture::Picture;
-use cbdesk_codec::{decode_luma, Vp8StreamDecoder};
+use cbdesk_codec::{composite_vp8, decode_luma, PlacedFrame, Vp8StreamDecoder};
 use cbdesk_crypto::Identity;
 use cbdesk_discovery::ReplayCache;
 use cbdesk_net::{
@@ -46,6 +46,7 @@ struct LiveView {
     grant: ControllerGrant,
     codec: Option<Codec>,
     decoder: Vp8StreamDecoder,
+    canvas: Option<Picture>,
     _identity: Identity,
     mic: Option<CapturePump>,
     speaker: Option<Speaker>,
@@ -256,6 +257,7 @@ async fn send_while_reading(
     let mut index = 0;
     let conn = &live.conn;
     let decoder = &mut live.decoder;
+    let canvas = &mut live.canvas;
     let codec = live.codec;
     while index < chunks.len() {
         tokio::select! {
@@ -273,7 +275,7 @@ async fn send_while_reading(
                     let expected = codec.ok_or_else(|| {
                         CliError::new("host sent video that was not negotiated")
                     })?;
-                    decode_video(decoder, expected, &header, &payload)?;
+                    decode_video(canvas, decoder, expected, &header, &payload)?;
                 }
             }
         }
@@ -313,6 +315,7 @@ fn take_uni(live: &mut LiveView, body: UniBody) -> Result<Option<Picture>, CliEr
                 .codec
                 .ok_or_else(|| CliError::new("host sent video that was not negotiated"))?;
             Ok(Some(decode_video(
+                &mut live.canvas,
                 &mut live.decoder,
                 codec,
                 &header,
@@ -329,6 +332,7 @@ fn take_uni(live: &mut LiveView, body: UniBody) -> Result<Option<Picture>, CliEr
 }
 
 fn decode_video(
+    canvas: &mut Option<Picture>,
     decoder: &mut Vp8StreamDecoder,
     expected: Codec,
     header: &VideoFrameHeader,
@@ -338,10 +342,24 @@ fn decode_video(
         return Err(CliError::new("host sent a codec that was not negotiated"));
     }
     match header.codec {
-        Codec::Vp8 => decoder.decode(payload).map_err(cli),
+        Codec::Vp8 => composite_vp8(
+            canvas,
+            decoder,
+            PlacedFrame {
+                unchanged: header.unchanged,
+                damage_x: header.damage_x,
+                damage_y: header.damage_y,
+                damage_width: header.damage_width,
+                damage_height: header.damage_height,
+                payload,
+            },
+        )
+        .map_err(cli),
         Codec::Av1 => {
             let frame = decode_luma(payload).map_err(cli)?;
-            Picture::from_luma(&frame).map_err(cli)
+            let picture = Picture::from_luma(&frame).map_err(cli)?;
+            *canvas = Some(picture.clone());
+            Ok(picture)
         }
         _ => Err(CliError::new("host sent a codec this build cannot decode")),
     }
@@ -485,6 +503,7 @@ async fn connect_view(args: &ViewArgs) -> Result<LiveView, CliError> {
         grant,
         codec,
         decoder: Vp8StreamDecoder::new(),
+        canvas: None,
         _identity: identity,
         mic: devices.mic,
         speaker: devices.speaker,

@@ -51,6 +51,17 @@ jobs:
       - name: Catalog keys
         run: tools/i18n/check.sh
 
+      - name: SBOM and unsigned checksum
+        run: |
+          python3 tools/release/sbom.py --locked --check
+          python3 tools/release/sbom.py --locked -o "$RUNNER_TEMP/cbdesk.spdx.json"
+          tools/release/sign.sh "$RUNNER_TEMP/cbdesk.spdx.json"
+          grep -q unsigned "$RUNNER_TEMP/cbdesk.spdx.json.sign-note"
+          tools/release/reproducible.sh
+
+      - name: Android device script
+        run: tools/android/device-check.sh
+
       - name: Netlab profile skeleton
         run: tools/netlab/validate.sh
 
@@ -128,6 +139,12 @@ jobs:
             export CBDESK_REQUIRE_DISPLAY=1
           fi
           cargo test --workspace --all-targets
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            cargo test -p cbdesk-codec --features hw-vaapi --lib hardware_features_fail_closed
+          fi
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            CBDESK_IOS_REQUIRED=1 tools/ios/check-controller.sh
+          fi
 
   flutter:
     name: flutter (${{ matrix.os }})

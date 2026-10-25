@@ -163,6 +163,11 @@ mod tests {
             frame_no: 42,
             capture_ts_us: 99,
             keyframe: true,
+            damage_x: 16,
+            damage_y: 32,
+            damage_width: 64,
+            damage_height: 48,
+            unchanged: true,
             unknown: UnknownFields::new(),
         });
         roundtrip(&Feedback {

@@ -7,6 +7,35 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- Damage tracking on the software VP8 path. Unchanged pictures are not
+  encoded. A small dirty region is a separate keyframe with `damage_width`
+  set and `keyframe` cleared. The release measurement on this machine is in
+  `docs/dev/media-measurement.md`: 201 ms for a 1920×1080 keyframe, under
+  1 ms reported for the repeat, 2 ms for a 64×64 region. That is not 30
+  frames per second. `hw-vaapi`, `hw-mediafoundation`, `hw-videotoolbox`,
+  and `hw-mediacodec` shell out to ffmpeg and are off by default. No
+  in-process hardware context is linked, and no successful hardware encode
+  was recorded.
+- `cbdesk-hostops` performs a consented X11 grab and black window, a
+  recording notice file, a Unix pseudoterminal or Windows `cmd.exe` pipes,
+  and a loopback TCP forward. `open_virtual_display` starts `Xvfb` on
+  Linux. The live `cbdesk host` session does not call these. Windows
+  `BlockInput`, macOS privacy, ConPTY, and a signed virtual display are
+  not implemented.
+- `cbdesk-controller` is the view-side crate macOS CI type-checks for
+  `aarch64-apple-ios`. It is not a signed iOS build.
+  `tools/android/device-check.sh` talks to `adb` only when a device is
+  present. No phone was tested.
+- Unsigned release templates: SPDX from `cargo metadata`, a checksum script
+  that stays unsigned without `CBDESK_SIGN_KEY`, a build-input record that
+  does not claim bit-reproducibility, deb / AppImage / DMG / WiX / Flatpak
+  sketches, and a `workflow_dispatch` release workflow. No key is in git
+  and no installer was signed. RUSTSEC-2026-0387 is ignored in `deny.toml`
+  and `.cargo/audit.toml` because `opaque-ke` 4.0.1 cannot move off
+  `crypto-bigint` 0.5.5. The arithmetic is not patched.
+- The Flutter session indicator is a semantics live region labeled with the
+  existing Session / Oturum string. Navigation icons use the existing
+  labels. No new catalog keys were added. A screen reader was not used.
 - `cbdesk net-check` and `cbdesk doctor` report local UDP binds, CGNAT
   (`100.64.0.0/10`), and an address class. Symmetric NAT, UPnP, DHT, and
   hole punching are reported as not measured. `--loopback` records an iroh
@@ -25,13 +54,14 @@ Version 0.0.0 is not a release.
 - A software Opus loopback encodes, buffers, and decodes a tone without
   opening a device. A 1920×1080 software VP8 timing is recorded in
   `docs/dev/media-measurement.md` and is not 30 frames per second.
-  Hardware encoders are unavailable. 4:4:4 is refused.
+  4:4:4 is refused. Hardware features are described in a later entry.
 - Library gates for permission presets, an in-memory BLAKE3 access log,
-  session deadlines, privacy mode, block-input, recording notice, terminal,
-  tunnel, side switch, whiteboard strokes, a Wake-on-LAN payload, and a
-  virtual display. The operating-system effects and the iOS, installer,
-  audit, and TUF work are not done. See `docs/dev/deployment.md` and
-  `docs/dev/wayland-screencast.md`.
+  session deadlines, side switch, whiteboard strokes, and a Wake-on-LAN
+  payload that is not sent. Privacy, block-input, recording, terminal,
+  tunnel, and the virtual display now have operating-system functions in
+  `cbdesk-hostops` and `cbdesk-capture`. The live session does not call
+  them. Signed installers, an external audit, and TUF are not done. See
+  `docs/dev/deployment.md` and `docs/dev/wayland-screencast.md`.
 - Short-code pairing with the published `spake2` 0.4.0 crate. The password
   is the two lowercase words. The slot and both device keys are transcript
   only. The words are not written into the ticket. A desk host requires the

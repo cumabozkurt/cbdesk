@@ -9,6 +9,15 @@ repository.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
+[features]
+default = []
+# Each flag lets `open_hardware` look for that platform's VP8 ffmpeg encoder.
+# The flags are off in ordinary CI. Turning one on does not invent a device.
+hw-vaapi = []
+hw-mediafoundation = []
+hw-videotoolbox = []
+hw-mediacodec = []
+
 [dependencies]
 cbdesk-capture = { path = "../cbdesk-capture" }
 oxideav-vp8.workspace = true

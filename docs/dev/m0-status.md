@@ -130,26 +130,115 @@ This pass stays on `cursor/m0-foundation-0838`. The plan checkboxes in
 - Software VP8 at 1920×1080, two frames, quantizer 32, on this machine:
   19577 ms in debug and 416 ms in release (29550 bytes, one keyframe).
   Release is about 208 ms per frame, under 5 frames per second, not 30.
-  Hardware encoders are named and `open_hardware` fails. 4:4:4 is refused.
-  Quality presets are quantizer indexes.
+  The damage-path numbers and the ffmpeg feature flags are in the next
+  section. 4:4:4 is refused. Quality presets are quantizer indexes.
 - Wayland ScreenCast remains unrun in CI. The manual plan is
   `docs/dev/wayland-screencast.md`.
-- Later-phase gates that exist as library checks, not as product behavior:
-  permission presets that omit high-risk permissions, in-memory BLAKE3
-  access log, session and idle deadlines, privacy mode and block-input that
-  do not touch the operating system, recording that requires a host notice
-  and does not write a file, terminal and tunnel gates that do not spawn or
-  bind, side-switch that needs both consents, whiteboard strokes that need
-  the indicator, a Wake-on-LAN payload that is not sent, and a virtual
-  display that fails closed.
+- Session gates still do not touch the operating system by themselves.
+  They return an `OsPermit`. `cbdesk-hostops` consumes that permit. The
+  live `cbdesk host` and desk session do not call it. Permission presets
+  that omit high-risk permissions, the in-memory BLAKE3 access log, session
+  and idle deadlines, side-switch that needs both consents, whiteboard
+  strokes that need the indicator, and a Wake-on-LAN payload that is not
+  sent stay library checks.
 - Still blocked, and not pretended otherwise: GitHub organization settings,
   trademark search, an external audit, signed installers and store listings,
-  an iOS target, a TUF root (ADR-013), an organization certificate parser
-  (ADR-011), a CRDT library (ADR-012), DHT blinding (ADR-007), a shipped
-  relay daemon, a live symmetric NAT, a 72-hour soak, and a reproducible
-  build. Notes that were not executed are in `docs/dev/deployment.md`.
-  This pass does not start the next unchecked product phase on its own
-  beyond the gates above.
+  an Apple or Google developer account, a TUF root (ADR-013), an
+  organization certificate parser (ADR-011), a CRDT library (ADR-012), DHT
+  blinding (ADR-007), a shipped relay daemon, a live symmetric NAT, a
+  72-hour soak, and a second machine that hashes the same binary.
+  `docs/dev/deployment.md` says which templates exist and which commands
+  were not run.
+
+## Performance, operating-system effects, and release templates
+
+Actions on `5602049` finished red. The policy job failed on
+RUSTSEC-2026-0387 (`crypto-bigint` 0.5.5 via `opaque-ke` 4.0.1 and
+`elliptic-curve` 0.13.8). Clippy, tests, and Flutter were green on Ubuntu
+24.04, Windows 2022, and macOS 14. The last fully green run remains
+[39919713548](https://github.com/cumabozkurt/cbdesk/actions/runs/39919713548)
+on `e69c781`. `deny.toml` and `.cargo/audit.toml` ignore that one advisory.
+The published fix is `crypto-bigint` >= 0.7.6, which `elliptic-curve` 0.13
+does not use, and no stable `opaque-ke` has moved. This tree does not patch
+the arithmetic. `clipboard-win` 5.4.1 stays a yanked warning.
+
+- Damage tracking compares 64×64 tiles, eight bytes at a time, on two
+  threads when the picture has at least two tile rows. There are no SIMD
+  intrinsics. An unchanged picture is not encoded and is not sent. A dirty
+  region at most a quarter of the picture, smaller than the frame on both
+  axes, and at least 16 pixels after alignment, is cropped to 16 pixels and
+  encoded as its own VP8 keyframe. The full-frame encoder is left alone.
+  Anything larger stays on that inter encoder. The header sets
+  `damage_width` and clears `keyframe` for a region. The desk and the CLI
+  viewer place it with a separate decoder. A peer that ignores those fields
+  must not be sent the crop. Release numbers from
+  `vp8_1080p_damage_path` on this machine on 2026-10-25: full keyframe
+  201 ms, unchanged repeat reported as 0 ms, 64×64 region 2 ms and 34
+  bytes, tile scan 460 µs. That is not 30 frames per second. A full-frame
+  change is still about five frames per second. Details are in
+  `docs/dev/media-measurement.md`.
+- Hardware cargo features `hw-vaapi`, `hw-mediafoundation`,
+  `hw-videotoolbox`, and `hw-mediacodec` are off by default. They shell out
+  to ffmpeg for `vp8_vaapi`, `vp8_mf`, `vp8_videotoolbox`, and
+  `vp8_mediacodec`. VA-API also needs a `/dev/dri/renderD*` node. There is
+  no in-process hardware context. The quantizer is not forwarded. NVENC,
+  AMF, and Quick Sync stay unlinked. No successful hardware encode was
+  recorded. Ubuntu CI runs the VA-API feature test, which still has to
+  fail closed when the device or the encoder is missing.
+- `cbdesk-hostops` is the operating-system side of a permit. On Linux it
+  grabs the X11 keyboard and pointer and maps a fullscreen black
+  override-redirect window on the display the caller names. Drop releases
+  the grab and destroys the window. Tests start a private Xvfb and do not
+  use the ambient `DISPLAY`. Non-Linux builds return `Unavailable`. Wayland
+  is not handled. Windows `BlockInput` and a macOS privacy filter are not
+  implemented.
+- Recording writes `CBDesk recording` plus the notice text to a file the
+  caller names, then tries `notify-send`. A desktop popup is recorded only
+  when that command exits 0. The file is not an encrypted recording. The
+  indicator still cannot be disabled, and a privacy permit cannot post the
+  notice.
+- The terminal opens a Unix pseudoterminal and starts `sh`, or on Windows
+  starts `cmd.exe /Q` with pipes. ConPTY is not linked. Drop kills the
+  child. The tunnel binds `127.0.0.1:0`, copies one read, and refuses a
+  destination that is not loopback before it accepts. A test copies `ping`
+  to another loopback listener and rejects `8.8.8.8:9`.
+- `open_virtual_display` on Linux starts `Xvfb :N -screen 0 1280x720x24
+  -nolisten tcp -ac` and kills it on drop. A missing binary is an error.
+  Windows indirect display and a macOS virtual display stay unavailable.
+  Signing for those drivers has not started. The live capture path does
+  not call this function.
+- `cbdesk-controller` depends only on `cbdesk-proto`. It reports the
+  controller role and refuses host features. macOS CI runs
+  `tools/ios/check-controller.sh`, which `cargo check`s that crate for
+  `aarch64-apple-ios` when the iphoneos SDK is installed. This machine is
+  not Darwin, so the script exited 0 without checking. There is no signed
+  TestFlight build and no Apple Developer account in this tree.
+- `tools/android/device-check.sh` talks to `adb` only when a device is in
+  the `device` state. A missing `adb` or device exits 0.
+  `CBDESK_ANDROID_DEVICE=1` makes that a failure. This machine has no
+  `adb`. No phone was installed, and the system capture dialog was not
+  accepted. The activity name in the script is
+  `org.cbdesk.cbdesk/.MainActivity`.
+- `tools/release/sbom.py --locked --check` listed 813 packages from
+  `cargo metadata` (SPDX 2.3, `filesAnalyzed` false, a missing license is
+  `NOASSERTION`). `tools/release/sign.sh` wrote a sha256 and, with
+  `CBDESK_SIGN_KEY` unset, a note that begins `unsigned`. It exits 0. No
+  key is in git. `tools/release/reproducible.sh` printed
+  `SOURCE_DATE_EPOCH`, `rustc -vV`, and the sha256 of `Cargo.lock`. It does
+  not compare two binaries, so this tree does not claim a reproducible
+  build. `packaging/deb/build.sh`, the AppImage script, `make-dmg.sh`, the
+  WiX source, and the Flatpak manifest are templates. The deb was not
+  built here. AppImage exits if `linuxdeploy` is missing and does not
+  download it. The DMG script exits on Linux. WiX was not compiled.
+  Flatpak was not submitted to Flathub. `.github/workflows/release.yml` is
+  `workflow_dispatch` only and uploads those unsigned Ubuntu artifacts.
+  It does not run on this pull request.
+- The session indicator is a Flutter semantics live region. Its label is
+  the existing catalog string (`Session` / `Oturum`). Navigation icons use
+  the existing labels. No new ARB keys were added. The widget test expects
+  the Turkish label and `isLiveRegion`. Flutter is not installed in this
+  environment, so that test was not executed here. A person has not used a
+  screen reader against the shell.
 
 ## M0 items still open
 
@@ -163,8 +252,9 @@ substitute, not that exit.
 - UI wireframes S-01 through S-05.
 - Import of the other code base, copyright headers from that import, and a
   build of that imported tree.
-- `ubuntu-22.04`, Linux ARM, Windows ARM, macOS x86_64, Android, and iOS are
-  not in CI.
+- `ubuntu-22.04`, Linux ARM, Windows ARM, macOS x86_64, and Android are
+  not in CI. macOS CI type-checks `cbdesk-controller` for
+  `aarch64-apple-ios`. That check is not an iOS app or a device.
 - CodeQL, gitleaks, OSV-Scanner, `cargo-machete`, and `cargo-semver-checks`
   are not wired. Machete would also flag the intentional version pins in
   `cbdesk-crypto` and `cbdesk-proto`; those pins keep transitive crates on
@@ -255,7 +345,7 @@ substitute, not that exit.
 | T-PERM-002 | `authorize` refuses a permission that was not granted | A file browser UI |
 | T-PERM-006 | Media and `authorize` fail before the grant. An echo probe is answered with `PROTOCOL_VIOLATION` and is not reflected. A unidirectional stream before the grant is the same close. After `authorize(View)`, frame streams are delivered. After `authorize(Input)`, an input event is returned and is not injected by the test. After `authorize(Clipboard)`, text is delivered. File and audio follow their grants and close the session without them. Clipboard, input, file, or audio without the grant closes the session | Moving the real pointer |
 | T-MED-001 | Both peers offering only VP8 select VP8. VP8 outranks AV1 when both are offered. AV1 is selected when VP8 is absent | VP9, H.264, and H.265 |
-| T-MED-004 | A short VP8 stream keeps the barcode readable at quantizer 0, including one inter frame. A 48×16 test shifts a white block by 16 pixels at quantizer 96. Color sampling keeps a solid color dominant. A separate ignored test times two 1080p frames and does not require 30 fps | A 60-second soak and a hardware encoder |
+| T-MED-004 | A short VP8 stream keeps the barcode readable at quantizer 0, including one inter frame. A 48×16 test shifts a white block by 16 pixels at quantizer 96. Color sampling keeps a solid color dominant. Ignored tests time two 1080p frames and one damage path. Neither requires 30 fps | A 60-second soak and a successful hardware encode |
 | T-UI-004 | First contact cannot be approved before 3 seconds. The shell keeps Accept disabled until the desk says the delay has elapsed | A wall-clock widget that sleeps 3 seconds |
 | T-UI-005 | `indicator_can_be_disabled` is constant false. The shell has no hide control, paints the indicator above consent, and the settings page says it cannot be turned off | A tray icon on a logged-in desktop |
 | T-UI-007 / T-I18N-001 | JSON catalog keys and Flutter ARB keys match across Turkish and English | A spoken usability test |
@@ -286,14 +376,17 @@ is not proven until Actions finishes.
 
 ## Recommended next run
 
-CI on this branch still has to be green after the network and password
-pass. Wayland ScreenCast stays a manual plan
+CI on the commit that ignores RUSTSEC-2026-0387 still has to finish green.
+The policy job on `5602049` is the failure that ignore is meant to clear.
+Wayland ScreenCast stays a manual plan
 (`docs/dev/wayland-screencast.md`). A live symmetric NAT still needs two
 networks and a relay the operator runs. Android capture has not been
-clicked through on a device. iOS, signed packages, the GitHub organization,
-the trademark search, and an external audit stay with the owner.
-ADR-007, ADR-011, ADR-012, and ADR-013 stay where they are. The fork
-import stays closed for capture, codec, and input (ADR-015). M0's
-fork-builds exit stays unmet. T-MED-004 is not a 60-second soak. Nobody
-has confirmed they heard the microphone path. `clipboard-win` 5.4.1, pulled
-by arboard 3.7.0, is yanked; `cargo audit` reports it as an allowed warning.
+clicked through on a device. A signed iOS build, signing keys, the GitHub
+organization, the trademark search, and an external audit stay with the
+owner. The live host session does not yet hold the X11 grab, the privacy
+window, the shell, or the tunnel. ADR-007, ADR-011, ADR-012, and ADR-013
+stay where they are. The fork import stays closed for capture, codec, and
+input (ADR-015). M0's fork-builds exit stays unmet. T-MED-004 is not a
+60-second soak. Nobody has confirmed they heard the microphone path.
+`clipboard-win` 5.4.1, pulled by arboard 3.7.0, is yanked; `cargo audit`
+reports it as an allowed warning.

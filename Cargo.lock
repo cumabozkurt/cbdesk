@@ -1057,6 +1057,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "cbdesk-controller"
+version = "0.0.0"
+dependencies = [
+ "cbdesk-proto",
+]
+
+[[package]]
 name = "cbdesk-crypto"
 version = "0.0.0"
 dependencies = [
@@ -1125,6 +1132,18 @@ dependencies = [
  "blake3",
  "tempfile",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "cbdesk-hostops"
+version = "0.0.0"
+dependencies = [
+ "cbdesk-capture",
+ "cbdesk-proto",
+ "cbdesk-session",
+ "rustix 1.1.5",
+ "thiserror 1.0.69",
+ "x11rb",
 ]
 
 [[package]]

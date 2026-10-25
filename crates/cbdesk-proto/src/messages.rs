@@ -390,8 +390,23 @@ pub struct VideoFrameHeader {
     pub frame_no: u64,
     /// Host capture time, microseconds.
     pub capture_ts_us: u64,
-    /// True when the decoder can start from this frame.
+    /// True when the payload is a full-frame keyframe.
+    ///
+    /// A region update clears this flag and sets `damage_width`. The region
+    /// bytes are themselves a keyframe of the crop. A viewer that ignores
+    /// `damage_width` must not be sent that payload.
     pub keyframe: bool,
+    /// Luma x of a region update. Zero with a zero damage size means the
+    /// payload is a full frame.
+    pub damage_x: u32,
+    /// Luma y of a region update.
+    pub damage_y: u32,
+    /// Width of a region update. Zero means the payload is a full frame.
+    pub damage_width: u32,
+    /// Height of a region update.
+    pub damage_height: u32,
+    /// The picture did not change. The payload is empty.
+    pub unchanged: bool,
     /// Fields added by a newer peer.
     pub unknown: UnknownFields,
 }
@@ -404,6 +419,11 @@ impl Default for VideoFrameHeader {
             frame_no: 0,
             capture_ts_us: 0,
             keyframe: false,
+            damage_x: 0,
+            damage_y: 0,
+            damage_width: 0,
+            damage_height: 0,
+            unchanged: false,
             unknown: UnknownFields::new(),
         }
     }
@@ -418,6 +438,11 @@ impl ProtoMessage for VideoFrameHeader {
         wire::write_u64(out, 3, self.frame_no);
         wire::write_u64(out, 4, self.capture_ts_us);
         wire::write_bool(out, 5, self.keyframe);
+        wire::write_u32(out, 6, self.damage_x);
+        wire::write_u32(out, 7, self.damage_y);
+        wire::write_u32(out, 8, self.damage_width);
+        wire::write_u32(out, 9, self.damage_height);
+        wire::write_bool(out, 10, self.unchanged);
         self.unknown.encode(out);
         Ok(())
     }
@@ -429,6 +454,11 @@ impl ProtoMessage for VideoFrameHeader {
             frame_no: fields.take_u64(3)?,
             capture_ts_us: fields.take_u64(4)?,
             keyframe: fields.take_bool(5)?,
+            damage_x: fields.take_u32(6)?,
+            damage_y: fields.take_u32(7)?,
+            damage_width: fields.take_u32(8)?,
+            damage_height: fields.take_u32(9)?,
+            unchanged: fields.take_bool(10)?,
             unknown: fields.finish_unknown(),
         })
     }

@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  artifacts:
+    name: unsigned release artifacts
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.0
+
+      - name: Record build inputs
+        run: tools/release/reproducible.sh
+
+      - name: SBOM and checksum
+        run: |
+          python3 tools/release/sbom.py --locked -o sbom.spdx.json
+          tools/release/sign.sh sbom.spdx.json
+
+      - name: Unsigned deb
+        run: packaging/deb/build.sh
+
+      - name: Upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cbdesk-unsigned
+          path: |
+            sbom.spdx.json
+            sbom.spdx.json.sha256
+            sbom.spdx.json.sign-note
+            cbdesk_*.deb

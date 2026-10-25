@@ -74,18 +74,41 @@ have not had that review.
 - TOTP is not required by the session state machine.
 - Rate limits and the access log are in memory. A process restart clears
   them.
-- Privacy mode does not blank a display. Block-input does not grab the
-  local keyboard. Recording does not write an encrypted file.
+- `opaque-ke` 4.0.1 depends on `crypto-bigint` 0.5.5 through
+  `elliptic-curve` 0.13.8. RUSTSEC-2026-0387 is a timing issue fixed in
+  `crypto-bigint` >= 0.7.6. That line does not fit `elliptic-curve` 0.13,
+  and no stable `opaque-ke` uses 0.14. `deny.toml` and `.cargo/audit.toml`
+  ignore this one advisory. The arithmetic is not patched here.
+- Linux X11, when `cbdesk-hostops` is called with a permit, can grab the
+  keyboard and pointer and map a black override-redirect window on the
+  display the caller names. Tests use a private Xvfb. Wayland is not
+  covered. Windows and macOS return unavailable. The live `cbdesk host`
+  session does not call this, so a granted session does not grab input
+  by itself.
+- A recording notice writes a text file and may run `notify-send`. It is
+  not an encrypted recording.
+- The terminal is a Unix pseudoterminal running `sh`, or `cmd.exe` pipes
+  on Windows. ConPTY is not linked. The tunnel listens on `127.0.0.1` and
+  refuses any other destination. Neither is attached to the live session.
+- A Linux virtual display is an `Xvfb` process started by
+  `open_virtual_display`. It is not a Windows indirect display driver.
+  macOS has no virtual-display entitlement here. Live capture does not
+  start Xvfb.
 - No organization certificate parser (ADR-011) and no CRDT address book
   (ADR-012). No updater and no TUF root (ADR-013).
 - Word lists still contain edit-distance-1 pairs.
 - Social engineering is not solved by the 3 second first-contact delay.
-- Hardware encoders are not linked. A measured 1080p software VP8 frame
-  is not a 30 frame-per-second result. See `docs/dev/media-measurement.md`.
+- Hardware VP8 can be probed through ffmpeg when `hw-vaapi`,
+  `hw-mediafoundation`, `hw-videotoolbox`, or `hw-mediacodec` is enabled.
+  Those features are off by default. There is no in-process VA-API, Media
+  Foundation, VideoToolbox, or MediaCodec context. NVENC, AMF, and Quick
+  Sync stay unlinked. A measured 1080p software VP8 frame is not a 30
+  frame-per-second result. See `docs/dev/media-measurement.md`.
 - Wayland ScreenCast is not executed in CI. See
   `docs/dev/wayland-screencast.md`.
 
 ## Out of scope for v0.2
 
-Kernel drivers, virtual displays, clipboard malware, supply-chain compromise
-of a future updater, and physical access to an unlocked host.
+Kernel drivers, a Windows indirect display, clipboard malware, supply-chain
+compromise of a future updater, and physical access to an unlocked host.
+An Xvfb process in this tree is not a kernel display driver.
