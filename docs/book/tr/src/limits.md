@@ -58,7 +58,11 @@ Bu ağaçta bunlar yoktur. Yeşil bir CI koşusu onları eklemez.
   Reddedilen çağrı veya boş bir tuzak girişi kilitlemez. Bu çalışma
   alanında başarılı bir kilitleme kaydedilmedi. Örtü penceresi hâlâ
   X11'dir. Canlı ana makine bunları çağırmaz.
-- Canlı ana makinede bir monitör indeksi. Yakalama birincil ekranı izler.
+- İkinci bir fiziksel monitör ve masaüstü oturumunda bir monitör indeksi.
+  `cbdesk host --monitor N` bu çağrıda `list_monitors` içindeki indeksi
+  seçer. Yazılmazsa birincil ekran kalır. İndeks sabit bir donanım kimliği
+  değildir. Liste dışı indeks reddedilir. Masaüstü oturumu hâlâ
+  `capture_picture` çağırır. İkinci bir ekran burada takılı değildi.
 - Bir dosya listesini yapıştırmak. Pano metni vardır. Dosya yapıştırma
   yoktur.
 - ConPTY, imzalı bir sanal ekran ve bir Windows dolaylı ekran sürücüsü.

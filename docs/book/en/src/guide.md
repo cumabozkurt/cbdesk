@@ -42,5 +42,8 @@ before that same encoder. A later solid-frame run, not a desktop, took
 48 ms at half size and 12 ms at quarter size. `cbdesk host --strips N`
 (default 1) can send those bands when the codec is VP8. Each band is its
 own keyframe, not the inter-frame path, and the 52 ms figure is one solid
-frame, not 30 frames per second. Nobody has confirmed they heard the
+frame, not 30 frames per second. `--monitor N` selects one display
+from the list for that call. Omitting it keeps the primary display.
+The index is not a stable hardware id. A second physical monitor was
+not attached here. Nobody has confirmed they heard the
 microphone path.

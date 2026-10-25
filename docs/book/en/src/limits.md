@@ -56,7 +56,11 @@ This tree does not contain these. A green CI run does not add them.
   refused call or a null tap does not block input. This workspace did not
   record a successful grab. The cover window is still X11. The live host
   does not call them.
-- A monitor index on the live host. Capture follows the primary display.
+- A second physical monitor, and a monitor index on the desk session.
+  `cbdesk host --monitor N` selects an index from `list_monitors` for that
+  call. Omitting it keeps the primary display. The index is not a stable
+  hardware id. An index past the list is refused. The desk session still
+  calls `capture_picture`. This workspace did not attach a second display.
 - Pasting a list of files. Clipboard text is implemented. File paste is
   absent.
 - ConPTY, a signed virtual display, and a Windows indirect-display driver.
