@@ -16,6 +16,10 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- Session decoders are exercised with random bytes in
+  `garbage_does_not_panic`. That is not cargo-fuzz or OSS-Fuzz. An ignored
+  test times four VP8 strips of a 64×64 picture. See
+  `docs/dev/fuzz-and-bench.md`. Criterion is not a dependency.
 - `cbdesk-relayd` binds a loopback iroh relay, prints a self-signed
   `https://` URL, and refuses any other address. A test echoes one probe
   with UDP off. That is not a symmetric-NAT measurement. The Docker sketch

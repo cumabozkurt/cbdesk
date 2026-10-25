@@ -359,9 +359,17 @@ mod tests {
 
         #[test]
         fn garbage_does_not_panic(bytes in proptest::collection::vec(any::<u8>(), 0..128)) {
+            // Stable stand-in for a fuzz target. cargo-fuzz and OSS-Fuzz
+            // are not wired, and this does not claim they ran.
             let _ = Hello::from_bytes(&bytes);
             let _ = InviteTicket::from_bytes(&bytes);
             let _ = Granted::from_bytes(&bytes);
+            let _ = VideoFrameHeader::from_bytes(&bytes);
+            let _ = Feedback::from_bytes(&bytes);
+            let _ = ClipboardText::from_bytes(&bytes);
+            let _ = FileChunk::from_bytes(&bytes);
+            let _ = InputEvent::from_bytes(&bytes);
+            let _ = Control::from_bytes(&bytes);
         }
     }
 

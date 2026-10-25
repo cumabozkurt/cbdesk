@@ -110,6 +110,15 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "local strip timing; not a 30 fps claim and not run by cargo test"]
+    fn time_parallel_strips_on_a_64_pixel_picture() {
+        let picture = synthetic(64, 64, 1).expect("picture");
+        let set = crate::encode_strips(&picture, 32, 4, true).expect("strips");
+        assert_eq!(set.packets.len(), 4);
+        assert!(set.wall_ms < 60_000);
+    }
+
+    #[test]
     #[ignore = "refresh docs/dev/media-measurement.md; pure-Rust 1080p is slow"]
     fn vp8_1080p_two_frames() {
         let handle = std::thread::Builder::new()
