@@ -111,6 +111,21 @@ fields set. A larger change stays on the full-frame inter encoder. Feedback
 from the viewer can lower or raise the VP8 quantizer on a live screen. The
 synthetic barcode stays at quantizer 0.
 
+`canvas_width` and `canvas_height` (fields 11 and 12) are the full picture
+size when the payload is one horizontal band. `strip_index` and
+`strip_count` (fields 13 and 14) name that band. All four are omitted when
+zero, so a header from before them still decodes as a full frame or a
+damage crop. A non-zero canvas size tells the viewer to allocate a blank
+picture (luma 0, chroma 128) when the canvas is missing, a different size,
+or `strip_index` is 0, and then place the band with the damage rect. Each
+band is its own VP8 keyframe, including `keyframe` set, which is not the
+inter-frame path. `cbdesk host --strips N` sends those bands when `N` is
+from 2 to 16 and the negotiated codec is VP8. The default is 1, which keeps
+the damage encoder and leaves the four fields at zero. A viewer that stores
+fields 11–14 as unknown cannot place the bands. Other codecs ignore
+`--strips`. This is not a 30 frame-per-second claim. The desk host still
+sends one damage-encoder frame.
+
 ## Side streams
 
 File chunks, Opus packets, feedback, and two empty acknowledgements share a

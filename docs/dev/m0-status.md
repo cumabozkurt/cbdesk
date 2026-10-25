@@ -193,8 +193,13 @@ yanked warning.
   one keyframe 198 ms, four strips in series 196 ms, four strips in
   parallel 52 ms, half size 48 ms, quarter size 12 ms. The parallel and
   scaled rows are this solid picture only. 52 ms is still over the 33 ms
-  slot. The strips are separate keyframes and are not what `cbdesk host`
-  sends, because the frame header has no full-canvas size. `--profile
+  slot. The strips are separate keyframes. `cbdesk host --strips N` (default
+  1, at most 16) sends them when `N` is greater than 1 and the negotiated
+  codec is VP8. The header then names the full canvas (`canvas_width`,
+  `canvas_height`, `strip_index`, `strip_count`) and the viewer blanks that
+  canvas before painting each band. The default stays on the damage encoder
+  and omits those fields. A viewer that does not know them cannot place the
+  bands. The desk host does not take `--strips`. `--profile
   balanced` and `--profile preview` scale a `--screen` capture before the
   existing encoder. `--synthetic` stays full size. None of this is 30
   frames per second, and a detailed desktop was not measured. A full-frame
@@ -471,7 +476,7 @@ invent one.
 | M5 whiteboard, side switch, 4:4:4 | Partial | Whiteboard strokes and side switch are library gates. `require_chroma` of 4:4:4 fails. |
 | M5 exit: auth and media tests, a volunteer pilot | Absent | No pilot was run. |
 | M6 independent security audit | Owner | Not commissioned. |
-| M6 performance work until every NFR holds | Partial | The damage scan uses `wide` `u8x16`. `encode_strips` can encode horizontal bands on several threads. `--profile balanced` and `preview` box-filter a screen capture. The numbers in `docs/dev/media-measurement.md` are one machine and one synthetic solid picture. The NFR targets are not met. |
+| M6 performance work until every NFR holds | Partial | The damage scan uses `wide` `u8x16`. `encode_strips` can encode horizontal bands on several threads, and `cbdesk host --strips` can send them as separate keyframes. `--profile balanced` and `preview` box-filter a screen capture. The numbers in `docs/dev/media-measurement.md` are one machine and one synthetic solid picture. The NFR targets are not met. |
 | M6 72-hour soak and chaos tests | Absent | Not run. |
 | M6 finished Turkish and English docs, plus video tutorials | Partial | User notes and the shell catalogs exist in both languages. There are no video tutorials. |
 | M6 reproducible build checked by someone else | Partial | `tools/release/reproducible.sh` records `SOURCE_DATE_EPOCH`, `rustc -vV`, and the `Cargo.lock` digest. No second machine hashed a binary. |

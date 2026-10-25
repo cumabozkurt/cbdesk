@@ -24,7 +24,8 @@ use rav1e::prelude::*;
 
 pub use bench::{measure_vp8, Vp8Timing};
 pub use damage::{
-    composite_vp8, measure_damage_path, DamageEncoder, DamagePacket, DamageTiming, PlacedFrame,
+    composite_vp8, ensure_strip_canvas, measure_damage_path, DamageEncoder, DamagePacket,
+    DamageTiming, PlacedFrame,
 };
 pub use error::CodecError;
 pub use hardware::{

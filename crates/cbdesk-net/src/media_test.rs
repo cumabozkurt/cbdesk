@@ -130,7 +130,7 @@ fn header() -> VideoFrameHeader {
         damage_width: 0,
         damage_height: 0,
         unchanged: false,
-        unknown: UnknownFields::new(),
+        ..VideoFrameHeader::default()
     }
 }
 

@@ -16,8 +16,8 @@ use std::time::{Duration, Instant};
 use cbdesk_audio::{CapturePump, PacketCodec, Speaker};
 use cbdesk_capture::{capture_picture, crop_even, Picture};
 use cbdesk_codec::{
-    composite_vp8, vp8_is_inter, BitrateControl, DamageEncoder, DamagePacket, PlacedFrame,
-    Vp8StreamDecoder,
+    composite_vp8, ensure_strip_canvas, vp8_is_inter, BitrateControl, DamageEncoder, DamagePacket,
+    PlacedFrame, Vp8StreamDecoder,
 };
 use cbdesk_fs::{hash_bytes, plan_chunks, IncomingFile, CHUNK_DEFAULT};
 use cbdesk_input::inject_os;
@@ -535,7 +535,7 @@ async fn send_encoded(
         damage_width: if region { packet.width } else { 0 },
         damage_height: if region { packet.height } else { 0 },
         unchanged: false,
-        unknown: UnknownFields::new(),
+        ..VideoFrameHeader::default()
     };
     link.send_view_frame(&header, &packet.bytes)
         .await
@@ -843,6 +843,13 @@ fn apply_video(
             "host sent a codec this build cannot decode".into(),
         ));
     }
+    ensure_strip_canvas(
+        &mut viewer.canvas,
+        header.canvas_width,
+        header.canvas_height,
+        header.strip_index,
+    )
+    .map_err(msg)?;
     let picture = composite_vp8(
         &mut viewer.canvas,
         &mut viewer.decoder,

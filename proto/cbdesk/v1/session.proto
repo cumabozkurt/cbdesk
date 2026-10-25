@@ -57,6 +57,16 @@ message VideoFrameHeader {
   uint64 frame_no = 3;
   uint64 capture_ts_us = 4;
   bool keyframe = 5;
+  uint32 damage_x = 6;
+  uint32 damage_y = 7;
+  uint32 damage_width = 8;
+  uint32 damage_height = 9;
+  bool unchanged = 10;
+  // Full picture size for one strip band. Zero keeps the old header.
+  uint32 canvas_width = 11;
+  uint32 canvas_height = 12;
+  uint32 strip_index = 13;
+  uint32 strip_count = 14;
 }
 
 message Feedback {

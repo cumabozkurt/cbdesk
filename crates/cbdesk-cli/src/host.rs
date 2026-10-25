@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Host one controller until that controller closes the session.
+//!
+//! `--strips 1` (the default) keeps one damage-encoder frame. A larger
+//! count, only when the negotiated codec is VP8, sends each horizontal
+//! band as its own keyframe and names the full canvas on the header.
+//! Other codecs ignore the flag. The desk host does not take it.
 
 use std::io::{self, Write};
 use std::net::IpAddr;
@@ -9,8 +14,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use cbdesk_audio::{CapturePump, PacketCodec, Speaker, ToneCodec};
 use cbdesk_capture::{capture_picture, crop_even, Picture, SyntheticCapturer, BARCODE_WIDTH};
 use cbdesk_codec::{
-    encode_luma, scale_profile, BitrateControl, CodecError, DamageEncoder, DamagePacket,
-    EncodeQuality, FrameProfile, Pace,
+    encode_luma, encode_strips, scale_profile, BitrateControl, CodecError, DamageEncoder,
+    DamagePacket, EncodeQuality, FrameProfile, Pace, StripSet,
 };
 use cbdesk_crypto::Identity;
 use cbdesk_discovery::sign_ticket;
@@ -48,6 +53,10 @@ struct Stream {
     speaker: Option<Speaker>,
     playback: Option<PacketCodec>,
     profile: FrameProfile,
+    /// VP8 band count. One stays on [`DamageEncoder`].
+    strips: u32,
+    /// Next `VideoFrameHeader::frame_no`. One picture may use several.
+    next_frame: u64,
 }
 
 struct HostDevices {
@@ -240,6 +249,8 @@ impl Stream {
             speaker: devices.speaker,
             playback: devices.playback,
             profile: args.profile,
+            strips: args.strips,
+            next_frame: 1,
         })
     }
 
@@ -281,8 +292,8 @@ impl Stream {
         screen: bool,
         codec: Codec,
     ) -> Result<(), CliError> {
-        let frame_no = u64::from(self.sent.saturating_add(1));
-        let captured = capture(screen, frame_no)?;
+        let capture_no = u64::from(self.sent.saturating_add(1));
+        let captured = capture(screen, capture_no)?;
         let digest = picture_hash(&captured);
         if self.last_hash == Some(digest) {
             self.arm_interval();
@@ -297,6 +308,11 @@ impl Stream {
         } else {
             0
         };
+        if self.strips > 1 && codec == Codec::Vp8 {
+            return self
+                .send_strips(link, picture, qindex, digest, screen)
+                .await;
+        }
         let started = Instant::now();
         let frame = self.encode(picture, codec, qindex, screen).await?;
         self.note_encode(screen, elapsed_ms(started));
@@ -305,19 +321,8 @@ impl Stream {
             self.arm_interval();
             return Ok(());
         }
-        let header = VideoFrameHeader {
-            display_id: 1,
-            codec,
-            frame_no,
-            capture_ts_us: 1_000,
-            keyframe: frame.keyframe,
-            damage_x: frame.damage_x,
-            damage_y: frame.damage_y,
-            damage_width: frame.damage_width,
-            damage_height: frame.damage_height,
-            unchanged: false,
-            unknown: UnknownFields::new(),
-        };
+        let frame_no = self.take_frame_no();
+        let header = video_header(codec, frame_no, &frame);
         link.send_view_frame(&header, &frame.bytes)
             .await
             .map_err(|err| CliError::new(err.to_string()))?;
@@ -325,6 +330,44 @@ impl Stream {
         self.last_hash = Some(digest);
         self.arm_interval();
         Ok(())
+    }
+
+    async fn send_strips(
+        &mut self,
+        link: &mut HostLink,
+        picture: Picture,
+        qindex: u8,
+        digest: [u8; 32],
+        screen: bool,
+    ) -> Result<(), CliError> {
+        let strips = self.strips;
+        let started = Instant::now();
+        let encoded =
+            tokio::task::spawn_blocking(move || encode_strips(&picture, qindex, strips, true))
+                .await
+                .map_err(|err| CliError::new(err.to_string()))?
+                .map_err(|err| CliError::new(err.to_string()))?;
+        self.note_encode(screen, elapsed_ms(started));
+        if encoded.packets.is_empty() {
+            return Err(CliError::new("strip encode produced no bands"));
+        }
+        let (frames, next_frame) = frames_for_strips(&encoded, self.next_frame);
+        for frame in &frames {
+            link.send_view_frame(&frame.header, &frame.bytes)
+                .await
+                .map_err(|err| CliError::new(err.to_string()))?;
+        }
+        self.next_frame = next_frame;
+        self.sent = self.sent.saturating_add(1);
+        self.last_hash = Some(digest);
+        self.arm_interval();
+        Ok(())
+    }
+
+    fn take_frame_no(&mut self) -> u64 {
+        let no = self.next_frame;
+        self.next_frame = self.next_frame.saturating_add(1);
+        no
     }
 
     async fn encode(
@@ -508,6 +551,78 @@ struct OutgoingFrame {
     damage_height: u32,
 }
 
+fn video_header(codec: Codec, frame_no: u64, frame: &OutgoingFrame) -> VideoFrameHeader {
+    VideoFrameHeader {
+        display_id: 1,
+        codec,
+        frame_no,
+        capture_ts_us: 1_000,
+        keyframe: frame.keyframe,
+        damage_x: frame.damage_x,
+        damage_y: frame.damage_y,
+        damage_width: frame.damage_width,
+        damage_height: frame.damage_height,
+        unchanged: false,
+        ..VideoFrameHeader::default()
+    }
+}
+
+struct WireFrame {
+    header: VideoFrameHeader,
+    bytes: Vec<u8>,
+}
+
+/// One band stays a full frame so the default header does not grow.
+/// Two or more bands name the canvas and the damage rect of each band.
+fn frames_for_strips(set: &StripSet, mut frame_no: u64) -> (Vec<WireFrame>, u64) {
+    if set.packets.len() <= 1 {
+        let bytes = set
+            .packets
+            .first()
+            .map(|packet| packet.bytes.clone())
+            .unwrap_or_default();
+        let header = video_header(
+            Codec::Vp8,
+            frame_no,
+            &OutgoingFrame {
+                bytes: Vec::new(),
+                keyframe: true,
+                unchanged: false,
+                damage_x: 0,
+                damage_y: 0,
+                damage_width: 0,
+                damage_height: 0,
+            },
+        );
+        frame_no = frame_no.saturating_add(1);
+        return (vec![WireFrame { header, bytes }], frame_no);
+    }
+    let count = u32::try_from(set.packets.len()).unwrap_or(u32::MAX);
+    let mut frames = Vec::with_capacity(set.packets.len());
+    for (index, packet) in set.packets.iter().enumerate() {
+        frames.push(WireFrame {
+            header: VideoFrameHeader {
+                display_id: 1,
+                codec: Codec::Vp8,
+                frame_no,
+                capture_ts_us: 1_000,
+                keyframe: true,
+                damage_y: packet.origin_y,
+                damage_width: packet.width,
+                damage_height: packet.height,
+                canvas_width: set.width,
+                canvas_height: set.height,
+                strip_index: u32::try_from(index).unwrap_or(0),
+                strip_count: count,
+                ..VideoFrameHeader::default()
+            },
+            bytes: packet.bytes.clone(),
+        });
+        frame_no = frame_no.saturating_add(1);
+    }
+    (frames, frame_no)
+}
+
 fn place(packet: DamagePacket) -> OutgoingFrame {
     let region = packet.region;
     OutgoingFrame {
@@ -672,4 +787,66 @@ fn unix_now() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|elapsed| elapsed.as_secs())
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use cbdesk_codec::{StripPacket, StripSet};
+
+    use super::*;
+
+    fn band(origin_y: u32, height: u32, byte: u8) -> StripPacket {
+        StripPacket {
+            origin_y,
+            width: 32,
+            height,
+            bytes: vec![byte],
+        }
+    }
+
+    #[test]
+    fn one_band_stays_a_full_frame_and_two_bands_name_the_canvas() {
+        let single = StripSet {
+            width: 32,
+            height: 32,
+            qindex: 0,
+            parallel: false,
+            wall_ms: 0,
+            packets: vec![band(0, 32, 1)],
+        };
+        let (frames, next) = frames_for_strips(&single, 1);
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames[0].header.frame_no, 1);
+        assert!(frames[0].header.keyframe);
+        assert_eq!(frames[0].header.damage_width, 0);
+        assert_eq!(frames[0].header.canvas_width, 0);
+        assert_eq!(frames[0].header.strip_count, 0);
+        assert_eq!(frames[0].bytes, vec![1]);
+        assert_eq!(next, 2);
+
+        let two = StripSet {
+            width: 32,
+            height: 32,
+            qindex: 8,
+            parallel: true,
+            wall_ms: 1,
+            packets: vec![band(0, 16, 1), band(16, 16, 2)],
+        };
+        let (frames, next) = frames_for_strips(&two, 3);
+        assert_eq!(frames.len(), 2);
+        assert_eq!(frames[0].header.frame_no, 3);
+        assert_eq!(frames[1].header.frame_no, 4);
+        assert_eq!(next, 5);
+        assert_eq!(frames[0].header.damage_y, 0);
+        assert_eq!(frames[1].header.damage_y, 16);
+        assert_eq!(frames[0].header.damage_width, 32);
+        assert_eq!(frames[0].header.damage_height, 16);
+        assert_eq!(frames[0].header.canvas_width, 32);
+        assert_eq!(frames[0].header.canvas_height, 32);
+        assert_eq!(frames[0].header.strip_index, 0);
+        assert_eq!(frames[1].header.strip_index, 1);
+        assert_eq!(frames[0].header.strip_count, 2);
+        assert!(frames[0].header.keyframe);
+        assert_eq!(frames[1].bytes, vec![2]);
+    }
 }

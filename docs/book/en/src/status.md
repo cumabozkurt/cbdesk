@@ -33,8 +33,9 @@ This page is the short version for someone reading the guide.
 - Nobody has confirmed they heard the microphone. A 1080p software
   keyframe on one machine took 201 ms. A later solid-frame run took 198 ms
   as one keyframe, 52 ms as four parallel strips, and 12 ms at quarter
-  size. The strips are not the live session. That is not 30 frames per
-  second. No successful hardware encode was recorded.
+  size. `--strips` above 1 can send those bands on a VP8 session. The
+  default does not. That is not 30 frames per second. No successful
+  hardware encode was recorded.
 - The live host does not hold the X11 grab, the privacy window, the
   shell, or the tunnel, even though those functions exist and are tested
   on their own.

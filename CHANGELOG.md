@@ -22,6 +22,14 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- `cbdesk host --strips N` (default 1, at most 16) can send a VP8 picture
+  as horizontal keyframe bands. The header fields `canvas_width`,
+  `canvas_height`, `strip_index`, and `strip_count` are omitted when zero.
+  The viewer allocates a blank canvas before painting a band. The default
+  stays on the damage encoder. Other codecs ignore the flag. The desk host
+  does not take it. These bands are not the inter-frame path and are not
+  30 frames per second. The 52 ms figure in
+  `docs/dev/media-measurement.md` is still one solid 1920×1080 frame.
 - The language switch reads `Türkçe` and `English` from the Turkish and
   English catalogs. Both catalogs use those native names.
 - The shell gives text fields the existing catalog strings as labels,

@@ -198,6 +198,47 @@ pub fn composite_vp8(
     Ok(picture)
 }
 
+/// Allocate a blank canvas when a strip header names one.
+///
+/// A width or height of zero leaves `canvas` alone. That is how a header
+/// written before canvas fields existed behaves. A non-zero size replaces
+/// the canvas when it is missing, a different size, or `strip_index` is
+/// zero, which starts a new strip set. The blank picture is luma 0 and
+/// chroma 128. Both axes must be even and at least 16.
+pub fn ensure_strip_canvas(
+    canvas: &mut Option<Picture>,
+    width: u32,
+    height: u32,
+    strip_index: u32,
+) -> Result<(), CodecError> {
+    if width == 0 || height == 0 {
+        return Ok(());
+    }
+    let replace = match canvas.as_ref() {
+        None => true,
+        Some(picture) => strip_index == 0 || picture.width != width || picture.height != height,
+    };
+    if replace {
+        *canvas = Some(blank_canvas(width, height)?);
+    }
+    Ok(())
+}
+
+fn blank_canvas(width: u32, height: u32) -> Result<Picture, CodecError> {
+    if width < 16 || height < 16 || !width.is_multiple_of(2) || !height.is_multiple_of(2) {
+        return Err(CodecError::BadDimensions);
+    }
+    let pixels = (width as usize).saturating_mul(height as usize);
+    let chroma = (width as usize / 2).saturating_mul(height as usize / 2);
+    Ok(Picture {
+        width,
+        height,
+        y: vec![0; pixels],
+        u: vec![128; chroma],
+        v: vec![128; chroma],
+    })
+}
+
 /// Time one  keyframe, one unchanged repeat, and one 16×16 dirty block.
 pub fn measure_damage_path(
     width: u32,
@@ -688,6 +729,28 @@ mod tests {
         )
         .expect("unchanged");
         assert!(again.y[index] > 180);
+    }
+
+    #[test]
+    fn a_strip_canvas_starts_blank_and_a_later_band_keeps_it() {
+        let mut canvas = None;
+        ensure_strip_canvas(&mut canvas, 0, 0, 0).expect("legacy");
+        assert!(canvas.is_none());
+        ensure_strip_canvas(&mut canvas, 32, 32, 0).expect("blank");
+        let picture = canvas.as_ref().expect("canvas");
+        assert_eq!((picture.width, picture.height), (32, 32));
+        assert!(picture.y.iter().all(|sample| *sample == 0));
+        assert!(picture.u.iter().all(|sample| *sample == 128));
+        assert!(picture.v.iter().all(|sample| *sample == 128));
+        canvas.as_mut().expect("paint").y[0] = 9;
+        ensure_strip_canvas(&mut canvas, 32, 32, 1).expect("keep");
+        assert_eq!(canvas.as_ref().expect("kept").y[0], 9);
+        ensure_strip_canvas(&mut canvas, 32, 32, 0).expect("reset");
+        assert_eq!(canvas.as_ref().expect("reset").y[0], 0);
+        assert_eq!(
+            ensure_strip_canvas(&mut canvas, 15, 16, 0).expect_err("odd"),
+            CodecError::BadDimensions
+        );
     }
 
     #[test]

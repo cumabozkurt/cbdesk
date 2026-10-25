@@ -48,6 +48,10 @@ pub struct HostArgs {
     pub speaker: bool,
     /// Screen scale. `full` keeps the captured size. Synthetic hosts stay `full`.
     pub profile: FrameProfile,
+    /// Horizontal VP8 bands. `1` keeps the damage encoder. Above 1, and only
+    /// when the negotiated codec is VP8, each band is its own keyframe.
+    /// Other codecs ignore this.
+    pub strips: u32,
 }
 
 /// Viewer options.
@@ -94,7 +98,7 @@ fn usage() -> CliError {
     CliError::new(
         "usage: cbdesk host --bind ADDR (--synthetic|--screen) [--approve view,input] \
          [--frames N] [--lan] [--relay URL] [--files-root DIR] [--tone|--mic] [--speaker] \
-         [--profile full|balanced|preview]\n       \
+         [--profile full|balanced|preview] [--strips N]\n       \
          cbdesk view (--ticket HEX|--browse) (--ppm FILE|--window|--put FILE|--audio|--mic|--speaker) \
          [--pointer X,Y] [--key NAME] [--relay URL]\n       \
          cbdesk net-check [--json] [--anonymous] [--loopback]\n       \
@@ -115,6 +119,7 @@ struct HostDraft {
     mic: bool,
     speaker: bool,
     profile: FrameProfile,
+    strips: u32,
 }
 
 fn parse_net_check(args: &[String]) -> Result<crate::check::NetCheckArgs, CliError> {
@@ -150,6 +155,7 @@ fn parse_host(args: &[String]) -> Result<HostArgs, CliError> {
         mic: false,
         speaker: false,
         profile: FrameProfile::Full,
+        strips: 1,
     };
     let mut index = 0;
     while index < args.len() {
@@ -187,6 +193,7 @@ fn apply_host(draft: &mut HostDraft, args: &[String], index: &mut usize) -> Resu
             draft.profile = FrameProfile::parse(&name)
                 .ok_or_else(|| CliError::new("profile is full, balanced, or preview"))?;
         }
+        "--strips" => draft.strips = strips_arg(&take(args, index, "strip count")?)?,
         _ => return Err(CliError::new(format!("unknown host argument {flag}"))),
     }
     Ok(())
@@ -230,6 +237,7 @@ fn finish_host(draft: HostDraft) -> Result<HostArgs, CliError> {
         mic: draft.mic,
         speaker: draft.speaker,
         profile: draft.profile,
+        strips: draft.strips,
     })
 }
 
@@ -359,6 +367,17 @@ fn permission(name: &str) -> Result<Permission, CliError> {
     Ok(perm)
 }
 
+fn strips_arg(text: &str) -> Result<u32, CliError> {
+    let value: u32 = text
+        .parse()
+        .map_err(|_| CliError::new("strip count is not a number"))?;
+    if (1..=16).contains(&value) {
+        Ok(value)
+    } else {
+        Err(CliError::new("strip count is 1 to 16"))
+    }
+}
+
 fn frames_arg(text: &str) -> Result<u32, CliError> {
     let value: u32 = text
         .parse()
@@ -481,6 +500,20 @@ mod tests {
             .expect_err("synthetic")
             .to_string()
             .contains("screen"));
+        let strips = parse(&strings(&["host", "--synthetic", "--strips", "4"])).expect("strips");
+        match strips {
+            Command::Host(host) => assert_eq!(host.strips, 4),
+            _ => panic!("host"),
+        }
+        let default_strips = parse(&strings(&["host", "--synthetic"])).expect("default");
+        match default_strips {
+            Command::Host(host) => assert_eq!(host.strips, 1),
+            _ => panic!("host"),
+        }
+        let zero = parse(&strings(&["host", "--synthetic", "--strips", "0"]));
+        assert!(zero.expect_err("zero").to_string().contains("1 to 16"));
+        let huge = parse(&strings(&["host", "--synthetic", "--strips", "17"]));
+        assert!(huge.expect_err("huge").to_string().contains("1 to 16"));
     }
 
     #[test]

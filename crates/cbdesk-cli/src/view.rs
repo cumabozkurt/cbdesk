@@ -15,7 +15,9 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use cbdesk_audio::{CapturePump, PacketCodec, Speaker};
 use cbdesk_capture::Picture;
-use cbdesk_codec::{composite_vp8, decode_luma, PlacedFrame, Vp8StreamDecoder};
+use cbdesk_codec::{
+    composite_vp8, decode_luma, ensure_strip_canvas, PlacedFrame, Vp8StreamDecoder,
+};
 use cbdesk_crypto::Identity;
 use cbdesk_discovery::ReplayCache;
 use cbdesk_net::{
@@ -342,19 +344,28 @@ fn decode_video(
         return Err(CliError::new("host sent a codec that was not negotiated"));
     }
     match header.codec {
-        Codec::Vp8 => composite_vp8(
-            canvas,
-            decoder,
-            PlacedFrame {
-                unchanged: header.unchanged,
-                damage_x: header.damage_x,
-                damage_y: header.damage_y,
-                damage_width: header.damage_width,
-                damage_height: header.damage_height,
-                payload,
-            },
-        )
-        .map_err(cli),
+        Codec::Vp8 => {
+            ensure_strip_canvas(
+                canvas,
+                header.canvas_width,
+                header.canvas_height,
+                header.strip_index,
+            )
+            .map_err(cli)?;
+            composite_vp8(
+                canvas,
+                decoder,
+                PlacedFrame {
+                    unchanged: header.unchanged,
+                    damage_x: header.damage_x,
+                    damage_y: header.damage_y,
+                    damage_width: header.damage_width,
+                    damage_height: header.damage_height,
+                    payload,
+                },
+            )
+            .map_err(cli)
+        }
         Codec::Av1 => {
             let frame = decode_luma(payload).map_err(cli)?;
             let picture = Picture::from_luma(&frame).map_err(cli)?;
