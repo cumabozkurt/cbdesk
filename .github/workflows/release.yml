@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Prerelease tag, for example v0.1.0-alpha.1. A missing tag is created at this SHA."
+        description: "Prerelease tag, for example v0.1.0-alpha.1. An existing release is updated in place. A missing tag is created at this SHA."
         required: true
         type: string
   push:
@@ -204,14 +204,23 @@ jobs:
           set -euo pipefail
           flutter config --no-analytics
           flutter config --no-enable-swift-package-manager
+          flutter config --enable-macos-arm64-only
           flutter pub get --enforce-lockfile
+          rustup target add aarch64-apple-darwin
           # Flutter 3.47 rejects --no-codesign. FLUTTER_XCODE_* is passed
-          # through to xcodebuild. CI's debug job uses the same SPM setting.
+          # through to xcodebuild. A release build otherwise sets
+          # ARCHS=arm64 x86_64, and x86_64-apple-darwin is not installed.
+          export FLUTTER_MACOS_ARM64_ONLY=true
           export FLUTTER_XCODE_CODE_SIGNING_ALLOWED=NO
           export FLUTTER_XCODE_CODE_SIGNING_REQUIRED=NO
           export FLUTTER_XCODE_CODE_SIGN_IDENTITY=-
+          export FLUTTER_XCODE_ARCHS=arm64
           flutter build macos --release
-          test -d build/macos/Build/Products/Release/cbdesk.app
+          app="build/macos/Build/Products/Release/cbdesk.app/Contents/MacOS/cbdesk"
+          test -f "$app"
+          archs=$(lipo -archs "$app")
+          echo "desktop archs: $archs"
+          test "$archs" = "arm64"
 
       - name: Pack desktop
         shell: bash

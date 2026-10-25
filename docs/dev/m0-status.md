@@ -271,10 +271,11 @@ yanked warning.
   `contents: write`. It still uploads when another platform job fails,
   and the notes name the missing file. The macOS desktop build does not
   pass `--no-codesign`; Flutter 3.47 rejects that flag. Signing is turned
-  off with `CODE_SIGNING_ALLOWED=NO`. The files are not signed. This pull
+  off with `CODE_SIGNING_ALLOWED=NO`. The macOS desktop release sets
+  `ARCHS=arm64` and adds the `aarch64-apple-darwin` target. It does not
+  build `x86_64-apple-darwin`. The files are not signed. This pull
   request does not run that workflow and publishes nothing. No phone was
-  installed, and no
-  performance run of those binaries was recorded.
+  installed, and no performance run of those binaries was recorded.
 - The session indicator is a Flutter semantics live region. The node's
   label includes the existing catalog title (`Session` / `Oturum`) and the
   sentence that the indicator cannot be turned off, plus the status text.

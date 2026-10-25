@@ -28,8 +28,12 @@ prerelease and uploads the files with `SHA256SUMS`. That job is the only
 one with `contents: write`, and it runs unless the workflow is cancelled.
 A failed platform does not drop the archives that were built; the notes
 name the missing file. The macOS desktop build is
-`flutter build macos --release` with `CODE_SIGNING_ALLOWED=NO`. Flutter
-3.47 has no `--no-codesign` flag. The files are not signed. SmartScreen and
+`flutter build macos --release` with `CODE_SIGNING_ALLOWED=NO` and
+`ARCHS=arm64`. Flutter 3.47 has no `--no-codesign` flag. A release build
+otherwise also targets `x86_64-apple-darwin`, which is not installed.
+The desktop `.app` is arm64 only. Naming an existing tag on
+`workflow_dispatch` updates that prerelease in place (`gh release upload
+--clobber`) and does not move the tag. The files are not signed. SmartScreen and
 Gatekeeper can warn or block them. The workflow does not run on pull
 requests. It was not run in this workspace, and no file was published.
 The deb version string follows the tag with the leading `v` removed.
