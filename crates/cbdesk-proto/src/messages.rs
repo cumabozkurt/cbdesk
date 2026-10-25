@@ -407,6 +407,22 @@ pub struct VideoFrameHeader {
     pub damage_height: u32,
     /// The picture did not change. The payload is empty.
     pub unchanged: bool,
+    /// Full picture width when this payload is one band of a larger frame.
+    ///
+    /// Zero means the viewer already has a canvas, or the payload is a full
+    /// frame. A non-zero width together with [`Self::canvas_height`] tells
+    /// the viewer to allocate that canvas before placing the damage rect.
+    /// Peers that do not know this field keep it as unknown and cannot place
+    /// the band. Zero is omitted on the wire.
+    pub canvas_width: u32,
+    /// Full picture height. See [`Self::canvas_width`].
+    pub canvas_height: u32,
+    /// Band index starting at zero. Zero with a canvas size starts a blank
+    /// canvas. Zero without a canvas size is a header from before strips.
+    pub strip_index: u32,
+    /// How many bands belong to this picture. Zero means this header is not
+    /// a strip set.
+    pub strip_count: u32,
     /// Fields added by a newer peer.
     pub unknown: UnknownFields,
 }
@@ -424,6 +440,10 @@ impl Default for VideoFrameHeader {
             damage_width: 0,
             damage_height: 0,
             unchanged: false,
+            canvas_width: 0,
+            canvas_height: 0,
+            strip_index: 0,
+            strip_count: 0,
             unknown: UnknownFields::new(),
         }
     }
@@ -443,6 +463,10 @@ impl ProtoMessage for VideoFrameHeader {
         wire::write_u32(out, 8, self.damage_width);
         wire::write_u32(out, 9, self.damage_height);
         wire::write_bool(out, 10, self.unchanged);
+        wire::write_u32(out, 11, self.canvas_width);
+        wire::write_u32(out, 12, self.canvas_height);
+        wire::write_u32(out, 13, self.strip_index);
+        wire::write_u32(out, 14, self.strip_count);
         self.unknown.encode(out);
         Ok(())
     }
@@ -459,6 +483,10 @@ impl ProtoMessage for VideoFrameHeader {
             damage_width: fields.take_u32(8)?,
             damage_height: fields.take_u32(9)?,
             unchanged: fields.take_bool(10)?,
+            canvas_width: fields.take_u32(11)?,
+            canvas_height: fields.take_u32(12)?,
+            strip_index: fields.take_u32(13)?,
+            strip_count: fields.take_u32(14)?,
             unknown: fields.finish_unknown(),
         })
     }

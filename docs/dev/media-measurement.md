@@ -109,11 +109,18 @@ profile preview 480x270 strips=1 parallel=false wall_ms=12 bytes=304
 
 The parallel row is faster on this solid picture and still slower than the
 33 ms pacer slot. The strips do not share a VP8 reference, so this is not
-the inter-frame stream the host sends. The live frame header has no
-full-canvas size, and `composite_vp8` cannot place a region until a canvas
-exists, so `cbdesk host` does not send the strips. `--profile balanced` and
-`--profile preview` are host flags for `--screen` only. They scale first
-and then use the existing encoder. `--profile full` is the default and
-does not scale. `--synthetic` rejects the other two profiles so the barcode
-stays full size. The 12 ms preview time is this solid frame, not a desktop
-and not a 30 frame-per-second result. A detailed picture was not measured.
+the inter-frame stream. `cbdesk host --strips N` (default 1) sends the
+bands when `N` is greater than 1 and the negotiated codec is VP8. Each band
+is its own keyframe. The header then carries `canvas_width`,
+`canvas_height`, `strip_index`, and `strip_count`, and the viewer allocates
+a blank canvas before painting the damage rect. The default of 1 still uses
+the damage encoder and leaves those fields at zero, which is also how an
+older header decodes. A viewer that does not know the canvas fields cannot
+place the bands. The desk host does not take `--strips`. The 52 ms row is
+this solid frame on this machine, not a desktop and not a live session
+measurement. `--profile balanced` and `--profile preview` are host flags
+for `--screen` only. They scale first and then use the existing encoder.
+`--profile full` is the default and does not scale. `--synthetic` rejects
+the other two profiles so the barcode stays full size. The 12 ms preview
+time is this solid frame, not a desktop and not a 30 frame-per-second
+result. A detailed picture was not measured.

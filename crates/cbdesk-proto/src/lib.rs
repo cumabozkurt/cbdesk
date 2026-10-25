@@ -170,6 +170,10 @@ mod tests {
             damage_width: 64,
             damage_height: 48,
             unchanged: true,
+            canvas_width: 320,
+            canvas_height: 240,
+            strip_index: 1,
+            strip_count: 4,
             unknown: UnknownFields::new(),
         });
         roundtrip(&Feedback {
@@ -212,6 +216,37 @@ mod tests {
             sig: vec![4; 64],
             unknown: UnknownFields::new(),
         });
+    }
+
+    #[test]
+    fn zero_canvas_fields_stay_off_the_wire() {
+        let bare = VideoFrameHeader {
+            display_id: 1,
+            codec: Codec::Vp8,
+            frame_no: 1,
+            keyframe: true,
+            ..VideoFrameHeader::default()
+        };
+        let marked = VideoFrameHeader {
+            canvas_width: 32,
+            canvas_height: 16,
+            strip_index: 1,
+            strip_count: 2,
+            ..bare.clone()
+        };
+        let bare_bytes = bare.to_bytes().expect("bare");
+        let marked_bytes = marked.to_bytes().expect("marked");
+        assert!(marked_bytes.len() > bare_bytes.len());
+        assert_eq!(
+            VideoFrameHeader::from_bytes(&bare_bytes).expect("decode bare"),
+            bare
+        );
+        assert_eq!(bare.canvas_width, 0);
+        assert_eq!(bare.strip_count, 0);
+        assert_eq!(
+            VideoFrameHeader::from_bytes(&marked_bytes).expect("decode marked"),
+            marked
+        );
     }
 
     #[test]

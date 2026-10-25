@@ -39,6 +39,8 @@ in 201 ms. An unchanged picture was not encoded. A 64×64 changed region
 took 2 ms. A full-frame change is still about five frames per second.
 `--profile balanced` and `--profile preview` shrink a screen capture
 before that same encoder. A later solid-frame run, not a desktop, took
-48 ms at half size and 12 ms at quarter size. Parallel strip keyframes
-are measured in the library and are not what the host sends. Nobody has
-confirmed they heard the microphone path.
+48 ms at half size and 12 ms at quarter size. `cbdesk host --strips N`
+(default 1) can send those bands when the codec is VP8. Each band is its
+own keyframe, not the inter-frame path, and the 52 ms figure is one solid
+frame, not 30 frames per second. Nobody has confirmed they heard the
+microphone path.

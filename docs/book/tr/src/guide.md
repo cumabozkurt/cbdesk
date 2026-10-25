@@ -37,6 +37,7 @@ kodladı. Değişmeyen resim kodlanmadı. 64×64 değişen bir bölge 2 ms sürd
 Tam kare değişikliği hâlâ saniyede yaklaşık beş karedir. `--profile
 balanced` ve `--profile preview`, ekran yakalamasını aynı kodlayıcıdan
 önce küçültür. Sonraki düz renkli kare ölçümü, masaüstü değil, yarı boyda
-48 ms ve çeyrek boyda 12 ms sürdü. Paralel şerit ana kareleri kütüphanede
-ölçülür ve ana makinenin gönderdiği şey değildir. Mikrofon yolunu birinin
-duyduğu doğrulanmamıştır.
+48 ms ve çeyrek boyda 12 ms sürdü. `cbdesk host --strips N` (varsayılan 1),
+kodek VP8 ise bu şeritleri gönderebilir. Her şerit kendi ana karesidir,
+kareler arası yol değildir ve 52 ms sayısı tek bir düz renkli kare içindir;
+30 kare/saniye değildir. Mikrofon yolunu birinin duyduğu doğrulanmamıştır.

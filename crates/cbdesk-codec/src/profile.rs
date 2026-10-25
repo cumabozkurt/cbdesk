@@ -5,9 +5,10 @@
 //! [`FrameProfile::Balanced`] and [`FrameProfile::Preview`] box-filter the
 //! picture before one encode. [`encode_strips`] splits the picture into
 //! horizontal bands and encodes each band as its own keyframe. Bands do not
-//! share a VP8 reference, so they can run at the same time. The live frame
-//! header has no full-canvas size, so a host that sends those bands as
-//! region updates cannot place them. The CLI `full` profile does not scale.
+//! share a VP8 reference, so they can run at the same time. A host that
+//! sends more than one band also sends the full canvas size so the viewer
+//! can allocate a blank picture first. The default live path is still one
+//! [`crate::DamageEncoder`] frame. The CLI `full` profile does not scale.
 //! None of these paths is a 30 frame-per-second claim.
 
 use std::thread;
@@ -484,6 +485,32 @@ mod tests {
         let placed = composite_strips(&set).expect("composite");
         assert!(placed.y[0] < 80, "top {}", placed.y[0]);
         assert!(placed.y[32 * 64] > 180, "bottom {}", placed.y[32 * 64]);
+        let mut canvas = None;
+        let mut stream = Vp8StreamDecoder::new();
+        let mut via_header = None;
+        for (index, packet) in set.packets.iter().enumerate() {
+            let index = u32::try_from(index).expect("index");
+            crate::ensure_strip_canvas(&mut canvas, set.width, set.height, index).expect("canvas");
+            via_header = Some(
+                crate::composite_vp8(
+                    &mut canvas,
+                    &mut stream,
+                    crate::PlacedFrame {
+                        unchanged: false,
+                        damage_x: 0,
+                        damage_y: packet.origin_y,
+                        damage_width: packet.width,
+                        damage_height: packet.height,
+                        payload: &packet.bytes,
+                    },
+                )
+                .expect("band"),
+            );
+        }
+        let via_header = via_header.expect("bands");
+        assert_eq!(via_header.y, placed.y);
+        assert_eq!(via_header.u, placed.u);
+        assert_eq!(via_header.v, placed.v);
         assert!(encode_strips(&picture, 32, 0, false).is_err());
     }
 
