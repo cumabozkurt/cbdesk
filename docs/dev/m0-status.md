@@ -478,7 +478,7 @@ invent one.
 | M6 independent security audit | Owner | Not commissioned. |
 | M6 performance work until every NFR holds | Partial | The damage scan uses `wide` `u8x16`. `encode_strips` can encode horizontal bands on several threads, and `cbdesk host --strips` can send them as separate keyframes. `--profile balanced` and `preview` box-filter a screen capture. The numbers in `docs/dev/media-measurement.md` are one machine and one synthetic solid picture. The NFR targets are not met. |
 | M6 72-hour soak and chaos tests | Absent | Not run. |
-| M6 finished Turkish and English docs, plus video tutorials | Partial | User notes and the shell catalogs exist in both languages. There are no video tutorials. |
+| M6 finished Turkish and English docs, plus video tutorials | Partial | User notes and the shell catalogs exist in both languages. The book has a limits page for owner-owned and absent work. There are no video tutorials. |
 | M6 reproducible build checked by someone else | Partial | `tools/release/reproducible.sh` records `SOURCE_DATE_EPOCH`, `rustc -vV`, and the `Cargo.lock` digest. No second machine hashed a binary. |
 | M6 notice to antivirus vendors (R-011) | Owner | Not sent. |
 | M6 exit: release candidate and version 1.0.0 | Absent | The version is 0.0.0. Nothing was published. |

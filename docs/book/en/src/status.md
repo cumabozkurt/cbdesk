@@ -3,7 +3,9 @@
 The plan checkboxes in `docs/MASTER_PLAN.md` are still unchecked. The
 ledger that maps them is
 [docs/dev/m0-status.md](https://github.com/cumabozkurt/cbdesk/blob/main/docs/dev/m0-status.md).
-This page is the short version for someone reading the guide.
+This page is the short version for someone reading the guide. Work that
+stays with the owner, and work that is absent, is listed on the
+[limits](limits.md) page.
 
 ## What the tests actually exercise
 

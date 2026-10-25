@@ -19,3 +19,4 @@ Bankalar, kamu kurumları ve destek şirketleri bunu istemez.
 - [Gizlilik](privacy.md)
 - [Katkı](contributing.md)
 - [Durum ve sınırlar](status.md)
+- [Sahibinde kalan ve bulunmayan iş](limits.md)
