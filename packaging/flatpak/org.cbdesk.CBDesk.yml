@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Flatpak manifest template. It has not been submitted to Flathub.
-app-id: com.cbdesk.CBDesk
+app-id: org.cbdesk.CBDesk
 runtime: org.freedesktop.Platform
 runtime-version: "24.08"
 sdk: org.freedesktop.Sdk

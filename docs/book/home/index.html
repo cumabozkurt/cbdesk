@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CBDesk</title>
+  <meta name="description" content="CBDesk is a consented remote desktop under design. It is not an installable release.">
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      line-height: 1.5;
+      background: #f7f4ef;
+      color: #1c1915;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1c1915; color: #f7f4ef; }
+      a { color: #f0c36a; }
+      .banner { background: #3a2a12; color: #f7f4ef; }
+      .card { background: #2a261f; }
+    }
+    a { color: #6b3f12; }
+    a:focus { outline: 3px solid #c47b2b; outline-offset: 2px; }
+    main { max-width: 42rem; margin: 0 auto; padding: 1.5rem; }
+    .banner {
+      background: #3a2a12;
+      color: #fff8ee;
+      padding: 0.75rem 1.5rem;
+    }
+    .banner p { max-width: 42rem; margin: 0 auto; }
+    h1 { font-size: 2.25rem; line-height: 1.15; margin-bottom: 0.25rem; }
+    .lang { display: flex; gap: 1rem; margin: 1rem 0 1.5rem; }
+    .lang a {
+      display: inline-block;
+      padding: 0.4rem 0.8rem;
+      border: 2px solid currentColor;
+      border-radius: 0.4rem;
+      text-decoration: none;
+      font-weight: 650;
+    }
+    .card { background: #fff; border-radius: 0.6rem; padding: 1rem 1.1rem; margin: 1rem 0; }
+    h2 { font-size: 1.25rem; margin-top: 0; }
+  </style>
+</head>
+<body>
+  <div class="banner">
+    <p><strong>Not a release.</strong> There is no installer and no download on this site. <span lang="tr"><strong>Bu bir sürüm değildir.</strong> Bu sitede kurulum dosyası ve indirme yoktur.</span></p>
+  </div>
+  <main>
+    <h1>CBDesk</h1>
+    <p>A remote desktop that asks before anyone sees your screen. The session indicator stays visible and cannot be switched off.</p>
+    <p lang="tr">Ekranınızı biri görmeden önce soran bir uzak masaüstü. Oturum göstergesi görünür kalır ve kapatılamaz.</p>
+    <nav class="lang" aria-label="Language">
+      <a href="en/index.html" hreflang="en" lang="en">English guide</a>
+      <a href="tr/index.html" hreflang="tr" lang="tr">Türkçe kılavuz</a>
+    </nav>
+    <section class="card" lang="en">
+      <h2>What you can read</h2>
+      <ul>
+        <li><a href="en/guide.html">How a session is supposed to work</a></li>
+        <li><a href="en/install.html">Why there is nothing to install yet</a></li>
+        <li><a href="en/security.html">Security model</a></li>
+        <li><a href="en/privacy.html">Privacy</a></li>
+        <li><a href="en/contributing.html">Contributing</a></li>
+        <li><a href="en/status.html">What works, and what was not tried</a></li>
+      </ul>
+    </section>
+    <section class="card" lang="tr">
+      <h2>Neleri okuyabilirsiniz</h2>
+      <ul>
+        <li><a href="tr/guide.html">Bir oturumun nasıl işlemesi beklendiği</a></li>
+        <li><a href="tr/install.html">Neden henüz kurulacak bir şey olmadığı</a></li>
+        <li><a href="tr/security.html">Güvenlik modeli</a></li>
+        <li><a href="tr/privacy.html">Gizlilik</a></li>
+        <li><a href="tr/contributing.html">Katkı</a></li>
+        <li><a href="tr/status.html">Neler çalışıyor, neler denenmedi</a></li>
+      </ul>
+    </section>
+    <p>Source: <a href="https://github.com/cumabozkurt/cbdesk">github.com/cumabozkurt/cbdesk</a>. License: AGPL-3.0-or-later.</p>
+  </main>
+</body>
+</html>

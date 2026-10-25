@@ -462,7 +462,10 @@ this tree.
 
 ## Stop
 
-No further product phase starts from this note. Wayland ScreenCast remains
+The user guide source is `docs/book`. `.github/workflows/pages.yml` builds
+it on every push to `main` and deploys with GitHub Pages when the repository
+source is GitHub Actions. The site does not offer a download. No further
+product phase starts from this note. Wayland ScreenCast remains
 the manual plan in `docs/dev/wayland-screencast.md`. The live host still
 does not hold the X11 grab, the privacy window, the shell, or the tunnel.
 `clipboard-win` 5.4.1, pulled by arboard 3.7.0, stays a yanked warning.

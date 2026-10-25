@@ -1,8 +1,8 @@
 # CBDesk
 
-CBDesk, merkeziyetsiz, sunucusuz ve açık kaynak bir uzak masaüstü uygulaması olmak üzere tasarlanmıştır. Çekirdek Rust, arayüz hedefi Flutter, lisans AGPL-3.0-or-later'dır.
+CBDesk, merkeziyetsiz, sunucusuz ve açık kaynak bir uzak masaüstü uygulaması olmak üzere tasarlanmıştır. Çekirdek Rust, arayüz hedefi Flutter, lisans AGPL-3.0-or-later'dır. Kullanıcı kılavuzunun kaynağı `docs/book` altındadır (mdBook, Türkçe ve İngilizce). `main` dalına her push, deponun Pages kaynağı GitHub Actions ise siteyi yayınlar. Site bir indirme sayfası değildir.
 
-CBDesk is a decentralized, serverless, open-source remote desktop application under design. The core is Rust, the UI target is Flutter, and the license is AGPL-3.0-or-later.
+CBDesk is a decentralized, serverless, open-source remote desktop application under design. The core is Rust, the UI target is Flutter, and the license is AGPL-3.0-or-later. The user guide source is `docs/book` (mdBook, Turkish and English). A push to `main` publishes it when the repository Pages source is GitHub Actions. The site is not an install page.
 
 ## Bu depo şu an ne değildir / What this repository is not yet
 

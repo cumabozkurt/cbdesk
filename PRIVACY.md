@@ -20,14 +20,14 @@ and uses "CBDesk device" only as the generic label when a name is allowed.
 - An invite ticket carries addresses and a signature. It does not carry a
   permission grant.
 
-## What a relay would see later
+## What a relay can see
 
-A relay, once one exists, may see that two network addresses are exchanging
-packets and how much data moves. It must not see screen contents, input, file
-bytes, or clipboard contents. That guarantee is not implemented yet, because
-there is no encrypted session transport in this milestone. The endpoint policy
-rejects the known public relay suffixes so a future stack cannot turn them on
-by default.
+A relay the operator configures may see that two network addresses are
+exchanging packets and how much data moves. QUIC payloads on the iroh path
+are encrypted. The relay is not trusted with the password, the screen, input,
+files, or clipboard text. This project does not run a relay. The endpoint
+policy rejects known public relay suffixes so they are not on by default.
+A recording notice file is not an encrypted recording.
 
 ## DHT
 

@@ -7,3 +7,7 @@
 /app/.dart_tool/
 /app/build/
 *.iml
+
+/site/
+docs/book/en/book/
+docs/book/tr/book/

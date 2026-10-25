@@ -103,7 +103,7 @@ Use `git commit -s` for every commit.
 
 ### 9. Smaller decisions
 - Read `docs/dev/trademark-prelim.md`; decide whether to keep the name.
-- Fix the Flatpak id mismatch (`com.cbdesk.CBDesk` vs `org.cbdesk.CBDesk`).
+- The Flatpak template id is `org.cbdesk.CBDesk`. Submitting it to Flathub is still not done.
 - Merge future Dependabot PRs; update `opaque-ke` and remove the
   RUSTSEC-2026-0387 ignores when a compatible release exists.
 
@@ -201,6 +201,6 @@ commit için `git commit -s` kullan.
 
 ### 9. Küçük kararlar
 - `docs/dev/trademark-prelim.md` dosyasını oku; adı koruyup korumayacağına karar ver.
-- Flatpak kimlik uyuşmazlığını düzelt (`com.cbdesk.CBDesk` / `org.cbdesk.CBDesk`).
+- Flatpak şablonunun kimliği `org.cbdesk.CBDesk`. Flathub'a gönderilmedi.
 - Dependabot PR'larını birleştir; uyumlu sürüm çıkınca `opaque-ke`'yi güncelle
   ve RUSTSEC-2026-0387 yok saymalarını kaldır.
