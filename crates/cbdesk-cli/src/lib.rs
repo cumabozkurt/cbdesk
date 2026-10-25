@@ -10,8 +10,10 @@
 //! rejects the prompt. `cbdesk view` dials the ticket or browses the LAN.
 //! `--ppm` writes the first frame. `--window` keeps showing frames until the
 //! window closes. A ticket is still only a locator. `--screen` captures the
-//! operating system. `--synthetic` paints a barcode and never touches a
-//! display. Input reaches the operating system only for `--screen` after the
+//! primary display. `--monitor N` selects an index from `list_monitors` for
+//! that call. The index is not a stable hardware id. `--synthetic` paints a
+//! barcode and never touches a display. Input reaches the operating system
+//! only for `--screen` after the
 //! grant includes `input`. The window forwards the pointer and keyboard only
 //! after that same grant.
 

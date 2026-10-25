@@ -108,7 +108,12 @@ cbdesk host --bind 0.0.0.0:22116 --synthetic --approve view,input --lan
 cbdesk view --browse --window
 ```
 
-`--screen` captures the display instead of the barcode. The live picture
+`--screen` captures the primary display instead of the barcode.
+`--monitor N` selects the index from `list_monitors` for that call.
+Omitting it keeps the primary display. The index is not a stable
+hardware id. An index past the list is refused. A second physical
+monitor was not attached here. The desk session still calls
+`capture_picture`. The live picture
 keeps that capture's even width and height. `--approve` is explicit consent
 and still waits three seconds on a first contact. Omitting it rejects
 immediately. `--frames N` stops after N frames; `0`, the default, streams

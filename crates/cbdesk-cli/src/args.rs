@@ -52,6 +52,9 @@ pub struct HostArgs {
     /// when the negotiated codec is VP8, each band is its own keyframe.
     /// Other codecs ignore this.
     pub strips: u32,
+    /// Index from `list_monitors` for this call. Absent keeps the primary
+    /// display. This is not a stable hardware id. Only valid with `--screen`.
+    pub monitor: Option<u32>,
 }
 
 /// Viewer options.
@@ -96,7 +99,7 @@ pub fn parse(args: &[String]) -> Result<Command, CliError> {
 
 fn usage() -> CliError {
     CliError::new(
-        "usage: cbdesk host --bind ADDR (--synthetic|--screen) [--approve view,input] \
+        "usage: cbdesk host --bind ADDR (--synthetic|--screen) [--monitor N] [--approve view,input] \
          [--frames N] [--lan] [--relay URL] [--files-root DIR] [--tone|--mic] [--speaker] \
          [--profile full|balanced|preview] [--strips N]\n       \
          cbdesk view (--ticket HEX|--browse) (--ppm FILE|--window|--put FILE|--audio|--mic|--speaker) \
@@ -120,6 +123,7 @@ struct HostDraft {
     speaker: bool,
     profile: FrameProfile,
     strips: u32,
+    monitor: Option<u32>,
 }
 
 fn parse_net_check(args: &[String]) -> Result<crate::check::NetCheckArgs, CliError> {
@@ -156,6 +160,7 @@ fn parse_host(args: &[String]) -> Result<HostArgs, CliError> {
         speaker: false,
         profile: FrameProfile::Full,
         strips: 1,
+        monitor: None,
     };
     let mut index = 0;
     while index < args.len() {
@@ -194,6 +199,9 @@ fn apply_host(draft: &mut HostDraft, args: &[String], index: &mut usize) -> Resu
                 .ok_or_else(|| CliError::new("profile is full, balanced, or preview"))?;
         }
         "--strips" => draft.strips = strips_arg(&take(args, index, "strip count")?)?,
+        "--monitor" => {
+            draft.monitor = Some(monitor_arg(&take(args, index, "monitor index")?)?);
+        }
         _ => return Err(CliError::new(format!("unknown host argument {flag}"))),
     }
     Ok(())
@@ -219,6 +227,9 @@ fn finish_host(draft: HostDraft) -> Result<HostArgs, CliError> {
             "--profile balanced and preview are for --screen; synthetic stays full size",
         ));
     }
+    if !screen && draft.monitor.is_some() {
+        return Err(CliError::new("--monitor is for --screen"));
+    }
     if (draft.tone || draft.mic || draft.speaker) && !draft.approve.contains(&Permission::Audio) {
         return Err(CliError::new(
             "microphone, speaker, and tone need audio in --approve",
@@ -238,6 +249,7 @@ fn finish_host(draft: HostDraft) -> Result<HostArgs, CliError> {
         speaker: draft.speaker,
         profile: draft.profile,
         strips: draft.strips,
+        monitor: draft.monitor,
     })
 }
 
@@ -365,6 +377,11 @@ fn permission(name: &str) -> Result<Permission, CliError> {
         _ => return Err(CliError::new(format!("unknown permission {name}"))),
     };
     Ok(perm)
+}
+
+fn monitor_arg(text: &str) -> Result<u32, CliError> {
+    text.parse()
+        .map_err(|_| CliError::new("monitor index is not a number"))
 }
 
 fn strips_arg(text: &str) -> Result<u32, CliError> {
@@ -514,6 +531,23 @@ mod tests {
         assert!(zero.expect_err("zero").to_string().contains("1 to 16"));
         let huge = parse(&strings(&["host", "--synthetic", "--strips", "17"]));
         assert!(huge.expect_err("huge").to_string().contains("1 to 16"));
+        let omitted = parse(&strings(&["host", "--screen"])).expect("primary");
+        match omitted {
+            Command::Host(host) => assert_eq!(host.monitor, None),
+            _ => panic!("host"),
+        }
+        let indexed = parse(&strings(&["host", "--screen", "--monitor", "0"])).expect("index");
+        match indexed {
+            Command::Host(host) => assert_eq!(host.monitor, Some(0)),
+            _ => panic!("host"),
+        }
+        let synthetic_monitor = parse(&strings(&["host", "--synthetic", "--monitor", "1"]));
+        assert!(synthetic_monitor
+            .expect_err("synthetic monitor")
+            .to_string()
+            .contains("--monitor is for --screen"));
+        let word = parse(&strings(&["host", "--screen", "--monitor", "primary"]));
+        assert!(word.expect_err("word").to_string().contains("not a number"));
     }
 
     #[test]

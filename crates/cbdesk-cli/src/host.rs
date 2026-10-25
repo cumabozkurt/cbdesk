@@ -12,7 +12,9 @@ use std::net::IpAddr;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use cbdesk_audio::{CapturePump, PacketCodec, Speaker, ToneCodec};
-use cbdesk_capture::{capture_picture, crop_even, Picture, SyntheticCapturer, BARCODE_WIDTH};
+use cbdesk_capture::{
+    capture_picture, capture_picture_on, crop_even, Picture, SyntheticCapturer, BARCODE_WIDTH,
+};
 use cbdesk_codec::{
     encode_luma, encode_strips, scale_profile, BitrateControl, CodecError, DamageEncoder,
     DamagePacket, EncodeQuality, FrameProfile, Pace, StripSet,
@@ -276,7 +278,8 @@ impl Stream {
             return Ok(());
         }
         if send_video {
-            self.send_picture(link, args.screen, codec).await?;
+            self.send_picture(link, args.screen, args.monitor, codec)
+                .await?;
         } else {
             self.arm_interval();
         }
@@ -290,10 +293,11 @@ impl Stream {
         &mut self,
         link: &mut HostLink,
         screen: bool,
+        monitor: Option<u32>,
         codec: Codec,
     ) -> Result<(), CliError> {
         let capture_no = u64::from(self.sent.saturating_add(1));
-        let captured = capture(screen, capture_no)?;
+        let captured = capture(screen, capture_no, monitor)?;
         let digest = picture_hash(&captured);
         if self.last_hash == Some(digest) {
             self.arm_interval();
@@ -678,10 +682,17 @@ fn encode_frame(
     encode_luma(frame, quality)
 }
 
-fn capture(screen: bool, frame_no: u64) -> Result<Picture, CliError> {
+fn capture(screen: bool, frame_no: u64, monitor: Option<u32>) -> Result<Picture, CliError> {
     if screen {
-        let picture = capture_picture().map_err(|err| CliError::new(err.to_string()))?;
+        let picture = match monitor {
+            Some(index) => capture_picture_on(index),
+            None => capture_picture(),
+        }
+        .map_err(|err| CliError::new(err.to_string()))?;
         return crop_even(picture).map_err(|err| CliError::new(err.to_string()));
+    }
+    if monitor.is_some() {
+        return Err(CliError::new("--monitor is for --screen"));
     }
     let frame = SyntheticCapturer::new(BARCODE_WIDTH, 16)
         .capture(frame_no, 1_000)
@@ -802,6 +813,17 @@ mod tests {
             height,
             bytes: vec![byte],
         }
+    }
+
+    #[test]
+    fn an_index_past_any_list_is_refused_and_synthetic_ignores_none() {
+        assert!(capture(true, 1, Some(u32::MAX)).is_err());
+        assert!(capture(false, 1, Some(1))
+            .expect_err("synthetic")
+            .to_string()
+            .contains("--monitor is for --screen"));
+        let barcode = capture(false, 1, None).expect("barcode");
+        assert!(barcode.width >= 1 && barcode.height >= 1);
     }
 
     #[test]

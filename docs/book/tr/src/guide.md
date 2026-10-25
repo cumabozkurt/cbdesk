@@ -40,4 +40,7 @@ balanced` ve `--profile preview`, ekran yakalamasını aynı kodlayıcıdan
 48 ms ve çeyrek boyda 12 ms sürdü. `cbdesk host --strips N` (varsayılan 1),
 kodek VP8 ise bu şeritleri gönderebilir. Her şerit kendi ana karesidir,
 kareler arası yol değildir ve 52 ms sayısı tek bir düz renkli kare içindir;
-30 kare/saniye değildir. Mikrofon yolunu birinin duyduğu doğrulanmamıştır.
+30 kare/saniye değildir. `--monitor N` bu çağrıdaki listeden bir ekran
+seçer. Yazılmazsa birincil ekran kalır. İndeks sabit bir donanım
+kimliği değildir. İkinci bir fiziksel monitör burada takılı değildi.
+Mikrofon yolunu birinin duyduğu doğrulanmamıştır.

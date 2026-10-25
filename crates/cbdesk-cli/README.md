@@ -1,7 +1,10 @@
 `cbdesk` host and viewer for a consented color session.
 
 `cbdesk host` prints an invite ticket, then waits for consent. Pass
-`--synthetic` for a barcode or `--screen` for the operating-system display.
+`--synthetic` for a barcode or `--screen` for the primary display.
+`--monitor N` selects an index from `list_monitors` for that call. The
+index is not a stable hardware id. An index past the list is refused.
+A second physical monitor was not attached here.
 `--approve` is the person's decision and still waits three seconds on a
 first contact. An empty approval rejects immediately. The ticket does not
 grant access. `file_write` also needs `--allow-high-risk` and

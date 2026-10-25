@@ -22,6 +22,12 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- `cbdesk host --monitor N` captures the display at that index in
+  `list_monitors`. The index is the position in that call, not a stable
+  hardware id. Omitting it keeps the primary display. An index past the
+  list is refused. `--monitor` with `--synthetic` is rejected. A second
+  physical monitor was not attached here. The desk session still calls
+  `capture_picture`.
 - The user guide has a limits page in Turkish and English. It lists
   owner-owned work and work that is absent from this tree. Plan checkboxes
   stay unchecked. There is still no download.
