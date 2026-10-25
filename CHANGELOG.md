@@ -7,6 +7,12 @@ Version 0.0.0 is not a release.
 
 ### Fixed
 
+- The macOS desktop release step no longer passes `--no-codesign`.
+  Flutter 3.47 rejects that flag. The workflow runs
+  `flutter build macos --release` and turns signing off with
+  `CODE_SIGNING_ALLOWED=NO`. The app is not notarized. The publish job
+  runs unless the workflow is cancelled, uploads the archives that were
+  built, and names a missing platform in the prerelease notes.
 - The indexed-capture test retries a transient X connection when a display
   is required. Xvfb can reset the handshake while another capture client
   is connected. An index past the list is still refused.

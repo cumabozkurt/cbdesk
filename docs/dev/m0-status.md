@@ -268,8 +268,12 @@ yanked warning.
   archives for Linux, Windows, and macOS, Flutter desktop bundles, an
   arm64 debug APK, the unsigned deb, and the SBOM, then the publish job
   creates a GitHub prerelease. That job is the only one with
-  `contents: write`. The files are not signed. This pull request does not
-  run that workflow and publishes nothing. No phone was installed, and no
+  `contents: write`. It still uploads when another platform job fails,
+  and the notes name the missing file. The macOS desktop build does not
+  pass `--no-codesign`; Flutter 3.47 rejects that flag. Signing is turned
+  off with `CODE_SIGNING_ALLOWED=NO`. The files are not signed. This pull
+  request does not run that workflow and publishes nothing. No phone was
+  installed, and no
   performance run of those binaries was recorded.
 - The session indicator is a Flutter semantics live region. The node's
   label includes the existing catalog title (`Session` / `Oturum`) and the
