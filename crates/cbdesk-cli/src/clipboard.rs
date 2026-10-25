@@ -7,8 +7,22 @@
 //! Tests use [`ClipSync`] and do not call [`OsClipboard`].
 
 use arboard::Clipboard;
+use cbdesk_proto::{prepare_clipboard_text, ProtoError};
 
 use crate::error::CliError;
+
+/// Plain text that may cross the session.
+///
+/// `Ok(None)` is a `cbdesk-secret` snapshot: do not send it and do not write
+/// it to the other machine. HTML is reduced to text. File paste is not this
+/// function.
+pub fn outgoing_clipboard(text: &str) -> Result<Option<String>, CliError> {
+    match prepare_clipboard_text(text) {
+        Ok(text) => Ok(Some(text)),
+        Err(ProtoError::ClipboardSecret) => Ok(None),
+        Err(err) => Err(CliError::new(err.to_string())),
+    }
+}
 
 /// Remember the last text each direction applied.
 #[derive(Clone, Debug, Default)]

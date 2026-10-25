@@ -28,7 +28,9 @@ mod messages;
 mod negotiate;
 mod wire;
 
-pub use clipboard::{ClipboardText, CLIPBOARD_TEXT_MAX_BYTES};
+pub use clipboard::{
+    prepare_clipboard_text, ClipboardText, CLIPBOARD_SECRET_MARK, CLIPBOARD_TEXT_MAX_BYTES,
+};
 pub use control::{Control, ControlBody};
 pub use enums::{AuthMethod, Capability, Codec, ErrorCode, InvitePurpose, Permission, Platform};
 pub use error::ProtoError;

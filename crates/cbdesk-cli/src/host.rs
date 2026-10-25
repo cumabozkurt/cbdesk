@@ -26,7 +26,7 @@ use cbdesk_session::{
 use zeroize::Zeroize;
 
 use crate::args::HostArgs;
-use crate::clipboard::{ClipSync, OsClipboard};
+use crate::clipboard::{outgoing_clipboard, ClipSync, OsClipboard};
 use crate::error::CliError;
 use crate::files::{Stored, Uploads};
 use crate::hex;
@@ -603,11 +603,19 @@ fn print_input(event: &InputEvent) -> Result<(), CliError> {
 }
 
 fn apply_remote_clipboard(clips: &mut ClipSync, text: &str, screen: bool) -> Result<(), CliError> {
-    if !clips.note_remote(text) {
+    let text = match outgoing_clipboard(text) {
+        Ok(Some(text)) => text,
+        Ok(None) => return Ok(()),
+        Err(err) => {
+            eprintln!("cbdesk: clipboard was not applied: {err}");
+            return Ok(());
+        }
+    };
+    if !clips.note_remote(&text) {
         return Ok(());
     }
     if screen && !clips.os_broken() {
-        if let Err(err) = OsClipboard::set(text) {
+        if let Err(err) = OsClipboard::set(&text) {
             clips.mark_os_broken();
             eprintln!("cbdesk: clipboard is unavailable: {err}");
         }
@@ -632,6 +640,14 @@ async fn push_local_clipboard(link: &mut HostLink, clips: &mut ClipSync) -> Resu
     };
     let Some(generation) = clips.local_change(&text) else {
         return Ok(());
+    };
+    let text = match outgoing_clipboard(&text) {
+        Ok(Some(text)) => text,
+        Ok(None) => return Ok(()),
+        Err(err) => {
+            eprintln!("cbdesk: clipboard was not sent: {err}");
+            return Ok(());
+        }
     };
     let message = ClipboardText {
         text,

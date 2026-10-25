@@ -7,6 +7,9 @@ Version 0.0.0 is not a release.
 
 ### Fixed
 
+- The indexed-capture test retries a transient X connection when a display
+  is required. Xvfb can reset the handshake while another capture client
+  is connected. An index past the list is still refused.
 - The macOS event tap links CoreGraphics and CoreFoundation in separate
   `extern` blocks. One stacked pair of `#[link]` attributes fails
   `clippy::duplicated_attributes`.
@@ -19,6 +22,9 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- Clipboard text that contains HTML is reduced to plain text before it is
+  sent or written. A line that is `cbdesk-secret` is not shared. That mark
+  is not password detection. File paste is not implemented.
 - `list_monitors` and `capture_picture_on` select a display the capturer
   reports. `capture_picture` and `cbdesk host --screen` stay on the primary
   display. A second physical monitor was not attached here.

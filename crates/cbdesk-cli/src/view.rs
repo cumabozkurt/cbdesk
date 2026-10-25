@@ -31,7 +31,7 @@ use cbdesk_proto::{
 use zeroize::Zeroize;
 
 use crate::args::ViewArgs;
-use crate::clipboard::{ClipSync, OsClipboard};
+use crate::clipboard::{outgoing_clipboard, ClipSync, OsClipboard};
 use crate::error::CliError;
 use crate::hex;
 use crate::identity::open_identity;
@@ -585,10 +585,18 @@ async fn dial_ticket(endpoint: &QuicEndpoint, args: &ViewArgs) -> Result<QuicCon
 }
 
 fn apply_clip(clips: &mut ClipSync, text: ClipboardText) -> Result<(), CliError> {
-    if !clips.note_remote(&text.text) || clips.os_broken() {
+    let text = match outgoing_clipboard(&text.text) {
+        Ok(Some(text)) => text,
+        Ok(None) => return Ok(()),
+        Err(err) => {
+            eprintln!("cbdesk: clipboard was not applied: {err}");
+            return Ok(());
+        }
+    };
+    if !clips.note_remote(&text) || clips.os_broken() {
         return Ok(());
     }
-    if let Err(err) = OsClipboard::set(&text.text) {
+    if let Err(err) = OsClipboard::set(&text) {
         clips.mark_os_broken();
         eprintln!("cbdesk: clipboard is unavailable: {err}");
     }
@@ -610,6 +618,14 @@ async fn push_local_clip(conn: &QuicConn, clips: &mut ClipSync) -> Result<(), Cl
     };
     let Some(generation) = clips.local_change(&text) else {
         return Ok(());
+    };
+    let text = match outgoing_clipboard(&text) {
+        Ok(Some(text)) => text,
+        Ok(None) => return Ok(()),
+        Err(err) => {
+            eprintln!("cbdesk: clipboard was not sent: {err}");
+            return Ok(());
+        }
     };
     let message = ClipboardText {
         text,
