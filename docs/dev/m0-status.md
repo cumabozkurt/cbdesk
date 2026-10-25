@@ -205,9 +205,12 @@ yanked warning.
   grabs the X11 keyboard and pointer and maps a fullscreen black
   override-redirect window on the display the caller names. Drop releases
   the grab and destroys the window. Tests start a private Xvfb and do not
-  use the ambient `DISPLAY`. Non-Linux builds return `Unavailable`. Wayland
-  is not handled. Windows `BlockInput` and a macOS privacy filter are not
-  implemented.
+  use the ambient `DISPLAY`. Wayland is not handled. Windows calls
+  `BlockInput` and releases it on drop. macOS creates a session event tap
+  on a `CFRunLoop` and stops it on drop. A refused `BlockInput` or a null
+  tap is `Unavailable`. This workspace did not record a successful grab on
+  either system. The privacy cover is still the X11 window. ConPTY and a
+  signed virtual display are not implemented.
 - Recording writes `CBDesk recording` plus the notice text to a file the
   caller names, then tries `notify-send`. A desktop popup is recorded only
   when that command exits 0. The file is not an encrypted recording. The
@@ -446,7 +449,7 @@ invent one.
 | M4 Android host: MediaProjection, accessibility service, foreground service, F-Droid | Partial | CI builds an arm64 debug APK. Capture waits for the system dialog. That dialog was not accepted on a device. No accessibility service and no F-Droid submission. |
 | M4 iOS controller on TestFlight | Partial | macOS CI type-checks `cbdesk-controller` for `aarch64-apple-ios`. There is no signature, no TestFlight build, and no Apple Developer account. |
 | M4 CRDT sync of "my devices" | Absent | ADR-012 is not implemented. |
-| M4 terminal, tunnel, file paste, session recording, privacy mode | Partial | X11 grab and cover, a PTY or `cmd.exe` pipes, a loopback tunnel, a notice file, and Xvfb exist and are tested. The live `cbdesk host` session does not call them. File transfer is a QUIC stream under a path jail. Recording is not an encrypted file. |
+| M4 terminal, tunnel, file paste, session recording, privacy mode | Partial | X11 grab and cover, a PTY or `cmd.exe` pipes, a loopback tunnel, a notice file, and Xvfb exist and are tested. Windows `BlockInput` and a macOS session event tap are compiled and release on drop. This workspace did not record a successful grab on either system. The cover is still X11. The live `cbdesk host` session does not call them. File transfer is a QUIC stream under a path jail. Recording is not an encrypted file. |
 | M4 quick-support binary | Absent | Quick support stays banned in the session policy. |
 | M4 exit: mobile matrix and the terminal, tunnel, and admin tests | Absent | No device matrix was run. |
 | M5 organization root, certificates, policy documents, CRL | Absent | ADR-011 stays Proposed. No parser is linked. |

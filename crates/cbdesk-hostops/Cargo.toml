@@ -16,6 +16,9 @@ thiserror.workspace = true
 [target.'cfg(target_os = "linux")'.dependencies]
 x11rb.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_UI_Input_KeyboardAndMouse"] }
+
 [target.'cfg(unix)'.dependencies]
 rustix = { workspace = true, features = ["std", "alloc", "fs", "pty"] }
 
@@ -23,5 +26,13 @@ rustix = { workspace = true, features = ["std", "alloc", "fs", "pty"] }
 cbdesk-capture = { path = "../cbdesk-capture" }
 cbdesk-proto = { path = "../cbdesk-proto" }
 
-[lints]
-workspace = true
+# Cargo rejects mixing `lints.workspace = true` with a package override.
+# These match the workspace lints except `unsafe_code`: this platform crate
+# calls BlockInput and CGEventTap. Every unsafe block has a SAFETY comment.
+[lints.rust]
+unsafe_code = "allow"
+missing_docs = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+undocumented_unsafe_blocks = "deny"

@@ -26,9 +26,10 @@ be turned off to hide any of them.
 On Linux, the host-operations library can grab the X11 keyboard and
 pointer, map a black window, open a shell, forward one loopback TCP
 connection, write a recording notice, and start an Xvfb display. `cbdesk
-host` does not turn those on by itself. Windows and macOS do not implement
-the grab or the cover. A recording notice is a text file, not an encrypted
-recording of the session.
+host` does not turn those on by itself. Windows calls `BlockInput` and
+macOS creates a session event tap. A refused call does not block input.
+The privacy cover is still the Linux window. A recording notice is a text
+file, not an encrypted recording of the session.
 
 ## Picture and sound
 

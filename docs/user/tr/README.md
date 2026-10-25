@@ -20,6 +20,7 @@ Ekranı görmek; yerel klavyeyi kilitlemek, ekranı örtmek, terminal açmak,
 bağlantı noktası iletmek ve kayıt almak için ayrı bir izindir. Her biri
 ayrı onay ister. Gösterge kapatılamaz. Linux'ta var olan parçalar (X11
 kilidi, siyah pencere, kabuk, döngü tüneli, bildirim dosyası ve bir Xvfb
-ekranı) `cbdesk host` tarafından kendiliğinden açılmaz. Windows ve macOS
-kilidi ve örtüyü uygulamaz. Burada imzalı bir kurulum yoktur. 1080p yazılım
-görüntüsü 30 kare/saniye değildir.
+ekranı) `cbdesk host` tarafından kendiliğinden açılmaz. Windows
+`BlockInput` çağırır, macOS bir oturum olay tuzağı açar; reddedilen çağrı
+girişi kilitlemez. Örtü hâlâ Linux penceresidir. Burada imzalı bir kurulum
+yoktur. 1080p yazılım görüntüsü 30 kare/saniye değildir.

@@ -25,8 +25,9 @@ ayrı onay ister. Gösterge, bunlardan birini gizlemek için kapatılamaz.
 Linux'ta ana makine işlemleri kitaplığı X11 klavye ve işaretçi kilidi, siyah
 bir pencere, bir kabuk, tek bir döngü TCP iletimi, bir kayıt bildirimi ve
 bir Xvfb ekranı açabilir. `cbdesk host` bunları kendiliğinden açmaz.
-Windows ve macOS kilidi ve örtüyü uygulamaz. Kayıt bildirimi bir metin
-dosyasıdır; oturumun şifreli kaydı değildir.
+Windows `BlockInput` çağırır, macOS bir oturum olay tuzağı açar. Reddedilen
+çağrı girişi kilitlemez. Örtü hâlâ Linux penceresidir. Kayıt bildirimi bir
+metin dosyasıdır; oturumun şifreli kaydı değildir.
 
 ## Görüntü ve ses
 
