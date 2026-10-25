@@ -74,6 +74,10 @@ sources is derived from that project.
   frame. `--lan` / `--browse` find each other on the LAN. `--screen` captures
   the display. `--put`, `--tone`, `--audio`, `--mic`, `--speaker`, and
   `--relay` are wired. `--tone` and `--mic` cannot be combined.
+  `--screen` still captures the primary monitor. `list_monitors` and
+  `capture_picture_on` can name another reported display. This workspace
+  did not attach a second physical monitor, so that path was not observed
+  on two screens. The live host does not take a monitor index.
 - `cbdesk-desk`: device id, short code, signed ticket locator, consent,
   block list, address book, and a live session after consent. The two words
   confirm pairing through SPAKE2 before the consent prompt. They do not
