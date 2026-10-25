@@ -156,9 +156,10 @@ unsafe extern "C" fn swallow(
 }
 
 // SAFETY: Apple's C signatures. `bool` matches C `_Bool` for the enable flag
-// and for `returnAfterSourceHandled`.
+// and for `returnAfterSourceHandled`. Each framework is its own block.
+// Stacking two `#[link]` attributes on one block trips
+// `clippy::duplicated_attributes` on macOS.
 #[link(name = "CoreGraphics", kind = "framework")]
-#[link(name = "CoreFoundation", kind = "framework")]
 unsafe extern "C" {
     fn CGEventTapCreate(
         tap: c_uint,
@@ -174,6 +175,10 @@ unsafe extern "C" {
         user: *mut c_void,
     ) -> *mut c_void;
     fn CGEventTapEnable(tap: *mut c_void, enable: bool);
+}
+
+#[link(name = "CoreFoundation", kind = "framework")]
+unsafe extern "C" {
     fn CFRelease(value: *const c_void);
     static kCFRunLoopDefaultMode: *const c_void;
     fn CFRunLoopRunInMode(mode: *const c_void, seconds: f64, return_after_source: bool) -> c_int;

@@ -7,6 +7,9 @@ Version 0.0.0 is not a release.
 
 ### Fixed
 
+- The macOS event tap links CoreGraphics and CoreFoundation in separate
+  `extern` blocks. One stacked pair of `#[link]` attributes fails
+  `clippy::duplicated_attributes`.
 - The session-indicator widget test accepts the full live-region label.
   Actions on `6a11de6` required that label to be exactly `Oturum`.
   Non-Linux builds no longer call `mapped_size` on the unavailable cover,
