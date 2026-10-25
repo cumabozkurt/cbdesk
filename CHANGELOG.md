@@ -22,6 +22,10 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- The shell gives text fields the existing catalog strings as labels,
+  excludes the session border from the semantics tree, and names a remote
+  picture with the existing remote-view sentence. The indicator stays a
+  live region and still cannot be turned off. No new catalog keys.
 - Clipboard text that contains HTML is reduced to plain text before it is
   sent or written. A line that is `cbdesk-secret` is not shared. That mark
   is not password detection. File paste is not implemented.

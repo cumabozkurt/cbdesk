@@ -29,6 +29,20 @@ void main() {
     },
   );
 
+  testWidgets('the connect field keeps an accessible name', (tester) async {
+    final desk = FakeDesk();
+    await tester.pumpWidget(CbDeskApp(api: desk, poll: null));
+    await tester.pumpAndSettle();
+    final semantics = tester.ensureSemantics();
+    await tester.tap(find.byKey(const Key('nav-connect')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSemantics(find.byKey(const Key('connect-field'))).label,
+      contains('Davet'),
+    );
+    semantics.dispose();
+  });
+
   testWidgets('a short code is refused in Turkish', (tester) async {
     final desk = FakeDesk();
     await tester.pumpWidget(CbDeskApp(api: desk, poll: null));
