@@ -16,6 +16,11 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- An mdBook user guide in `docs/book`, in Turkish and English, with a
+  bilingual landing page. `.github/workflows/pages.yml` builds it on every
+  push to `main` and deploys with GitHub Pages. There is still no download.
+- The Flatpak template id is `org.cbdesk.CBDesk`. It has not been submitted
+  to Flathub.
 - Damage tracking on the software VP8 path. Unchanged pictures are not
   encoded. A small dirty region is a separate keyframe with `damage_width`
   set and `keyframe` cleared. The release measurement on this machine is in

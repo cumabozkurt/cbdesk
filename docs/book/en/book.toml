@@ -1,0 +1,13 @@
+[book]
+title = "CBDesk"
+authors = ["CBDesk contributors"]
+description = "User guide for CBDesk. This is not an installable release."
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/cumabozkurt/cbdesk"
+edit-url-template = "https://github.com/cumabozkurt/cbdesk/edit/main/docs/book/en/{path}"
+default-theme = "light"
+preferred-dark-theme = "navy"
+no-section-label = true

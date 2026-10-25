@@ -13,8 +13,9 @@ exits if `linuxdeploy` is missing and does not download it. It was not run.
 `packaging/macos/make-dmg.sh` uses `hdiutil` and does not notarize. It
 exits on Linux and was not run. `packaging/windows/cbdesk.wxs` is a WiX v4
 source with no certificate. It was not compiled, so it is not an MSI yet.
-`packaging/flatpak/com.cbdesk.CBDesk.yml` points at this tree and has not
-been submitted to Flathub.
+`packaging/flatpak/org.cbdesk.CBDesk.yml` uses the package id
+`org.cbdesk.CBDesk`. It points at this tree and has not been submitted to
+Flathub.
 
 `.github/workflows/release.yml` is `workflow_dispatch` only. On Ubuntu it
 records build inputs, writes an SPDX file, checksums it without a key, and

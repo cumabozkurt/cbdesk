@@ -29,7 +29,7 @@ marka vekiline tam arama yaptırın._
 | crates.io, npm, PyPI, pub.dev | `cbdesk` and `cb-desk` returned 404 (not taken) on 2026-10-25 | Low; names can be reserved |
 | Docker Hub | namespace `cbdesk` has no repositories | Low |
 | Apple App Store | Search "cbdesk" returned no app with that name | Low |
-| Flathub | `org.cbdesk.CBDesk` not present (note: the Flatpak template uses `com.cbdesk.CBDesk`, while the package id elsewhere is `org.cbdesk.CBDesk`) | Low; fix the id mismatch |
+| Flathub | `org.cbdesk.CBDesk` was not present. The template id is now `org.cbdesk.CBDesk` and has not been submitted | Low |
 | TÜRKPATENT / EUIPO / USPTO mentions | No registration or application for CBDESK was surfaced by web search. This proves nothing about the registers themselves | Unknown |
 
 ## Findings in detail
