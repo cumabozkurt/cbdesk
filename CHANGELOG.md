@@ -7,6 +7,9 @@ Version 0.0.0 is not a release.
 
 ### Fixed
 
+- The macOS event tap links CoreGraphics and CoreFoundation in separate
+  `extern` blocks. One stacked pair of `#[link]` attributes fails
+  `clippy::duplicated_attributes`.
 - The session-indicator widget test accepts the full live-region label.
   Actions on `6a11de6` required that label to be exactly `Oturum`.
   Non-Linux builds no longer call `mapped_size` on the unavailable cover,
@@ -51,8 +54,10 @@ Version 0.0.0 is not a release.
   recording notice file, a Unix pseudoterminal or Windows `cmd.exe` pipes,
   and a loopback TCP forward. `open_virtual_display` starts `Xvfb` on
   Linux. The live `cbdesk host` session does not call these. Windows
-  `BlockInput`, macOS privacy, ConPTY, and a signed virtual display are
-  not implemented.
+  calls `BlockInput` and macOS creates a session event tap; both release
+  on drop. A refused call is `Unavailable`, and this workspace did not
+  record a successful grab on either system. The privacy cover is still
+  X11. ConPTY and a signed virtual display are not implemented.
 - `cbdesk-controller` is the view-side crate macOS CI type-checks for
   `aarch64-apple-ios`. It is not a signed iOS build.
   `tools/android/device-check.sh` talks to `adb` only when a device is

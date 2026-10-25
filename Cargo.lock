@@ -1144,6 +1144,7 @@ dependencies = [
  "cbdesk-session",
  "rustix 1.1.5",
  "thiserror 1.0.69",
+ "windows-sys 0.61.2",
  "x11rb",
 ]
 

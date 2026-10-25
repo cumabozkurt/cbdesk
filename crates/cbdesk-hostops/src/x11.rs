@@ -144,5 +144,24 @@ pub fn cover_display(permit: OsPermit, display: Option<&str>) -> Result<PrivacyC
 }
 
 fn connect(display: Option<&str>) -> Result<(RustConnection, usize), OsError> {
-    x11rb::connect(display).map_err(|err| OsError::Unavailable(err.to_string()))
+    // Xvfb can reset the handshake of a client that connects in the moment
+    // after another client drops a grab. The server is still up; a short
+    // retry reaches it. A non-reset error is returned immediately.
+    let mut last = String::from("X11 connect was not attempted");
+    for attempt in 0..8 {
+        match x11rb::connect(display) {
+            Ok(pair) => return Ok(pair),
+            Err(err) => {
+                last = err.to_string();
+                let reset = last.contains("reset")
+                    || last.contains("Broken pipe")
+                    || last.contains("failed to read");
+                if !reset || attempt + 1 == 8 {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(25));
+            }
+        }
+    }
+    Err(OsError::Unavailable(last))
 }

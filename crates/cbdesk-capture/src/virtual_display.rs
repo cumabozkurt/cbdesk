@@ -99,24 +99,26 @@ fn spawn_xvfb(name: &str) -> Result<Child, String> {
 }
 
 fn wait_for_socket(socket: &str, name: &str) -> bool {
+    // The socket file appears before Xvfb finishes its first handshake.
+    // `xdpyinfo` is the same readiness check CI uses for `DISPLAY=:99`.
     let deadline = Instant::now() + Duration::from_secs(3);
     while Instant::now() < deadline {
-        if Path::new(socket).exists() {
-            return true;
-        }
-        if Command::new("xdpyinfo")
-            .env("DISPLAY", name)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .map(|status| status.success())
-            .unwrap_or(false)
-        {
+        if display_answers(name) {
             return true;
         }
         thread::sleep(Duration::from_millis(50));
     }
-    Path::new(socket).exists()
+    Path::new(socket).exists() && display_answers(name)
+}
+
+fn display_answers(name: &str) -> bool {
+    Command::new("xdpyinfo")
+        .env("DISPLAY", name)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
 }
 
 fn which(name: &str) -> Option<std::path::PathBuf> {

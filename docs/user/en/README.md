@@ -21,6 +21,7 @@ covering the display, opening a terminal, forwarding a port, or recording.
 Each of those still needs its own approval, and the indicator cannot be
 turned off. The Linux pieces that exist (an X11 grab, a black window, a
 shell, a loopback tunnel, a notice file, and an Xvfb display) are not
-switched on by `cbdesk host` yet. Windows and macOS do not implement the
-grab or the cover. Nothing here is a signed install. A 1080p software
-picture is not 30 frames per second.
+switched on by `cbdesk host` yet. Windows calls `BlockInput` and macOS
+creates a session event tap; a refused call does not block input, and the
+cover is still the Linux window. Nothing here is a signed install. A
+1080p software picture is not 30 frames per second.

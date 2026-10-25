@@ -4,18 +4,26 @@
 
 //! Operating-system effects behind a session permit.
 //!
-//! Privacy mode and block-input on Linux talk to the X server named by the
-//! caller. A virtual display is `Xvfb` from `cbdesk-capture`, not a Windows
-//! indirect display driver. The terminal is a pseudoterminal on Unix and
-//! `cmd.exe` pipes on Windows. The tunnel listens on `127.0.0.1` and refuses
-//! any other destination. Recording writes a notice file and may call
-//! `notify-send`. None of these functions turn the session indicator off.
+//! Privacy mode on Linux maps an X11 window. Block-input on Linux grabs the
+//! X server named by the caller. Windows calls `BlockInput` and releases it
+//! on drop. macOS creates a session event tap and stops it on drop. A
+//! missing desktop session or accessibility permission is
+//! [`OsError::Unavailable`]. Neither call was observed to succeed in this
+//! workspace. A virtual display is `Xvfb` from `cbdesk-capture`, not a
+//! Windows indirect display driver. The terminal is a pseudoterminal on Unix
+//! and `cmd.exe` pipes on Windows. The tunnel listens on `127.0.0.1` and
+//! refuses any other destination. Recording writes a notice file and may
+//! call `notify-send`. None of these functions turn the session indicator off.
 
 mod error;
 mod notice;
 mod terminal;
 mod tunnel;
 
+#[cfg(target_os = "macos")]
+mod macinput;
+#[cfg(target_os = "windows")]
+mod wininput;
 #[cfg(target_os = "linux")]
 mod x11;
 
@@ -24,23 +32,27 @@ pub use notice::{post_recording_notice, NoticeReport};
 pub use terminal::HostShell;
 pub use tunnel::LoopbackTunnel;
 
+#[cfg(target_os = "macos")]
+pub use macinput::{block_local_input, cover_display, InputGrab, PrivacyCover};
+#[cfg(target_os = "windows")]
+pub use wininput::{block_local_input, cover_display, InputGrab, PrivacyCover};
 #[cfg(target_os = "linux")]
 pub use x11::{block_local_input, cover_display, InputGrab, PrivacyCover};
 
-/// Grab local input. Non-Linux builds have no grab.
-#[cfg(not(target_os = "linux"))]
+/// Grab local input. This target has no grab.
+#[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
 pub fn block_local_input(
     permit: cbdesk_session::OsPermit,
     _display: Option<&str>,
 ) -> Result<Unavailable, OsError> {
     let _ = permit.kind();
     Err(OsError::Unavailable(
-        "block-input is implemented for an X11 display; this platform has no grab".to_string(),
+        "block-input is implemented for X11, Windows BlockInput, or a macOS event tap".to_string(),
     ))
 }
 
-/// Cover the local display. Non-Linux builds have no cover.
-#[cfg(not(target_os = "linux"))]
+/// Cover the local display. This target has no cover.
+#[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
 pub fn cover_display(
     permit: cbdesk_session::OsPermit,
     _display: Option<&str>,
@@ -51,8 +63,8 @@ pub fn cover_display(
     ))
 }
 
-/// Placeholder so non-Linux signatures still name a type.
-#[cfg(not(target_os = "linux"))]
+/// Placeholder so other targets still name a type.
+#[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
 #[derive(Debug)]
 pub struct Unavailable;
 
@@ -187,5 +199,25 @@ mod tests {
             )
             .is_err());
         }
+    }
+
+    /// Windows and macOS do not start Xvfb, so the test above returns before
+    /// it can call `BlockInput` or the event tap. This test always makes the
+    /// call. `Ok` means the session accepted it and `Drop` released it.
+    /// `Err` means the session refused it and nothing was blocked. Either
+    /// result is a finished call. The cover stays absent.
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    #[test]
+    fn platform_input_block_drops_whether_or_not_the_session_accepts_it() {
+        let held = block_local_input(
+            request_block_input(granted(Permission::BlockInput), true).expect("permit"),
+            None,
+        );
+        drop(held);
+        assert!(cover_display(
+            request_privacy_mode(granted(Permission::PrivacyMode), true).expect("permit"),
+            None,
+        )
+        .is_err());
     }
 }
