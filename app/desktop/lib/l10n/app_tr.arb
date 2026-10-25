@@ -83,5 +83,7 @@
   "shareDenied": "Sistem penceresini kabul edene kadar ekran yakalama kapalı kalır.",
   "refreshAudio": "Cihazları yenile",
   "loading": "Yükleniyor",
-  "grantedLabel": "Verilenler: {names}"
+  "grantedLabel": "Verilenler: {names}",
+  "languageTurkish": "Türkçe",
+  "languageEnglish": "English"
 }

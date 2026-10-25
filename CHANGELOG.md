@@ -22,6 +22,8 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- The language switch reads `Türkçe` and `English` from the Turkish and
+  English catalogs. Both catalogs use those native names.
 - The shell gives text fields the existing catalog strings as labels,
   excludes the session border from the semantics tree, and names a remote
   picture with the existing remote-view sentence. The indicator stays a

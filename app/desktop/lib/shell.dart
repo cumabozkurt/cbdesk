@@ -1082,9 +1082,9 @@ class _SettingsPage extends StatelessWidget {
         Text(l10n.localeLabel),
         SegmentedButton<String>(
           key: const Key('locale'),
-          segments: const [
-            ButtonSegment(value: 'tr', label: Text('Türkçe')),
-            ButtonSegment(value: 'en', label: Text('English')),
+          segments: [
+            ButtonSegment(value: 'tr', label: Text(l10n.languageTurkish)),
+            ButtonSegment(value: 'en', label: Text(l10n.languageEnglish)),
           ],
           selected: {view.locale},
           onSelectionChanged: (selected) => onLocale(selected.first),
