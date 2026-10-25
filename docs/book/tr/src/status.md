@@ -31,7 +31,9 @@ dosyasındadır. Bu sayfa, kılavuzu okuyan biri için kısa biçimdir.
 - Canlı bir simetrik NAT ölçülmedi. Döngü yolu bir delik delme değildir.
   Netlab profilleri ağ ad alanları oluşturmaz.
 - Mikrofonu birinin duyduğu doğrulanmadı. Bir makinede 1080p yazılım ana
-  karesi 201 ms sürdü. Bu, 30 kare/saniye değildir. Başarılı bir donanım
+  karesi 201 ms sürdü. Sonraki düz renkli ölçüm tek ana karede 198 ms,
+  dört paralel şeritte 52 ms, çeyrek boyda 12 ms sürdü. Şeritler canlı
+  oturum değildir. Bu, 30 kare/saniye değildir. Başarılı bir donanım
   kodlaması kaydedilmedi.
 - Bu işlevler kendi başlarına sınansa da canlı ana makine X11 kilidini,
   gizlilik penceresini, kabuğu veya tüneli tutmaz.

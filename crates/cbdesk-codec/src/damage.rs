@@ -2,9 +2,10 @@
 
 //! Damage tracking for the software VP8 path.
 //!
-//! The scan compares 64×64 tiles, eight bytes at a time, on two threads when
-//! the picture is tall enough. That is ordinary integer comparison. This crate
-//! forbids unsafe code, so there are no explicit SIMD intrinsics. An unchanged
+//! The scan compares 64×64 tiles on two threads when the picture is tall
+//! enough. Each 16-byte group is a [`wide::u8x16`] compare (SSE2 on x86_64,
+//! NEON on aarch64). The tail is scalar. This crate still has no `unsafe`
+//! block. An unchanged
 //! picture is not encoded. A dirty region that covers at most a quarter of the
 //! picture is cropped, aligned to 16 pixels, and encoded as its own keyframe.
 //! Anything larger stays on the full-frame inter encoder.
@@ -377,21 +378,34 @@ fn plane_differs(
 }
 
 fn chunk_differs(left: &[u8], right: &[u8]) -> bool {
-    if left.len() != right.len() {
-        return true;
-    }
-    let mut offset = 0;
-    while offset + 8 <= left.len() {
-        let mut a = [0_u8; 8];
-        let mut b = [0_u8; 8];
-        a.copy_from_slice(&left[offset..offset + 8]);
-        b.copy_from_slice(&right[offset..offset + 8]);
-        if a != b {
-            return true;
-        }
-        offset += 8;
-    }
-    left[offset..] != right[offset..]
+    crate::cmp::bytes_differ(left, right)
+}
+
+pub(crate) fn crop_at(
+    picture: &Picture,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+) -> Result<Picture, CodecError> {
+    crop(
+        picture,
+        Rect {
+            x,
+            y,
+            width,
+            height,
+        },
+    )
+}
+
+pub(crate) fn paint_at(
+    base: &mut Picture,
+    region: &Picture,
+    x: u32,
+    y: u32,
+) -> Result<(), CodecError> {
+    paint_region(base, region, x, y)
 }
 
 fn merge(top: Partial, bottom: Partial) -> Partial {

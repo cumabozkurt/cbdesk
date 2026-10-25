@@ -9,7 +9,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use cbdesk_audio::{CapturePump, PacketCodec, Speaker, ToneCodec};
 use cbdesk_capture::{capture_picture, crop_even, Picture, SyntheticCapturer, BARCODE_WIDTH};
 use cbdesk_codec::{
-    encode_luma, BitrateControl, CodecError, DamageEncoder, DamagePacket, EncodeQuality, Pace,
+    encode_luma, scale_profile, BitrateControl, CodecError, DamageEncoder, DamagePacket,
+    EncodeQuality, FrameProfile, Pace,
 };
 use cbdesk_crypto::Identity;
 use cbdesk_discovery::sign_ticket;
@@ -46,6 +47,7 @@ struct Stream {
     mic: Option<CapturePump>,
     speaker: Option<Speaker>,
     playback: Option<PacketCodec>,
+    profile: FrameProfile,
 }
 
 struct HostDevices {
@@ -237,6 +239,7 @@ impl Stream {
             mic: devices.mic,
             speaker: devices.speaker,
             playback: devices.playback,
+            profile: args.profile,
         })
     }
 
@@ -279,13 +282,21 @@ impl Stream {
         codec: Codec,
     ) -> Result<(), CliError> {
         let frame_no = u64::from(self.sent.saturating_add(1));
-        let picture = capture(screen, frame_no)?;
-        let digest = picture_hash(&picture);
+        let captured = capture(screen, frame_no)?;
+        let digest = picture_hash(&captured);
         if self.last_hash == Some(digest) {
             self.arm_interval();
             return Ok(());
         }
-        let qindex = if screen { self.rate.qindex() } else { 0 };
+        let picture =
+            scale_profile(&captured, self.profile).map_err(|err| CliError::new(err.to_string()))?;
+        let qindex = if screen && self.profile != FrameProfile::Full {
+            self.profile.qindex()
+        } else if screen {
+            self.rate.qindex()
+        } else {
+            0
+        };
         let started = Instant::now();
         let frame = self.encode(picture, codec, qindex, screen).await?;
         self.note_encode(screen, elapsed_ms(started));

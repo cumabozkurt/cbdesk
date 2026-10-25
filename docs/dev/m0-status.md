@@ -166,9 +166,11 @@ bumps `opaque-ke`, and only after
 This tree does not patch the arithmetic. `clipboard-win` 5.4.1 stays a
 yanked warning.
 
-- Damage tracking compares 64×64 tiles, eight bytes at a time, on two
-  threads when the picture has at least two tile rows. There are no SIMD
-  intrinsics. An unchanged picture is not encoded and is not sent. A dirty
+- Damage tracking compares 64×64 tiles on two threads when the picture
+  has at least two tile rows. Each 16-byte group is a `wide` 1.7.1 `u8x16`
+  compare: SSE2 on x86_64, NEON on aarch64, scalar tail after that. This
+  crate still has no `unsafe` block. It is not an AVX kernel. An unchanged
+  picture is not encoded and is not sent. A dirty
   region at most a quarter of the picture, smaller than the frame on both
   axes, and at least 16 pixels after alignment, is cropped to 16 pixels and
   encoded as its own VP8 keyframe. The full-frame encoder is left alone.
@@ -178,9 +180,19 @@ yanked warning.
   must not be sent the crop. Release numbers from
   `vp8_1080p_damage_path` on this machine on 2026-10-25: full keyframe
   201 ms, unchanged repeat reported as 0 ms, 64×64 region 2 ms and 34
-  bytes, tile scan 460 µs. That is not 30 frames per second. A full-frame
-  change is still about five frames per second. Details are in
-  `docs/dev/media-measurement.md`.
+  bytes, tile scan 460 µs. A later release run of that same test, after
+  the `u8x16` compare, printed full 200 ms, region 1 ms, scan 363 µs.
+  `measure_1080p_paths` on the same day, same solid 1920×1080 picture:
+  one keyframe 198 ms, four strips in series 196 ms, four strips in
+  parallel 52 ms, half size 48 ms, quarter size 12 ms. The parallel and
+  scaled rows are this solid picture only. 52 ms is still over the 33 ms
+  slot. The strips are separate keyframes and are not what `cbdesk host`
+  sends, because the frame header has no full-canvas size. `--profile
+  balanced` and `--profile preview` scale a `--screen` capture before the
+  existing encoder. `--synthetic` stays full size. None of this is 30
+  frames per second, and a detailed desktop was not measured. A full-frame
+  change on the default path is still about five frames per second.
+  Details are in `docs/dev/media-measurement.md`.
 - Hardware cargo features `hw-vaapi`, `hw-mediafoundation`,
   `hw-videotoolbox`, and `hw-mediacodec` are off by default. They shell out
   to ffmpeg for `vp8_vaapi`, `vp8_mf`, `vp8_videotoolbox`, and
@@ -430,7 +442,7 @@ invent one.
 | M3 MSI, pkg, deb, rpm, Flatpak, winget, Homebrew, AUR | Partial | Unsigned deb, WiX, Flatpak, DMG, and AppImage templates exist. The deb was not built here. rpm, winget, Homebrew, AUR, and a signed pkg are absent. |
 | M3 DHT blinding on by default after review | Absent | Blinded publish still fails closed. There has been no review. |
 | M3 usability round T-UX-001 through T-UX-003 | Absent | No person ran that round. |
-| M3 exit: service, NAT, auth, and media tests, performance targets, a beta channel | Absent | A 1920×1080 software keyframe measured 201 ms on this machine. The 30 frame-per-second and glass-to-glass targets are not met. No beta channel exists. |
+| M3 exit: service, NAT, auth, and media tests, performance targets, a beta channel | Absent | A 1920×1080 software keyframe measured 201 ms, and a later solid-frame run measured 198 ms. Parallel strips of that solid frame took 52 ms and a quarter-size preview took 12 ms. Those are not the live inter-frame path and not a desktop. The 30 frame-per-second and glass-to-glass targets are not met. No beta channel exists. |
 | M4 Android host: MediaProjection, accessibility service, foreground service, F-Droid | Partial | CI builds an arm64 debug APK. Capture waits for the system dialog. That dialog was not accepted on a device. No accessibility service and no F-Droid submission. |
 | M4 iOS controller on TestFlight | Partial | macOS CI type-checks `cbdesk-controller` for `aarch64-apple-ios`. There is no signature, no TestFlight build, and no Apple Developer account. |
 | M4 CRDT sync of "my devices" | Absent | ADR-012 is not implemented. |
@@ -443,7 +455,7 @@ invent one.
 | M5 whiteboard, side switch, 4:4:4 | Partial | Whiteboard strokes and side switch are library gates. `require_chroma` of 4:4:4 fails. |
 | M5 exit: auth and media tests, a volunteer pilot | Absent | No pilot was run. |
 | M6 independent security audit | Owner | Not commissioned. |
-| M6 performance work until every NFR holds | Absent | The numbers in `docs/dev/media-measurement.md` are one machine and synthetic frames. |
+| M6 performance work until every NFR holds | Partial | The damage scan uses `wide` `u8x16`. `encode_strips` can encode horizontal bands on several threads. `--profile balanced` and `preview` box-filter a screen capture. The numbers in `docs/dev/media-measurement.md` are one machine and one synthetic solid picture. The NFR targets are not met. |
 | M6 72-hour soak and chaos tests | Absent | Not run. |
 | M6 finished Turkish and English docs, plus video tutorials | Partial | User notes and the shell catalogs exist in both languages. There are no video tutorials. |
 | M6 reproducible build checked by someone else | Partial | `tools/release/reproducible.sh` records `SOURCE_DATE_EPOCH`, `rustc -vV`, and the `Cargo.lock` digest. No second machine hashed a binary. |
@@ -464,8 +476,10 @@ this tree.
 
 The user guide source is `docs/book`. `.github/workflows/pages.yml` builds
 it on every push to `main` and deploys with GitHub Pages when the repository
-source is GitHub Actions. The site does not offer a download. No further
-product phase starts from this note. Wayland ScreenCast remains
-the manual plan in `docs/dev/wayland-screencast.md`. The live host still
+source is GitHub Actions. The site does not offer a download. This commit
+adds the software VP8 profiles in `docs/dev/media-measurement.md`. It does
+not add a Windows or macOS input grab, `cbdesk-relayd`, or a device test.
+Wayland ScreenCast remains the manual plan in
+`docs/dev/wayland-screencast.md`. The live host still
 does not hold the X11 grab, the privacy window, the shell, or the tunnel.
 `clipboard-win` 5.4.1, pulled by arboard 3.7.0, stays a yanked warning.

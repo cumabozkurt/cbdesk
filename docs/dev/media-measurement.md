@@ -51,10 +51,15 @@ One release run on this machine on 2026-10-25 printed:
 | Full keyframe | 201 ms | One 1920×1080 software VP8 keyframe |
 | Unchanged repeat | 0 ms | Millisecond timer. The picture was not encoded |
 | Region | 2 ms | 64×64 keyframe, 34 bytes |
-| Tile scan of the dirty frame | 460 µs | 64×64 tiles, eight bytes at a time, two threads |
+| Tile scan of the dirty frame | 460 µs | 64×64 tiles, two threads. That run compared eight bytes at a time. A later `u8x16` run reported 363 µs |
 
-The scan uses ordinary integer comparison. This crate forbids unsafe code,
-so there are no explicit SIMD intrinsics. A static picture skips the
+The scan compares 16-byte groups with `wide` 1.7.1 `u8x16`. On x86_64 that
+is SSE2. On aarch64 it is NEON. Both are baseline for those targets. This
+is not an AVX kernel, and `cbdesk-codec` still has no `unsafe` block. A
+later release run of the same ignored test on this machine on 2026-10-25
+printed `scan_us=363` and `full_ms=200`. The earlier 460 µs and 201 ms
+stand as the previous run. The scan is still under a millisecond. The
+encoder is still the cost. A static picture skips the
 encoder. A change larger than a quarter of the picture, or as wide or as
 tall as the frame, stays on the full-frame inter encoder and still costs
 about a fifth of a second at this size. The 2 ms region time is this
@@ -78,3 +83,37 @@ encoder name, or device is `Unavailable`. This pass did not record a
 successful hardware encode. Software VP8 is 4:2:0. `require_chroma` of
 4:4:4 fails. Quality presets only choose a quantizer index (16, 32, 48, or
 a custom index). They are not a visual score.
+
+## Scaled profiles and parallel strips
+
+`measure_1080p_paths` encodes one synthetic 1920×1080 picture whose luma is
+40. The ignored test `vp8_1080p_profiles` runs it on a 16 MiB stack.
+Default `cargo test` does not run it. One release run on this machine on
+2026-10-25 printed:
+
+```text
+profile full-keyframe 1920x1080 strips=1 parallel=false wall_ms=198 bytes=4539
+profile strips-serial 1920x270 strips=4 parallel=false wall_ms=196 bytes=4604
+profile strips-parallel 1920x270 strips=4 parallel=true wall_ms=52 bytes=4604
+profile balanced 960x540 strips=1 parallel=false wall_ms=48 bytes=1151
+profile preview 480x270 strips=1 parallel=false wall_ms=12 bytes=304
+```
+
+| Path | Size | Wall time | What it is |
+| --- | --- | --- | --- |
+| Full keyframe | 1920×1080 | 198 ms | One software VP8 keyframe. Same kind of picture as the 201 ms row |
+| Four strips, serial | 1920×270 each | 196 ms | Four keyframes, one after another. No wall-clock win |
+| Four strips, parallel | 1920×270 each | 52 ms | The same four keyframes on four threads |
+| Balanced | 960×540 | 48 ms | Box filter by 2, then one keyframe at quantizer 48 |
+| Preview | 480×270 | 12 ms | Box filter by 4, then one keyframe at quantizer 64 |
+
+The parallel row is faster on this solid picture and still slower than the
+33 ms pacer slot. The strips do not share a VP8 reference, so this is not
+the inter-frame stream the host sends. The live frame header has no
+full-canvas size, and `composite_vp8` cannot place a region until a canvas
+exists, so `cbdesk host` does not send the strips. `--profile balanced` and
+`--profile preview` are host flags for `--screen` only. They scale first
+and then use the existing encoder. `--profile full` is the default and
+does not scale. `--synthetic` rejects the other two profiles so the barcode
+stays full size. The 12 ms preview time is this solid frame, not a desktop
+and not a 30 frame-per-second result. A detailed picture was not measured.

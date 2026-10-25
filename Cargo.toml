@@ -81,6 +81,10 @@ rav1d-safe = { version = "=0.6.0", default-features = false, features = ["bitdep
 # Software VP8 keyframes. oxideav-vp8 is pure Rust (MIT). The registry
 # feature pulls oxideav-core and stays off. No system libvpx.
 oxideav-vp8 = { version = "=0.2.7", default-features = false }
+# SIMD compares for the damage scan. 1.7.1 is safe to call: the intrinsics
+# stay inside that crate. x86_64 uses SSE2 and aarch64 uses NEON, which are
+# baseline on those targets. This is not an AVX kernel.
+wide = { version = "=1.7.1", default-features = false }
 # Screen capture. 0.9.5 is the last release whose Linux deps are all on crates.io.
 xcap = "=0.9.5"
 # Pointer and keyboard injection. x11rb is the X11 path; wayland is the

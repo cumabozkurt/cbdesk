@@ -5,6 +5,7 @@
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
+use cbdesk_codec::FrameProfile;
 use cbdesk_proto::Permission;
 
 use crate::error::CliError;
@@ -45,6 +46,8 @@ pub struct HostArgs {
     pub mic: bool,
     /// Play received Opus on the default speaker.
     pub speaker: bool,
+    /// Screen scale. `full` keeps the captured size. Synthetic hosts stay `full`.
+    pub profile: FrameProfile,
 }
 
 /// Viewer options.
@@ -90,7 +93,8 @@ pub fn parse(args: &[String]) -> Result<Command, CliError> {
 fn usage() -> CliError {
     CliError::new(
         "usage: cbdesk host --bind ADDR (--synthetic|--screen) [--approve view,input] \
-         [--frames N] [--lan] [--relay URL] [--files-root DIR] [--tone|--mic] [--speaker]\n       \
+         [--frames N] [--lan] [--relay URL] [--files-root DIR] [--tone|--mic] [--speaker] \
+         [--profile full|balanced|preview]\n       \
          cbdesk view (--ticket HEX|--browse) (--ppm FILE|--window|--put FILE|--audio|--mic|--speaker) \
          [--pointer X,Y] [--key NAME] [--relay URL]\n       \
          cbdesk net-check [--json] [--anonymous] [--loopback]\n       \
@@ -110,6 +114,7 @@ struct HostDraft {
     tone: bool,
     mic: bool,
     speaker: bool,
+    profile: FrameProfile,
 }
 
 fn parse_net_check(args: &[String]) -> Result<crate::check::NetCheckArgs, CliError> {
@@ -144,6 +149,7 @@ fn parse_host(args: &[String]) -> Result<HostArgs, CliError> {
         tone: false,
         mic: false,
         speaker: false,
+        profile: FrameProfile::Full,
     };
     let mut index = 0;
     while index < args.len() {
@@ -176,6 +182,11 @@ fn apply_host(draft: &mut HostDraft, args: &[String], index: &mut usize) -> Resu
         "--tone" => draft.tone = true,
         "--mic" => draft.mic = true,
         "--speaker" => draft.speaker = true,
+        "--profile" => {
+            let name = take(args, index, "profile")?;
+            draft.profile = FrameProfile::parse(&name)
+                .ok_or_else(|| CliError::new("profile is full, balanced, or preview"))?;
+        }
         _ => return Err(CliError::new(format!("unknown host argument {flag}"))),
     }
     Ok(())
@@ -196,6 +207,11 @@ fn finish_host(draft: HostDraft) -> Result<HostArgs, CliError> {
     if draft.tone && draft.mic {
         return Err(CliError::new("host takes --tone or --mic, not both"));
     }
+    if !screen && draft.profile != FrameProfile::Full {
+        return Err(CliError::new(
+            "--profile balanced and preview are for --screen; synthetic stays full size",
+        ));
+    }
     if (draft.tone || draft.mic || draft.speaker) && !draft.approve.contains(&Permission::Audio) {
         return Err(CliError::new(
             "microphone, speaker, and tone need audio in --approve",
@@ -213,6 +229,7 @@ fn finish_host(draft: HostDraft) -> Result<HostArgs, CliError> {
         tone: draft.tone,
         mic: draft.mic,
         speaker: draft.speaker,
+        profile: draft.profile,
     })
 }
 
@@ -449,6 +466,21 @@ mod tests {
             Command::Host(_) => panic!("host"),
             Command::NetCheck(_) => panic!("net-check"),
         }
+    }
+
+    #[test]
+    fn screen_profile_scales_and_synthetic_stays_full() {
+        let preview =
+            parse(&strings(&["host", "--screen", "--profile", "preview"])).expect("parse");
+        match preview {
+            Command::Host(host) => assert_eq!(host.profile, FrameProfile::Preview),
+            _ => panic!("host"),
+        }
+        let synthetic = parse(&strings(&["host", "--synthetic", "--profile", "balanced"]));
+        assert!(synthetic
+            .expect_err("synthetic")
+            .to_string()
+            .contains("screen"));
     }
 
     #[test]

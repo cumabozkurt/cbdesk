@@ -16,6 +16,8 @@
   side (ADR-015). Assembler features of rav1e and rav1d-safe stay off.
 - `BSL-1.0` is allowed for `clipboard-win`, the Windows text clipboard behind
   arboard. It is the Boost Software License.
+- `wide` 1.7.1 is `Zlib OR Apache-2.0 OR MIT`. The damage scan calls it.
+  The intrinsics stay in that crate.
 - oxideav-vp8 is MIT. winit is Apache-2.0. softbuffer and arboard are MIT OR
   Apache-2.0. `cargo audit` may warn that `ttf-parser` (pulled by winit's
   Wayland decorations) and the older zbus crates are unmaintained. Those

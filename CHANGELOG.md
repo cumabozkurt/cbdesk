@@ -16,6 +16,15 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- Software VP8 can compare damage tiles with `wide` 1.7.1 `u8x16` (SSE2 or
+  NEON, no `unsafe` in this crate) and can encode horizontal strips on
+  several threads. `--profile balanced` and `--profile preview` box-filter
+  a `--screen` capture by 2 or 4. The default `full` profile does not
+  scale, and `--synthetic` rejects the other two. A release run of one
+  solid 1920×1080 picture on this machine took 198 ms as one keyframe,
+  52 ms as four parallel strip keyframes, 48 ms at half size, and 12 ms
+  at quarter size. The strips are not sent on the live session. This is
+  not 30 frames per second. Numbers are in `docs/dev/media-measurement.md`.
 - An mdBook user guide in `docs/book`, in Turkish and English, with a
   bilingual landing page. `.github/workflows/pages.yml` builds it on every
   push to `main` and deploys with GitHub Pages. There is still no download.
