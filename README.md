@@ -1,8 +1,36 @@
 # CBDesk
 
-CBDesk, merkeziyetsiz, sunucusuz ve açık kaynak bir uzak masaüstü uygulaması olmak üzere tasarlanmıştır. Çekirdek Rust, arayüz hedefi Flutter, lisans AGPL-3.0-or-later'dır. Kullanıcı kılavuzunun kaynağı `docs/book` altındadır (mdBook, Türkçe ve İngilizce). `main` dalına her push, deponun Pages kaynağı GitHub Actions ise siteyi yayınlar. Site bir indirme sayfası değildir.
+CBDesk, merkeziyetsiz, sunucusuz ve açık kaynak bir uzak masaüstü uygulaması olmak üzere tasarlanmıştır. Çekirdek Rust, arayüz hedefi Flutter, lisans AGPL-3.0-or-later'dır. Kullanıcı kılavuzunun kaynağı `docs/book` altındadır (mdBook, Türkçe ve İngilizce). `main` dalına her push, deponun Pages kaynağı GitHub Actions ise siteyi yayınlar. Site ikili dosya barındırmaz.
 
-CBDesk is a decentralized, serverless, open-source remote desktop application under design. The core is Rust, the UI target is Flutter, and the license is AGPL-3.0-or-later. The user guide source is `docs/book` (mdBook, Turkish and English). A push to `main` publishes it when the repository Pages source is GitHub Actions. The site is not an install page.
+CBDesk is a decentralized, serverless, open-source remote desktop application under design. The core is Rust, the UI target is Flutter, and the license is AGPL-3.0-or-later. The user guide source is `docs/book` (mdBook, Turkish and English). A push to `main` publishes it when the repository Pages source is GitHub Actions. The site does not host a binary.
+
+## İndirme / Download
+
+Bu kayıt bir dosya yayımlamaz. `v*` etiketi itildiğinde, ya da bir bakımcı etiketi elle adlandırdığında, `.github/workflows/release.yml` GitHub'da imzasız bir ön sürüm açıp dosyaları oraya yükleyebilir. Bu değişiklikte o etiket yoktur. Dosyalar, iş akışı çalıştıktan sonra [GitHub Releases](https://github.com/cumabozkurt/cbdesk/releases) üzerindedir; bu sitede değildir.
+
+Bu dosyalar imzasız bir alfadır. 1.0.0 sürümü veya bir sürüm adayı değildir. Windows SmartScreen ve macOS Gatekeeper uyarı verebilir veya engelleyebilir. Noter onayı, Apple geliştirici hesabı ve Authenticode sertifikası yoktur. Gerçek bir cihaz denemesi ve bir performans ölçümü yapılmamıştır. 30 kare/saniye iddiası yoktur. Crate sürümü 0.0.0 kalabilir.
+
+İş akışının yükleyeceği dosyalar (bu kayıtta üretilmedi):
+
+- `cargo build --release --locked` ile Linux, Windows ve macOS CLI arşivleri. Linux `ubuntu-24.04` üzerinde derlenir ve o imajın sistem kitaplıklarına bağlanır. macOS, `macos-14` üzerinde Apple Silicon derlemesidir; evrensel ikili değildir ve noter onaylı değildir.
+- Flutter masaüstü paketleri: Linux bundle, Windows zip, imzasız macOS `.app` zip.
+- arm64 hata ayıklama Android APK. Sürüm imzası yoktur. Bir telefona kurulmamıştır. Sistem yakalama penceresi kabul edilmemiştir.
+- İmzalı olmayan deb, SBOM ve `SHA256SUMS`. `SHA256SUMS` bir özettir, imza değildir. `CBDESK_SIGN_KEY` ayarlı değildir.
+
+Sizi telefonla arayıp bu programı kurmanızı isteyen kişiye güvenmeyin. Ayrıntı kullanıcı kılavuzundaki kurulum sayfasındadır (`docs/book`).
+
+This commit does not publish a file. When a `v*` tag is pushed, or a maintainer starts the workflow and names a tag, `.github/workflows/release.yml` can open an unsigned GitHub prerelease and upload the files there. This change does not push that tag. After the workflow runs, the files are on [GitHub Releases](https://github.com/cumabozkurt/cbdesk/releases), not on this site.
+
+Those files are an unsigned alpha. They are not version 1.0.0 and not a release candidate. Windows SmartScreen and macOS Gatekeeper can warn or block them. There is no notarization, no Apple Developer account, and no Authenticode certificate. No real-device test and no performance test was recorded. There is no 30 frame-per-second claim. The crate version can still say 0.0.0.
+
+The workflow is written to upload these files. None of them were built for this commit:
+
+- CLI archives from `cargo build --release --locked` for Linux, Windows, and macOS. Linux is built on `ubuntu-24.04` and links system libraries from that image. macOS is an Apple Silicon build from `macos-14`. It is not a universal binary and it is not notarized.
+- Flutter desktop bundles: a Linux bundle, a Windows zip, and an unsigned macOS `.app` zip.
+- An arm64 Android debug APK. It is not release-signed. It was not installed on a phone. The system capture dialog was not accepted.
+- An unsigned deb, an SBOM, and `SHA256SUMS`. `SHA256SUMS` is a list of digests, not a signature. `CBDESK_SIGN_KEY` is unset.
+
+If someone called you and told you to install this program, deny the connection. The user guide install page (`docs/book`) says the same.
 
 ## Bu depo şu an ne değildir / What this repository is not yet
 

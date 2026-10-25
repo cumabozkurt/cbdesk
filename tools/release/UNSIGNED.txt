@@ -1,0 +1,10 @@
+This archive is an unsigned CBDesk alpha build.
+It is not a signed installer. Windows SmartScreen and macOS Gatekeeper
+can warn or block it. No phone, no second machine, and no performance
+run is claimed for this file. The crate version may still say 0.0.0.
+
+Bu arşiv imzasız bir CBDesk alfa derlemesidir.
+İmzalı bir kurulum dosyası değildir. Windows SmartScreen ve macOS
+Gatekeeper uyarı verebilir veya engelleyebilir. Bu dosya için bir telefon,
+ikinci bir makine veya bir performans ölçümü iddia edilmez. Crate sürümü
+hâlâ 0.0.0 yazıyor olabilir.

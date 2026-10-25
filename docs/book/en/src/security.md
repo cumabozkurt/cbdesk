@@ -43,7 +43,8 @@ Use GitHub private vulnerability reporting:
 <https://github.com/cumabozkurt/cbdesk/security>
 
 Do not post a device seed or an attack against someone else's computer in a
-public issue. No release has been published. Only the default branch is in
-scope. Response targets are in
+public issue. An unsigned GitHub prerelease can exist after a `v*` tag.
+It is not a supported release. Only the default branch is in scope.
+Response targets are in
 [SECURITY.md](https://github.com/cumabozkurt/cbdesk/blob/main/SECURITY.md).
 They are volunteer targets, not a service agreement.

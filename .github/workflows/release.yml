@@ -2,6 +2,14 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Prerelease tag, for example v0.1.0-alpha.1. A missing tag is created at this SHA."
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: read
@@ -10,37 +18,341 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  artifacts:
-    name: unsigned release artifacts
-    runs-on: ubuntu-24.04
+  cli:
+    name: cli (${{ matrix.triple }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            triple: x86_64-unknown-linux-gnu
+            bin: cbdesk
+            format: tar.gz
+          - os: windows-2022
+            triple: x86_64-pc-windows-msvc
+            bin: cbdesk.exe
+            format: zip
+          - os: macos-14
+            triple: aarch64-apple-darwin
+            bin: cbdesk
+            format: tar.gz
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          fetch-depth: 0
 
       - name: Rust toolchain
         uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: 1.91.0
 
-      - name: Record build inputs
-        run: tools/release/reproducible.sh
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
 
-      - name: SBOM and checksum
+      - name: Linux link libraries
+        if: runner.os == 'Linux'
         run: |
-          python3 tools/release/sbom.py --locked -o sbom.spdx.json
-          tools/release/sign.sh sbom.spdx.json
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            clang \
+            libclang-dev \
+            libxcb1-dev \
+            libxrandr-dev \
+            libx11-dev \
+            libdbus-1-dev \
+            libpipewire-0.3-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libegl1-mesa-dev \
+            libgbm-dev \
+            libdrm-dev \
+            libasound2-dev
 
-      - name: Unsigned deb
-        run: packaging/deb/build.sh
+      - name: Build CLI
+        shell: bash
+        run: cargo build --release --locked -p cbdesk-cli --bin cbdesk
 
-      - name: Upload
+      - name: Pack CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=$(tools/release/release-tag.sh "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}")
+          version=${tag#v}
+          ext="${{ matrix.format }}"
+          name="cbdesk-${version}-${{ matrix.triple }}.${ext}"
+          bin="target/release/${{ matrix.bin }}"
+          test -f "$bin"
+          py=python3
+          command -v python3 >/dev/null 2>&1 || py=python
+          mkdir -p dist
+          "$py" tools/release/pack.py pack \
+            --output "dist/${name}" \
+            --format "${{ matrix.format }}" \
+            --prefix "${{ matrix.bin }}" \
+            --input "$bin" \
+            --note tools/release/UNSIGNED.txt
+          echo "packed dist/${name}"
+
+      - name: Ubuntu deb and SBOM
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          tag=$(tools/release/release-tag.sh "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}")
+          version=${tag#v}
+          tools/release/reproducible.sh
+          python3 tools/release/sbom.py --locked -o dist/sbom.spdx.json
+          tools/release/sign.sh dist/sbom.spdx.json
+          CBDESK_VERSION="$version" CBDESK_REUSE_BINARY=1 packaging/deb/build.sh
+          mv cbdesk_*.deb dist/
+
+      - name: Upload CLI
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: cbdesk-unsigned
-          path: |
-            sbom.spdx.json
-            sbom.spdx.json.sha256
-            sbom.spdx.json.sign-note
-            cbdesk_*.deb
+          name: cli-${{ matrix.triple }}
+          path: dist/*
+          if-no-files-found: error
+
+  desktop:
+    name: flutter desktop (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022, macos-14]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.0
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+
+      - name: Linux desktop libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            clang \
+            libclang-dev \
+            libstdc++-14-dev \
+            libgtk-3-dev \
+            libasound2-dev \
+            libxcb1-dev \
+            libxrandr-dev \
+            libx11-dev \
+            libdbus-1-dev \
+            libpipewire-0.3-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libegl1-mesa-dev \
+            libgbm-dev \
+            libdrm-dev
+
+      - name: Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Linux bundle
+        if: runner.os == 'Linux'
+        shell: bash
+        working-directory: app/desktop
+        run: |
+          set -euo pipefail
+          flutter config --no-analytics
+          flutter pub get --enforce-lockfile
+          flutter build linux --release
+          test -f build/linux/x64/release/bundle/cbdesk
+          test -f build/linux/x64/release/bundle/lib/libcbdesk_ffi.so
+
+      - name: Windows bundle
+        if: runner.os == 'Windows'
+        shell: bash
+        working-directory: app/desktop
+        run: |
+          set -euo pipefail
+          flutter config --no-analytics
+          flutter pub get --enforce-lockfile
+          set +e
+          flutter build windows --release -v >"$RUNNER_TEMP/win-build.log" 2>&1
+          code=$?
+          set -e
+          if [ "$code" != 0 ]; then
+            grep -n -E -i "error|failed|severe|Cargo.toml|MSB[0-9]+|cbdesk_ffi crate" "$RUNNER_TEMP/win-build.log" | tail -n 80
+            echo "----- tail -----"
+            tail -n 120 "$RUNNER_TEMP/win-build.log"
+            exit "$code"
+          fi
+          test -f build/windows/x64/runner/Release/cbdesk.exe
+
+      - name: macOS bundle
+        if: runner.os == 'macOS'
+        shell: bash
+        working-directory: app/desktop
+        run: |
+          set -euo pipefail
+          flutter config --no-analytics
+          flutter config --no-enable-swift-package-manager
+          flutter pub get --enforce-lockfile
+          flutter build macos --release --no-codesign
+          test -d build/macos/Build/Products/Release/cbdesk.app
+
+      - name: Pack desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=$(tools/release/release-tag.sh "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}")
+          version=${tag#v}
+          py=python3
+          command -v python3 >/dev/null 2>&1 || py=python
+          mkdir -p dist
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            name="cbdesk-desktop-${version}-linux-x64.tar.gz"
+            "$py" tools/release/pack.py pack \
+              --output "dist/${name}" \
+              --format tar.gz \
+              --prefix cbdesk \
+              --input app/desktop/build/linux/x64/release/bundle \
+              --note tools/release/UNSIGNED.txt
+          elif [ "$RUNNER_OS" = "Windows" ]; then
+            name="cbdesk-desktop-${version}-windows-x64.zip"
+            "$py" tools/release/pack.py pack \
+              --output "dist/${name}" \
+              --format zip \
+              --prefix cbdesk \
+              --input app/desktop/build/windows/x64/runner/Release \
+              --note tools/release/UNSIGNED.txt
+          else
+            name="cbdesk-desktop-${version}-macos-arm64.zip"
+            stage=$(mktemp -d)
+            cp tools/release/UNSIGNED.txt "$stage/UNSIGNED.txt"
+            cp -R app/desktop/build/macos/Build/Products/Release/cbdesk.app "$stage/cbdesk.app"
+            ditto -c -k "$stage" "dist/${name}"
+            rm -rf "$stage"
+          fi
+          test -f "dist/${name}"
+
+      - name: Upload desktop
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: desktop-${{ matrix.os }}
+          path: dist/*
+          if-no-files-found: error
+
+  android:
+    name: android debug apk
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: 1.91.0
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+
+      - name: Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Host compilers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang pkg-config cmake ninja-build unzip
+
+      - name: Debug arm64 APK
+        working-directory: app/desktop
+        run: |
+          set -euo pipefail
+          sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          test -n "$sdk"
+          sdkmanager=$(find "$sdk/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)
+          test -n "$sdkmanager"
+          rustup target add aarch64-linux-android
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" "ndk;28.2.13676358" "platforms;android-36"
+          flutter config --no-analytics
+          flutter config --android-sdk "$sdk"
+          flutter pub get --enforce-lockfile
+          flutter build apk --debug --target-platform android-arm64
+          unzip -l build/app/outputs/flutter-apk/app-debug.apk | grep 'libcbdesk_ffi.so'
+          tag=$("$GITHUB_WORKSPACE/tools/release/release-tag.sh" "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}")
+          version=${tag#v}
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          cp build/app/outputs/flutter-apk/app-debug.apk \
+            "$GITHUB_WORKSPACE/dist/cbdesk-${version}-android-arm64-debug.apk"
+          cp "$GITHUB_WORKSPACE/tools/release/UNSIGNED.txt" \
+            "$GITHUB_WORKSPACE/dist/UNSIGNED-android.txt"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: android-arm64-debug
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: GitHub prerelease
+    needs: [cli, desktop, android]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout notes
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Download artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=$(tools/release/release-tag.sh "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}")
+          shopt -s nullglob
+          files=(dist/*)
+          if [ "${#files[@]}" -lt 5 ]; then
+            echo "expected CLI, desktop, APK, deb, and SBOM files" >&2
+            ls -la dist >&2 || true
+            exit 1
+          fi
+          : > dist/SHA256SUMS
+          for file in dist/*; do
+            name=$(basename "$file")
+            if [ "$name" = "SHA256SUMS" ]; then
+              continue
+            fi
+            python3 tools/release/pack.py sum --file "$file" --sums dist/SHA256SUMS
+          done
+          sed "s/@@TAG@@/${tag}/g" tools/release/release-notes.md > "$RUNNER_TEMP/notes.md"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/* --clobber
+            gh release edit "$tag" --prerelease --title "${tag} unsigned alpha" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$tag" dist/* \
+              --prerelease \
+              --target "${{ github.sha }}" \
+              --title "${tag} unsigned alpha" \
+              --notes-file "$RUNNER_TEMP/notes.md"
+          fi

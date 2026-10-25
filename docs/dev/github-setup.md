@@ -16,8 +16,9 @@ They are not done.
 - Add a second maintainer before requiring two reviews on `crates/cbdesk-crypto`
   and `crates/cbdesk-net`. `CODEOWNERS` currently lists only the repository
   owner, because a team that does not exist would fail the ruleset.
-- Do not enable a public release, a package registry, or a hosted runner with
-  secrets for this milestone. There is nothing to ship.
+- A `v*` tag runs `.github/workflows/release.yml` and can publish an
+  unsigned prerelease. Do not put a signing key in the repository. A
+  package registry and a hosted runner with secrets stay off.
 
 ## Status on 2026-10-25 (done through the GitHub API)
 
