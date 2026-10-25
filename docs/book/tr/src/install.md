@@ -29,7 +29,11 @@ için gerçek bir cihaz denemesi ve bir performans ölçümü kaydedilmedi.
   dosyasıdır. Yalnızca Apple Silicon'dur. Evrensel ikili değildir ve noter
   onaylı değildir.
 - Flutter masaüstü paketleri: Linux release bundle `.tar.gz`, Windows
-  release `.zip` ve `--no-codesign` ile kurulan macOS `.app` `.zip`.
+  release `.zip` ve macOS release `.app` `.zip`. Flutter 3.47'de
+  `--no-codesign` bayrağı yoktur. İş akışı kod imzasını kapatır
+  (`CODE_SIGNING_ALLOWED=NO`) ve uygulamayı noter onayından geçirmez. Bir
+  platform işi başarısız olursa ön sürüm, derlenen arşivleri yine alır ve
+  eksik olanı adlandırır.
 - arm64 Android hata ayıklama APK'sı. Sürüm imzalı bir paket değildir. Bir
   telefona kurulmadı ve sistem yakalama penceresi kabul edilmedi.
 - İmzalı olmayan deb ve SPDX SBOM. `CBDESK_SIGN_KEY` ayarlı değildir, bu

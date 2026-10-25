@@ -205,7 +205,12 @@ jobs:
           flutter config --no-analytics
           flutter config --no-enable-swift-package-manager
           flutter pub get --enforce-lockfile
-          flutter build macos --release --no-codesign
+          # Flutter 3.47 rejects --no-codesign. FLUTTER_XCODE_* is passed
+          # through to xcodebuild. CI's debug job uses the same SPM setting.
+          export FLUTTER_XCODE_CODE_SIGNING_ALLOWED=NO
+          export FLUTTER_XCODE_CODE_SIGNING_REQUIRED=NO
+          export FLUTTER_XCODE_CODE_SIGN_IDENTITY=-
+          flutter build macos --release
           test -d build/macos/Build/Products/Release/cbdesk.app
 
       - name: Pack desktop
@@ -310,6 +315,7 @@ jobs:
   publish:
     name: GitHub prerelease
     needs: [cli, desktop, android]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -330,10 +336,11 @@ jobs:
         run: |
           set -euo pipefail
           tag=$(tools/release/release-tag.sh "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}")
+          version=${tag#v}
           shopt -s nullglob
           files=(dist/*)
-          if [ "${#files[@]}" -lt 5 ]; then
-            echo "expected CLI, desktop, APK, deb, and SBOM files" >&2
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "no artifacts to publish" >&2
             ls -la dist >&2 || true
             exit 1
           fi
@@ -346,6 +353,53 @@ jobs:
             python3 tools/release/pack.py sum --file "$file" --sums dist/SHA256SUMS
           done
           sed "s/@@TAG@@/${tag}/g" tools/release/release-notes.md > "$RUNNER_TEMP/notes.md"
+          missing_en=""
+          missing_tr=""
+          mark_missing() {
+            if [ ! -f "dist/$1" ]; then
+              missing_en="${missing_en}- $2"$'\n'
+              missing_tr="${missing_tr}- $3"$'\n'
+            fi
+          }
+          mark_missing "cbdesk-${version}-x86_64-unknown-linux-gnu.tar.gz" \
+            "Linux CLI archive" "Linux CLI arşivi"
+          mark_missing "cbdesk-${version}-x86_64-pc-windows-msvc.zip" \
+            "Windows CLI archive" "Windows CLI arşivi"
+          mark_missing "cbdesk-${version}-aarch64-apple-darwin.tar.gz" \
+            "macOS CLI archive" "macOS CLI arşivi"
+          mark_missing "cbdesk-desktop-${version}-linux-x64.tar.gz" \
+            "Linux Flutter desktop bundle" "Linux Flutter masaüstü paketi"
+          mark_missing "cbdesk-desktop-${version}-windows-x64.zip" \
+            "Windows Flutter desktop bundle" "Windows Flutter masaüstü paketi"
+          mark_missing "cbdesk-desktop-${version}-macos-arm64.zip" \
+            "macOS Flutter desktop bundle" "macOS Flutter masaüstü paketi"
+          mark_missing "cbdesk-${version}-android-arm64-debug.apk" \
+            "Android arm64 debug APK" "Android arm64 hata ayıklama APK'sı"
+          mark_missing "sbom.spdx.json" "SBOM" "SBOM"
+          deb_found=0
+          for _deb in dist/cbdesk_*.deb; do
+            deb_found=1
+          done
+          if [ "$deb_found" -ne 1 ]; then
+            missing_en="${missing_en}- unsigned deb"$'\n'
+            missing_tr="${missing_tr}- imzasız deb"$'\n'
+          fi
+          if [ -n "$missing_en" ]; then
+            {
+              echo
+              echo "## Missing from this upload"
+              echo
+              echo "A platform job failed. These files are not attached. The attached files are still an unsigned alpha."
+              echo
+              printf '%s' "$missing_en"
+              echo
+              echo "## Bu yüklemede yok"
+              echo
+              echo "Bir platform işi başarısız oldu. Bu dosyalar eklenmedi. Eklenen dosyalar yine imzasız bir alfadır."
+              echo
+              printf '%s' "$missing_tr"
+            } >> "$RUNNER_TEMP/notes.md"
+          fi
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" dist/* --clobber
             gh release edit "$tag" --prerelease --title "${tag} unsigned alpha" --notes-file "$RUNNER_TEMP/notes.md"

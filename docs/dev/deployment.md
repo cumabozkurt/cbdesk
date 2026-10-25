@@ -25,7 +25,11 @@ CLI archives on Linux, Windows, and macOS (`cargo build --release
 --locked`), Flutter desktop bundles, an arm64 debug Android APK, the
 unsigned deb, and an SPDX SBOM. The publish job creates a GitHub
 prerelease and uploads the files with `SHA256SUMS`. That job is the only
-one with `contents: write`. The files are not signed. SmartScreen and
+one with `contents: write`, and it runs unless the workflow is cancelled.
+A failed platform does not drop the archives that were built; the notes
+name the missing file. The macOS desktop build is
+`flutter build macos --release` with `CODE_SIGNING_ALLOWED=NO`. Flutter
+3.47 has no `--no-codesign` flag. The files are not signed. SmartScreen and
 Gatekeeper can warn or block them. The workflow does not run on pull
 requests. It was not run in this workspace, and no file was published.
 The deb version string follows the tag with the leading `v` removed.

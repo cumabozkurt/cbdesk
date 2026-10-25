@@ -30,7 +30,11 @@ The workflow is written to upload:
   `aarch64-apple-darwin` from `macos-14`. That macOS file is Apple Silicon
   only. It is not a universal binary and it is not notarized.
 - Flutter desktop bundles: a Linux release bundle `.tar.gz`, a Windows
-  release `.zip`, and a macOS `.app` `.zip` built with `--no-codesign`.
+  release `.zip`, and a macOS release `.app` `.zip`. Flutter 3.47 has no
+  `--no-codesign` flag. The workflow turns code signing off
+  (`CODE_SIGNING_ALLOWED=NO`) and does not notarize the app. If a platform
+  job fails, the prerelease still receives the archives that were built
+  and names the missing one.
 - An arm64 Android debug APK. It is not a release-signed package. It was
   not installed on a phone, and the system capture dialog was not accepted.
 - The unsigned deb and an SPDX SBOM. `CBDESK_SIGN_KEY` is unset, so the
