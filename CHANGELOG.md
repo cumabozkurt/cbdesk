@@ -7,6 +7,12 @@ Version 0.0.0 is not a release.
 
 ### Fixed
 
+- The macOS Flutter release build targets arm64 only. A release build
+  otherwise sets `ARCHS=arm64 x86_64`, and `x86_64-apple-darwin` is not
+  installed, so `zeroize`, `cfg-if`, and `libc` failed with E0463. The
+  workflow adds `aarch64-apple-darwin` and passes `ARCHS=arm64`. The
+  desktop `.app` is not a universal binary. A manual dispatch that names
+  an existing tag updates that prerelease in place.
 - The macOS desktop release step no longer passes `--no-codesign`.
   Flutter 3.47 rejects that flag. The workflow runs
   `flutter build macos --release` and turns signing off with
