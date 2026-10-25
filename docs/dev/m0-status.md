@@ -262,7 +262,10 @@ yanked warning.
 - The session indicator is a Flutter semantics live region. The node's
   label includes the existing catalog title (`Session` / `Oturum`) and the
   sentence that the indicator cannot be turned off, plus the status text.
-  Navigation icons use the existing labels. No new ARB keys were added.
+  Navigation icons use the existing labels. Text fields also use those
+  existing strings as labels, the session border is excluded from the
+  semantics tree, and a remote picture is an image button named with the
+  existing remote-view sentence. No new ARB keys were added.
   The widget test checks the live-region flag and those Turkish substrings.
   Actions on `6a11de6` failed that test because it required the label to
   be exactly `Oturum`. Flutter is not installed in this environment.

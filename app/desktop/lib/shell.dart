@@ -7,6 +7,11 @@ import 'package:flutter/services.dart';
 import 'desk_api.dart';
 import 'l10n/app_localizations.dart';
 
+/// A text field that keeps its name when the hint is hidden.
+InputDecoration _labeled(String text) {
+  return InputDecoration(labelText: text, hintText: text);
+}
+
 /// Desktop shell. [poll] is null in tests so no timer stays armed.
 class CbDeskApp extends StatefulWidget {
   /// [api] is the Rust bridge, or a fake in tests.
@@ -127,7 +132,9 @@ class _CbDeskAppState extends State<CbDeskApp> {
             child ?? const SizedBox.shrink(),
             if (view != null && view.indicatorVisible) ...[
               const Positioned.fill(
-                child: IgnorePointer(child: _SessionBorder()),
+                child: ExcludeSemantics(
+                  child: IgnorePointer(child: _SessionBorder()),
+                ),
               ),
               Positioned(
                 top: 12,
@@ -726,13 +733,13 @@ class _ConnectPage extends StatelessWidget {
         TextField(
           key: const Key('connect-field'),
           controller: ticket,
-          decoration: InputDecoration(hintText: l10n.connectHint),
+          decoration: _labeled(l10n.connectHint),
         ),
         const SizedBox(height: 12),
         TextField(
           key: const Key('connect-code'),
           controller: code,
-          decoration: InputDecoration(hintText: l10n.connectCodeHint),
+          decoration: _labeled(l10n.connectCodeHint),
         ),
         const SizedBox(height: 12),
         FilledButton(
@@ -793,33 +800,38 @@ class _RemotePage extends StatelessWidget {
           const SizedBox(height: 8),
           Text(l10n.pointerHint),
           const SizedBox(height: 8),
-          KeyboardListener(
-            focusNode: focusNode,
-            onKeyEvent: (event) {
-              final code = _keycode(event.logicalKey);
-              if (code == null) {
-                return;
-              }
-              final down = event is KeyDownEvent;
-              if (event is! KeyDownEvent && event is! KeyUpEvent) {
-                return;
-              }
-              onKey(code, down);
-            },
-            child: GestureDetector(
-              key: const Key('remote-frame'),
-              onTapDown: (details) => _at(details.localPosition, 1),
-              onTapUp: (details) => _at(details.localPosition, 0),
-              onSecondaryTapDown: (details) => _at(details.localPosition, 2),
-              onPanUpdate: (details) => _at(details.localPosition, 1),
-              child: SizedBox(
-                width: view.frameWidth * 4,
-                height: view.frameHeight * 4,
-                child: CustomPaint(
-                  painter: _RgbaPainter(
-                    view.frameRgba,
-                    view.frameWidth,
-                    view.frameHeight,
+          Semantics(
+            label: l10n.remoteHonest,
+            image: true,
+            button: true,
+            child: KeyboardListener(
+              focusNode: focusNode,
+              onKeyEvent: (event) {
+                final code = _keycode(event.logicalKey);
+                if (code == null) {
+                  return;
+                }
+                final down = event is KeyDownEvent;
+                if (event is! KeyDownEvent && event is! KeyUpEvent) {
+                  return;
+                }
+                onKey(code, down);
+              },
+              child: GestureDetector(
+                key: const Key('remote-frame'),
+                onTapDown: (details) => _at(details.localPosition, 1),
+                onTapUp: (details) => _at(details.localPosition, 0),
+                onSecondaryTapDown: (details) => _at(details.localPosition, 2),
+                onPanUpdate: (details) => _at(details.localPosition, 1),
+                child: SizedBox(
+                  width: view.frameWidth * 4,
+                  height: view.frameHeight * 4,
+                  child: CustomPaint(
+                    painter: _RgbaPainter(
+                      view.frameRgba,
+                      view.frameWidth,
+                      view.frameHeight,
+                    ),
                   ),
                 ),
               ),
@@ -841,7 +853,7 @@ class _RemotePage extends StatelessWidget {
         TextField(
           key: const Key('clipboard-field'),
           controller: clipboard,
-          decoration: InputDecoration(hintText: l10n.clipboardHint),
+          decoration: _labeled(l10n.clipboardHint),
         ),
         const SizedBox(height: 8),
         FilledButton(
@@ -950,7 +962,7 @@ class _FilesPage extends StatelessWidget {
         TextField(
           key: const Key('file-name'),
           controller: name,
-          decoration: InputDecoration(hintText: l10n.fileHint),
+          decoration: _labeled(l10n.fileHint),
         ),
         const SizedBox(height: 8),
         FilledButton(
@@ -962,7 +974,7 @@ class _FilesPage extends StatelessWidget {
         TextField(
           key: const Key('file-body'),
           controller: body,
-          decoration: InputDecoration(hintText: l10n.fileBodyHint),
+          decoration: _labeled(l10n.fileBodyHint),
         ),
         const SizedBox(height: 8),
         FilledButton(
@@ -1010,12 +1022,12 @@ class _AddressPage extends StatelessWidget {
         TextField(
           key: const Key('contact-name'),
           controller: name,
-          decoration: InputDecoration(hintText: l10n.contactName),
+          decoration: _labeled(l10n.contactName),
         ),
         TextField(
           key: const Key('contact-id'),
           controller: deviceId,
-          decoration: InputDecoration(hintText: l10n.contactId),
+          decoration: _labeled(l10n.contactId),
         ),
         const SizedBox(height: 8),
         FilledButton(
@@ -1082,7 +1094,7 @@ class _SettingsPage extends StatelessWidget {
         TextField(
           key: const Key('relay'),
           controller: relay,
-          decoration: InputDecoration(hintText: l10n.relayHint),
+          decoration: _labeled(l10n.relayHint),
         ),
         const SizedBox(height: 8),
         FilledButton(
