@@ -22,5 +22,5 @@ pub use barcode::{read_barcode, Frame, SyntheticCapturer, BARCODE_WIDTH};
 pub use error::CaptureError;
 pub use fit::fit_even;
 pub use picture::{crop_even, from_rgba, yuv_to_rgb, Picture};
-pub use screen::{capture_picture, capture_screen};
+pub use screen::{capture_picture, capture_picture_on, capture_screen, list_monitors, MonitorInfo};
 pub use virtual_display::{open_virtual_display, VirtualDisplay};

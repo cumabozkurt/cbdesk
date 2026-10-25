@@ -19,6 +19,9 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- `list_monitors` and `capture_picture_on` select a display the capturer
+  reports. `capture_picture` and `cbdesk host --screen` stay on the primary
+  display. A second physical monitor was not attached here.
 - Session decoders are exercised with random bytes in
   `garbage_does_not_panic`. That is not cargo-fuzz or OSS-Fuzz. An ignored
   test times four VP8 strips of a 64×64 picture. See

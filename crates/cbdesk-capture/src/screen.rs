@@ -11,6 +11,60 @@ use crate::barcode::Frame;
 use crate::error::CaptureError;
 use crate::picture::{self, Picture};
 
+/// One display reported by the operating system.
+///
+/// `index` is the position in [`list_monitors`] for this call. It is not a
+/// stable hardware id. This workspace did not attach a second physical
+/// display, so a list of one monitor is the observation that was available.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MonitorInfo {
+    /// Position in the list from this call.
+    pub index: u32,
+    /// Name the capturer reported. Empty when the name could not be read.
+    pub name: String,
+    /// True when the capturer marked this display primary.
+    pub primary: bool,
+    /// Width in pixels. Zero when the size could not be read.
+    pub width: u32,
+    /// Height in pixels. Zero when the size could not be read.
+    pub height: u32,
+}
+
+/// List the displays the capturer can see.
+///
+/// An empty machine is [`CaptureError::Unavailable`]. The live host still
+/// calls [`capture_picture`], which is the primary display.
+pub fn list_monitors() -> Result<Vec<MonitorInfo>, CaptureError> {
+    #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
+    {
+        platform::list()
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+    {
+        Err(CaptureError::Unavailable(
+            "this operating system has no screen capturer".to_string(),
+        ))
+    }
+}
+
+/// Capture one display from [`list_monitors`] as I420.
+///
+/// An index past the list is [`CaptureError::Unavailable`]. On Linux with
+/// `WAYLAND_DISPLAY` set, this uses that monitor's ScreenCast recorder.
+pub fn capture_picture_on(index: u32) -> Result<Picture, CaptureError> {
+    #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
+    {
+        platform::capture_index(index)
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+    {
+        let _ = index;
+        Err(CaptureError::Unavailable(
+            "this operating system has no screen capturer".to_string(),
+        ))
+    }
+}
+
 /// Capture the primary display as I420.
 pub fn capture_picture() -> Result<Picture, CaptureError> {
     #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
@@ -34,49 +88,66 @@ pub fn capture_screen() -> Result<Frame, CaptureError> {
 mod platform {
     use super::*;
 
-    enum Source {
-        Still(xcap::Monitor),
+    pub(super) fn list() -> Result<Vec<MonitorInfo>, CaptureError> {
+        Ok(monitors()?
+            .iter()
+            .enumerate()
+            .map(|(index, monitor)| MonitorInfo {
+                index: u32::try_from(index).unwrap_or(u32::MAX),
+                name: monitor.name().unwrap_or_default(),
+                primary: matches!(monitor.is_primary(), Ok(true)),
+                width: monitor.width().unwrap_or(0),
+                height: monitor.height().unwrap_or(0),
+            })
+            .collect())
+    }
+
+    pub(super) fn capture_index(index: u32) -> Result<Picture, CaptureError> {
+        let mut found = monitors()?;
+        let position = usize::try_from(index).map_err(|_| {
+            CaptureError::Unavailable("monitor index does not fit this process".to_string())
+        })?;
+        if position >= found.len() {
+            return Err(CaptureError::Unavailable(format!(
+                "monitor {index} is not in a list of {}",
+                found.len()
+            )));
+        }
+        let monitor = found.swap_remove(position);
         #[cfg(target_os = "linux")]
-        Portal,
+        if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+            return capture_portal(monitor);
+        }
+        capture_still(monitor)
     }
 
     pub(super) fn capture_primary() -> Result<Picture, CaptureError> {
-        #[cfg(target_os = "linux")]
-        if std::env::var_os("WAYLAND_DISPLAY").is_some() {
-            return capture(Source::Portal);
-        }
-        let monitor = primary_monitor()?;
-        capture(Source::Still(monitor))
+        let listed = list()?;
+        let index = listed
+            .iter()
+            .find(|monitor| monitor.primary)
+            .map(|monitor| monitor.index)
+            .unwrap_or(0);
+        capture_index(index)
     }
 
-    fn primary_monitor() -> Result<xcap::Monitor, CaptureError> {
-        let mut monitors = xcap::Monitor::all().map_err(unavailable)?;
+    fn monitors() -> Result<Vec<xcap::Monitor>, CaptureError> {
+        let monitors = xcap::Monitor::all().map_err(unavailable)?;
         if monitors.is_empty() {
             return Err(CaptureError::Unavailable("no monitor".to_string()));
         }
-        let index = monitors
-            .iter()
-            .position(|monitor| matches!(monitor.is_primary(), Ok(true)))
-            .unwrap_or(0);
-        Ok(monitors.swap_remove(index))
+        Ok(monitors)
     }
 
-    fn capture(source: Source) -> Result<Picture, CaptureError> {
-        match source {
-            Source::Still(monitor) => {
-                let image = monitor.capture_image().map_err(unavailable)?;
-                from_rgba(image.width(), image.height(), image.as_raw())
-            }
-            #[cfg(target_os = "linux")]
-            Source::Portal => capture_portal(),
-        }
+    fn capture_still(monitor: xcap::Monitor) -> Result<Picture, CaptureError> {
+        let image = monitor.capture_image().map_err(unavailable)?;
+        from_rgba(image.width(), image.height(), image.as_raw())
     }
 
     #[cfg(target_os = "linux")]
-    fn capture_portal() -> Result<Picture, CaptureError> {
+    fn capture_portal(monitor: xcap::Monitor) -> Result<Picture, CaptureError> {
         use std::time::Duration;
 
-        let monitor = primary_monitor()?;
         let (recorder, frames) = monitor.video_recorder().map_err(unavailable)?;
         recorder.start().map_err(unavailable)?;
         let frame = frames
@@ -129,5 +200,28 @@ mod tests {
             last.map(|error| error.to_string())
                 .unwrap_or_else(|| "no error".to_string())
         );
+    }
+
+    #[test]
+    fn an_index_past_the_list_is_refused_when_a_display_is_present() {
+        let required = std::env::var_os("CBDESK_REQUIRE_DISPLAY").is_some();
+        let monitors = match list_monitors() {
+            Ok(monitors) => monitors,
+            Err(error) if !required => {
+                let _ = error;
+                return;
+            }
+            Err(error) => panic!("a display was required and listing failed: {error}"),
+        };
+        assert!(!monitors.is_empty());
+        assert!(monitors.iter().filter(|monitor| monitor.primary).count() <= 1);
+        let index = monitors
+            .iter()
+            .find(|monitor| monitor.primary)
+            .map(|monitor| monitor.index)
+            .unwrap_or(0);
+        let picture = capture_picture_on(index).expect("indexed capture");
+        assert!(picture.width >= 1 && picture.height >= 1);
+        assert!(capture_picture_on(u32::MAX).is_err());
     }
 }
