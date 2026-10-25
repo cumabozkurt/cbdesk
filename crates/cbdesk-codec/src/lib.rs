@@ -10,9 +10,11 @@
 //! AV1 in this tree is still one still picture.
 
 mod bench;
+mod cmp;
 mod damage;
 mod error;
 mod hardware;
+mod profile;
 mod rate;
 mod vp8;
 
@@ -29,6 +31,10 @@ pub use hardware::{
     encode_i420_with_ffmpeg, ffmpeg_encoder_listed, open_hardware, probe_hardware, require_chroma,
     ChromaFormat, EncodedPacket, FrameEncoder, HardwareKind, HardwareProbe, HardwareSession,
     QualityPreset, HARDWARE_KINDS,
+};
+pub use profile::{
+    composite_strips, encode_strips, measure_1080p_paths, scale_box, scale_profile, FrameProfile,
+    PathTiming, StripPacket, StripSet,
 };
 pub use rate::{BitrateControl, Pace};
 pub use vp8::{decode_vp8_luma, encode_vp8, vp8_is_inter, Vp8Encoder, Vp8StreamDecoder};

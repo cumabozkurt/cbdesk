@@ -36,4 +36,8 @@ The live picture is color. A 1080p software picture is not 30 frames per
 second. A release measurement on one machine encoded one 1920×1080 keyframe
 in 201 ms. An unchanged picture was not encoded. A 64×64 changed region
 took 2 ms. A full-frame change is still about five frames per second.
-Nobody has confirmed they heard the microphone path.
+`--profile balanced` and `--profile preview` shrink a screen capture
+before that same encoder. A later solid-frame run, not a desktop, took
+48 ms at half size and 12 ms at quarter size. Parallel strip keyframes
+are measured in the library and are not what the host sends. Nobody has
+confirmed they heard the microphone path.

@@ -9,3 +9,8 @@ rav1d-safe under AGPL-3.0-only, and each AV1 call is one still. Negotiation
 prefers VP8 when both peers offer it. The live quantizer moves with encode
 time and receiver feedback. The synthetic barcode stays at quantizer 0.
 A 1080p timing is in `docs/dev/media-measurement.md` and is not 30 frames per second.
+Damage compares 16-byte groups with `wide` 1.7.1 (`u8x16`, SSE2 or NEON).
+`encode_strips` encodes horizontal bands as separate keyframes and can do
+that on several threads. `scale_box` is the 2× and 4× box filter behind
+`--profile balanced` and `--profile preview`. The live frame header does
+not carry a canvas size, so the host does not send the strips.

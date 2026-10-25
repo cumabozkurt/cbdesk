@@ -33,5 +33,9 @@ dosyasıdır; oturumun şifreli kaydı değildir.
 Canlı görüntü renklidir. 1080p yazılım görüntüsü 30 kare/saniye değildir.
 Bir makinede yapılan release ölçümü, 1920×1080 bir ana kareyi 201 ms'de
 kodladı. Değişmeyen resim kodlanmadı. 64×64 değişen bir bölge 2 ms sürdü.
-Tam kare değişikliği hâlâ saniyede yaklaşık beş karedir. Mikrofon yolunu
-birinin duyduğu doğrulanmamıştır.
+Tam kare değişikliği hâlâ saniyede yaklaşık beş karedir. `--profile
+balanced` ve `--profile preview`, ekran yakalamasını aynı kodlayıcıdan
+önce küçültür. Sonraki düz renkli kare ölçümü, masaüstü değil, yarı boyda
+48 ms ve çeyrek boyda 12 ms sürdü. Paralel şerit ana kareleri kütüphanede
+ölçülür ve ana makinenin gönderdiği şey değildir. Mikrofon yolunu birinin
+duyduğu doğrulanmamıştır.

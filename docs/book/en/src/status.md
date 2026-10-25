@@ -31,8 +31,10 @@ This page is the short version for someone reading the guide.
 - A live symmetric NAT was not measured. A loopback path is not a hole
   punch. Netlab profiles do not create network namespaces.
 - Nobody has confirmed they heard the microphone. A 1080p software
-  keyframe on one machine took 201 ms. That is not 30 frames per second.
-  No successful hardware encode was recorded.
+  keyframe on one machine took 201 ms. A later solid-frame run took 198 ms
+  as one keyframe, 52 ms as four parallel strips, and 12 ms at quarter
+  size. The strips are not the live session. That is not 30 frames per
+  second. No successful hardware encode was recorded.
 - The live host does not hold the X11 grab, the privacy window, the
   shell, or the tunnel, even though those functions exist and are tested
   on their own.

@@ -21,6 +21,7 @@ hw-mediacodec = []
 [dependencies]
 cbdesk-capture = { path = "../cbdesk-capture" }
 oxideav-vp8.workspace = true
+wide.workspace = true
 rav1e.workspace = true
 rav1d-safe.workspace = true
 thiserror.workspace = true
