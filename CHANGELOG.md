@@ -16,6 +16,10 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- Session decoders are exercised with random bytes in
+  `garbage_does_not_panic`. That is not cargo-fuzz or OSS-Fuzz. An ignored
+  test times four VP8 strips of a 64×64 picture. See
+  `docs/dev/fuzz-and-bench.md`. Criterion is not a dependency.
 - Software VP8 can compare damage tiles with `wide` 1.7.1 `u8x16` (SSE2 or
   NEON, no `unsafe` in this crate) and can encode horizontal strips on
   several threads. `--profile balanced` and `--profile preview` box-filter

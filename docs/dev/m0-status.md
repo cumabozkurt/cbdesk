@@ -97,7 +97,10 @@ sources is derived from that project.
   system capture dialog; the longer side is at most 960. Widget tests use
   a fake desk and do not load the native library.
 - `cbdesk-testkit`: re-exported barcode frames, recording injector,
-  poisonable fake DHT.
+  poisonable fake DHT. Random bytes are fed to the session decoders in
+  `garbage_does_not_panic`. That is not cargo-fuzz or OSS-Fuzz, and
+  neither was run. Ignored codec timings are described in
+  `docs/dev/fuzz-and-bench.md`. Criterion is not a dependency.
 - Netlab profile files for N0, N3, and N4. They do not create namespaces.
 - Crate directories from the layout that have no code yet contain a README
   and are not workspace members.
