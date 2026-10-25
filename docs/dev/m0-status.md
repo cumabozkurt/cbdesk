@@ -148,7 +148,7 @@ This pass stays on `cursor/m0-foundation-0838`. The plan checkboxes in
   trademark search, an external audit, signed installers and store listings,
   an Apple or Google developer account, a TUF root (ADR-013), an
   organization certificate parser (ADR-011), a CRDT library (ADR-012), DHT
-  blinding (ADR-007), a shipped relay daemon, a live symmetric NAT, a
+  blinding (ADR-007), a public relay, a live symmetric NAT, a
   72-hour soak, and a second machine that hashes the same binary.
   `docs/dev/deployment.md` says which templates exist and which commands
   were not run.
@@ -308,10 +308,11 @@ substitute, not that exit.
   installed. `RelayMode::Default` is not selected. A relay named only on a
   ticket is ignored. HTTPS net-report probes run only when that list is
   non-empty, and only against those relays. A loopback relay test echoes
-  one probe with UDP transports cleared. A live symmetric NAT is unmeasured.
-  `cbdesk net-check` and the mapping classifier are described in
-  `docs/dev/nat-measurement.md`. The test relay is iroh's test helper, not a
-  process this project ships.
+  one probe with UDP transports cleared. `cbdesk-relayd` is a separate
+  loopback process with a self-signed certificate. Its test echoes one
+  probe the same way. A live symmetric NAT is unmeasured. `cbdesk net-check`
+  and the mapping classifier are described in `docs/dev/nat-measurement.md`.
+  Details of the daemon are in `docs/dev/relayd.md`. No image was published.
 - A verified invite ticket dials `direct_addrs` through that endpoint, then
   a relay this endpoint was already configured to use. The connection is
   handed to `HostSession`. The ticket is not a grant.
@@ -430,7 +431,7 @@ invent one.
 | M1 exit: LAN, N0 to N3, T-NET-002/003, T-DISC-001, T-MED-004, demo video | Partial | Same-machine LAN tests exist. Netlab namespaces were not created. T-MED-004 is a short barcode, one 48×16 inter frame, and ignored 1080p timings. It is not a 60-second soak. There is no demo video. |
 | M2 short code and PAKE, with a cryptography review | Partial | The desk host uses `spake2` 0.4.0 before consent. The CLI host does not. ADR-008 is Accepted. There has been no external review. |
 | M2 mainline DHT, blinding behind a flag | Partial | Records can be published in the clear. Blinded publish returns `BlindingPendingReview`. ADR-007 stays Proposed. |
-| M2 embedded community relay and relay discovery | Partial | An operator-configured relay URL can be installed. No relay daemon ships. n0 defaults stay off. |
+| M2 embedded community relay and relay discovery | Partial | An operator-configured relay URL can be installed. `cbdesk-relayd` binds loopback only, prints a self-signed `https://` URL, and a test echoes one probe with UDP off. It is not a public relay. A symmetric NAT was not measured. n0 defaults stay off. |
 | M2 authentication, permission engine, connection manager | Partial | Consent, grants, and `authorize` exist. There is no separate connection-manager product. |
 | M2 Flutter screens S-01 through S-06, S-10, S-11 | Partial | Home, connect, consent, remote view, files, address book, and settings exist. They are not those wireframe ids. |
 | M2 fraud warning and an indicator that cannot be disabled | Done | The shell and the library both keep the indicator on. The indicator is a semantics live region. |
@@ -441,7 +442,7 @@ invent one.
 | M3 OPAQUE password and TOTP | Partial | `opaque-ke` 4.0.1 and HMAC-SHA1 TOTP are libraries. The CLI does not enroll a password. TOTP is not on the consent prompt. RUSTSEC-2026-0387 is ignored until a stable `opaque-ke` no longer depends on `crypto-bigint` 0.5.5. |
 | M3 hardware codecs and a blocklist | Partial | `hw-vaapi`, `hw-mediafoundation`, `hw-videotoolbox`, and `hw-mediacodec` shell out to ffmpeg and are off by default. No successful hardware encode was recorded. There is no codec blocklist. |
 | M3 audio | Partial | Opus and a cpal device open exist. This tree does not record that a person heard the stream. |
-| M3 `cbdesk doctor`, CLI v1, `cbdesk-relayd`, Docker image | Partial | `cbdesk doctor` prints a local address report. It is not CLI v1. No relay daemon and no Docker image ship. |
+| M3 `cbdesk doctor`, CLI v1, `cbdesk-relayd`, Docker image | Partial | `cbdesk doctor` prints a local address report. It is not CLI v1. `cbdesk-relayd` is the loopback binary in `docs/dev/relayd.md`. `packaging/relayd/Dockerfile` was not built and no image was published. |
 | M3 MSI, pkg, deb, rpm, Flatpak, winget, Homebrew, AUR | Partial | Unsigned deb, WiX, Flatpak, DMG, and AppImage templates exist. The deb was not built here. rpm, winget, Homebrew, AUR, and a signed pkg are absent. |
 | M3 DHT blinding on by default after review | Absent | Blinded publish still fails closed. There has been no review. |
 | M3 usability round T-UX-001 through T-UX-003 | Absent | No person ran that round. |
@@ -480,8 +481,9 @@ this tree.
 The user guide source is `docs/book`. `.github/workflows/pages.yml` builds
 it on every push to `main` and deploys with GitHub Pages when the repository
 source is GitHub Actions. The site does not offer a download. This commit
-adds the software VP8 profiles in `docs/dev/media-measurement.md`. It does
-not add a Windows or macOS input grab, `cbdesk-relayd`, or a device test.
+adds `cbdesk-relayd`, a loopback-only self-signed relay. It does not
+measure a symmetric NAT, and it does not publish an image. It does not add
+a Windows or macOS input grab or a device test.
 Wayland ScreenCast remains the manual plan in
 `docs/dev/wayland-screencast.md`. The live host still
 does not hold the X11 grab, the privacy window, the shell, or the tunnel.
