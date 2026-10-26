@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security report
+    url: https://github.com/cumabozkurt/cbdesk/security
+    about: Do not file a vulnerability, a device seed, or a live ticket as a public issue. Read SECURITY.md.

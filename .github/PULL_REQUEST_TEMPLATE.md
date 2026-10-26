@@ -15,6 +15,7 @@ Feature or test ids this change touches (or "none"):
 - [ ] Tests cover the behavior I changed.
 - [ ] User-facing strings, if any, exist in Turkish and English.
 - [ ] Docs or the changelog mention the change when a user or contributor would notice it.
+- [ ] User-facing claims match `docs/dev/m0-status.md`. A limit that is still open stays open.
 
 ## Evidence
 

@@ -62,6 +62,35 @@ one applies. Tests that only lock a policy should say which part of the
 Definition of Done is still open (UI, threat-model review, translation, or a
 manual platform check).
 
+Çekme isteği şablonunu kullanın. Uygunsa ana plandaki özellik veya test
+kimliğini yazın. Yalnız bir ilkeyi kilitleyen testler, Bitti tanımının
+hangi parçasının açık kaldığını söyler (arayüz, tehdit modeli incelemesi,
+çeviri veya elle platform denetimi).
+
+## Issues
+
+Use the bug or feature template. Do not put a device seed, a short-code
+password, a live ticket, or a vulnerability in a public issue. Security
+reports go through `SECURITY.md`.
+
+Hata veya özellik şablonunu kullanın. Herkese açık bir konuya cihaz tohumu,
+kısa kod parolası, canlı bir bilet veya bir açığı yazmayın. Güvenlik
+bildirimleri `SECURITY.md` üzerinden gider.
+
+## Documentation
+
+User-facing claims have to match `docs/dev/m0-status.md`. The English
+changelog is `CHANGELOG.md`. `CHANGELOG.tr.md` is the Turkish copy; if the
+two drift, the English file is the record. The Pages site is built from
+`docs/book` and does not host a binary. Do not commit a drawn window as a
+screenshot.
+
+Kullanıcının göreceği iddialar `docs/dev/m0-status.md` ile aynı olmalıdır.
+İngilizce günlük `CHANGELOG.md` dosyasıdır. `CHANGELOG.tr.md` onun
+Türkçesidir; ayrışırlarsa İngilizce dosya esas alınır. Pages sitesi
+`docs/book` kaynağından derlenir ve ikili dosya barındırmaz. Çizilmiş bir
+pencereyi ekran görüntüsü diye koymayın.
+
 ## Translations
 
 `app/i18n/en.json` and `app/i18n/tr.json` must have the same keys.
