@@ -6,20 +6,31 @@ file.
 
 ## Download
 
-A later `v*` tag can make GitHub attach unsigned prerelease files. A
-maintainer can also start `.github/workflows/release.yml` by hand and name
-the tag. The tag in this change has not been pushed. Until that workflow
-has run, the releases page can be empty:
+GitHub tag `v0.1.0-alpha.1` is titled `v0.1.0-alpha.1 unsigned alpha` and
+attaches the files below. This site does not host them. This page does not
+rebuild them. They are an unsigned alpha. They are not version 1.0.0 and
+not the plan's alpha exit. Windows SmartScreen and macOS Gatekeeper can
+warn or block them. There is no notarization, no Apple Developer account,
+and no Authenticode certificate in the build. No real-device test and no
+performance test of these binaries was recorded. A 30 frame-per-second
+stream was not measured. The crate version is still 0.0.0.
 
-<https://github.com/cumabozkurt/cbdesk/releases>
+The release page is
+<https://github.com/cumabozkurt/cbdesk/releases/tag/v0.1.0-alpha.1>.
 
-Those files, once the workflow has run, are an unsigned alpha. They are
-not version 1.0.0 and not a release candidate. Windows SmartScreen and
-macOS Gatekeeper can warn or block them. There is no notarization, no
-Apple Developer account, and no Authenticode certificate in the build.
-No real-device test and no performance test of these binaries was
-recorded. A 30 frame-per-second stream was not measured. The crate version
-can still say 0.0.0.
+| File | What it is |
+|---|---|
+| [Windows desktop zip](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-desktop-0.1.0-alpha.1-windows-x64.zip) | Flutter bundle, x64 |
+| [Windows CLI zip](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-x86_64-pc-windows-msvc.zip) | `cbdesk.exe` |
+| [Linux desktop tar.gz](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-desktop-0.1.0-alpha.1-linux-x64.tar.gz) | Flutter bundle from `ubuntu-24.04` |
+| [Linux CLI tar.gz](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-x86_64-unknown-linux-gnu.tar.gz) | Links `ubuntu-24.04` system libraries |
+| [Linux CLI deb](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk_0.1.0-alpha.1_amd64.deb) | Unsigned. Not the Flutter app |
+| [macOS arm64 desktop zip](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-desktop-0.1.0-alpha.1-macos-arm64.zip) | Apple Silicon only. Not notarized |
+| [macOS arm64 CLI](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-aarch64-apple-darwin.tar.gz) | Apple Silicon only. Not notarized |
+| [Android arm64 debug APK](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-android-arm64-debug.apk) | Not installed on a phone |
+| [SHA256SUMS](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/SHA256SUMS) | Digests, not a signature |
+
+`sbom.spdx.json.sign-note` on that tag reads `unsigned: CBDESK_SIGN_KEY is unset`.
 
 The workflow is written to upload:
 
@@ -34,7 +45,7 @@ The workflow is written to upload:
   arm64 only. It is not a universal binary and it is not notarized.
   Flutter 3.47 has no `--no-codesign` flag. The workflow turns code
   signing off (`CODE_SIGNING_ALLOWED=NO`). If a platform job fails, the
-  prerelease still receives the archives that were built and names the
+  release still receives the archives that were built and names the
   missing one.
 - An arm64 Android debug APK. It is not a release-signed package. It was
   not installed on a phone, and the system capture dialog was not accepted.

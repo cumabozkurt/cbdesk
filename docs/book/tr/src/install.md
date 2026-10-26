@@ -5,19 +5,32 @@ paket veya mağaza kaydı barındırmaz. Bu kayıt bir dosya yayımlamaz.
 
 ## İndirme
 
-Daha sonraki bir `v*` etiketi, GitHub'ın imzasız ön sürüm dosyaları
-eklemesini sağlayabilir. Bir bakımcı `.github/workflows/release.yml` iş
-akışını elle başlatıp etiketi de adlandırabilir. Bu değişiklikte o etiket
-itilmemiştir. İş akışı çalışana kadar sürüm sayfası boş olabilir:
+GitHub etiketi `v0.1.0-alpha.1`, `v0.1.0-alpha.1 unsigned alpha` başlığını
+taşır ve aşağıdaki dosyaları içerir. Bu site onları barındırmaz. Bu sayfa
+onları yeniden derlemez. İmzasız bir alfadırlar. 1.0.0 sürümü ve planın
+alfa çıkışı değildir. Windows SmartScreen ve macOS Gatekeeper uyarı
+verebilir veya engelleyebilir. Bu derlemede noter onayı, Apple geliştirici
+hesabı ve Authenticode sertifikası yoktur. Bu ikililer için gerçek bir
+cihaz denemesi ve bir performans ölçümü kaydedilmedi. 30 kare/saniye
+ölçülmedi. Crate sürümü hâlâ 0.0.0'dır.
 
-<https://github.com/cumabozkurt/cbdesk/releases>
+Sürüm sayfası
+<https://github.com/cumabozkurt/cbdesk/releases/tag/v0.1.0-alpha.1>
+adresindedir.
 
-Bu dosyalar, iş akışı çalıştıktan sonra, imzasız bir alfadır. 1.0.0
-sürümü veya bir sürüm adayı değildir. Windows SmartScreen ve macOS
-Gatekeeper uyarı verebilir veya engelleyebilir. Bu derlemede noter onayı,
-Apple geliştirici hesabı ve Authenticode sertifikası yoktur. Bu ikililer
-için gerçek bir cihaz denemesi ve bir performans ölçümü kaydedilmedi.
-30 kare/saniye ölçülmedi. Crate sürümü hâlâ 0.0.0 yazıyor olabilir.
+| Dosya | Ne olduğu |
+|---|---|
+| [Windows masaüstü zip](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-desktop-0.1.0-alpha.1-windows-x64.zip) | Flutter paketi, x64 |
+| [Windows CLI zip](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-x86_64-pc-windows-msvc.zip) | `cbdesk.exe` |
+| [Linux masaüstü tar.gz](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-desktop-0.1.0-alpha.1-linux-x64.tar.gz) | `ubuntu-24.04` üzerinde Flutter paketi |
+| [Linux CLI tar.gz](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-x86_64-unknown-linux-gnu.tar.gz) | `ubuntu-24.04` sistem kitaplıklarına bağlanır |
+| [Linux CLI deb](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk_0.1.0-alpha.1_amd64.deb) | İmzasız. Flutter uygulaması değildir |
+| [macOS arm64 masaüstü zip](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-desktop-0.1.0-alpha.1-macos-arm64.zip) | Yalnız Apple Silicon. Noter onaylı değildir |
+| [macOS arm64 CLI](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-aarch64-apple-darwin.tar.gz) | Yalnız Apple Silicon. Noter onaylı değildir |
+| [Android arm64 hata ayıklama APK](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-android-arm64-debug.apk) | Bir telefona kurulmadı |
+| [SHA256SUMS](https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/SHA256SUMS) | Özetler, imza değil |
+
+O etiketteki `sbom.spdx.json.sign-note` dosyası `unsigned: CBDESK_SIGN_KEY is unset` yazar.
 
 İş akışının yükleyeceği dosyalar:
 
@@ -32,7 +45,7 @@ için gerçek bir cihaz denemesi ve bir performans ölçümü kaydedilmedi.
   release `.zip` ve macOS release `.app` `.zip`. macOS uygulaması yalnız
   arm64'tür. Evrensel ikili değildir ve noter onaylı değildir. Flutter
   3.47'de `--no-codesign` bayrağı yoktur. İş akışı kod imzasını kapatır
-  (`CODE_SIGNING_ALLOWED=NO`). Bir platform işi başarısız olursa ön sürüm,
+  (`CODE_SIGNING_ALLOWED=NO`). Bir platform işi başarısız olursa sürüm,
   derlenen arşivleri yine alır ve eksik olanı adlandırır.
 - arm64 Android hata ayıklama APK'sı. Sürüm imzalı bir paket değildir. Bir
   telefona kurulmadı ve sistem yakalama penceresi kabul edilmedi.

@@ -4,9 +4,9 @@
 
 CBDesk is a remote desktop under design. It is meant to ask before anyone
 sees your screen, and to keep a session indicator that cannot be switched
-off. This site is the user guide. It does not host a binary. A download,
-after a maintainer pushes a `v*` tag, is an unsigned prerelease on GitHub
-Releases. This commit does not publish one. See
+off. This site is the user guide. It does not host a binary. Tag
+`v0.1.0-alpha.1` on GitHub Releases is an unsigned alpha. It is not version
+1.0.0. The crate is still 0.0.0. This page does not rebuild those files. See
 [Install and download](install.md).
 
 There is no account to create and no CBDesk server that a session is

@@ -4,9 +4,9 @@
 
 CBDesk, tasarım aşamasında bir uzak masaüstüdür. Biri ekranınızı görmeden
 önce sormanız ve kapatılamayan bir oturum göstergesi beklenir. Bu site
-kullanıcı kılavuzudur. İkili dosya barındırmaz. Bir indirme, bakımcı bir
-`v*` etiketi ittikten sonra, GitHub Releases üzerinde imzasız bir ön
-sürümdür. Bu kayıt bir dosya yayımlamaz. Bkz.
+kullanıcı kılavuzudur. İkili dosya barındırmaz. GitHub Releases üzerindeki
+`v0.1.0-alpha.1` etiketi imzasız bir alfadır. 1.0.0 sürümü değildir. Crate
+hâlâ 0.0.0'dır. Bu sayfa o dosyaları yeniden derlemez. Bkz.
 [Kurulum ve indirme](install.md).
 
 Açılacak bir hesap yoktur. Oturumunuzun geçmek zorunda olduğu bir CBDesk

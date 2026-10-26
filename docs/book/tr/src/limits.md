@@ -73,12 +73,12 @@ Bu ağaçta bunlar yoktur. Yeşil bir CI koşusu onları eklemez.
 - 72 saatlik bir dayanıklılık denemesi, Linux ile Windows arasında bir
   oturum, bir kişiyle kullanılabilirlik turu, bir beta kanalı ve sürüm
   1.0.0. Sürüm 0.0.0'dır.
-- Bu kaydın yayımladığı bir dosya. Sürüm iş akışı, bir `v*` etiketi
-  itildiğinde imzasız ön sürüm dosyaları ekleyebilir. Bu değişiklik o
-  etiketi itmez ve iş akışını çalıştırmaz. Site dosyaları barındırmaz.
-  SmartScreen ve Gatekeeper uyarı verebilir veya engelleyebilir. Burada
-  bir telefona kurulum ve bu ikililerin performans ölçümü kaydedilmedi.
-  İmzalı kurulum dosyası sahibinde kalır.
+- Bu kaydın yayımladığı bir dosya. `v0.1.0-alpha.1` etiketi imzasız alfa
+  dosyalarını zaten taşır. Bu değişiklik onları yeniden derlemez. Site
+  dosyaları barındırmaz. SmartScreen ve Gatekeeper uyarı verebilir veya
+  engelleyebilir. Burada bir telefona kurulum ve bu ikililerin performans
+  ölçümü kaydedilmedi. İmzalı kurulum dosyası sahibinde kalır. Etiket
+  1.0.0 değildir ve planın alfa çıkışı değildir.
 - Bir Wayland ScreenCast koşusu. Elle plan
   `docs/dev/wayland-screencast.md` dosyasındadır. CI onu çalıştırmadı.
 - Mikrofon yolunun duyulduğunu doğrulayan bir dinleme. Eksik bir mikrofon

@@ -43,8 +43,9 @@ Use GitHub private vulnerability reporting:
 <https://github.com/cumabozkurt/cbdesk/security>
 
 Do not post a device seed or an attack against someone else's computer in a
-public issue. An unsigned GitHub prerelease can exist after a `v*` tag.
-It is not a supported release. Only the default branch is in scope.
+public issue. Tag `v0.1.0-alpha.1` is an unsigned alpha from this tree.
+It is not a supported 1.0 release. The default branch is in scope, and
+reports about that tag are welcome on the same terms.
 Response targets are in
 [SECURITY.md](https://github.com/cumabozkurt/cbdesk/blob/main/SECURITY.md).
 They are volunteer targets, not a service agreement.

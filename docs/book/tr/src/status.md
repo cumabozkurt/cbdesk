@@ -42,8 +42,9 @@ sayfasındadır.
 - Linux ile Windows arasında bir oturum çalıştırılmadı. 72 saatlik bir
   dayanıklılık denemesi yok. İkinci bir makine ikilileri karşılaştırmadı.
   Dış güvenlik denetimi yok. İmzalı paket ve mağaza kaydı yok.
-- Sürüm iş akışı bu çalışma alanında çalıştırılmadı. Burada arşiv
-  paketlenmedi ve bir GitHub Release yayımlanmadı.
+- `v0.1.0-alpha.1` etiketi GitHub'da imzasız bir alfadır. Bu çalışma alanı
+  o arşivleri paketlemedi ve bu sayfa onları yeniden derlemez. Etiket
+  1.0.0 değildir.
 - GitHub organizasyon ayarları, dal koruması, marka araştırması ve imza
   anahtarları sahibinde kalır.
 

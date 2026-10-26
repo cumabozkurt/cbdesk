@@ -44,8 +44,9 @@ stays with the owner, and work that is absent, is listed on the
 - No Linux-to-Windows session was run. No 72-hour soak. No second machine
   compared binaries. No external security audit. No signed package and no
   store listing.
-- The release workflow was not run in this workspace. No archive was
-  packed here, and no GitHub Release was published.
+- Tag `v0.1.0-alpha.1` is an unsigned alpha on GitHub. This workspace did
+  not pack those archives, and this page does not rebuild them. The tag is
+  not version 1.0.0.
 - GitHub organization settings, branch protection, the trademark search,
   and signing keys stay with the owner.
 

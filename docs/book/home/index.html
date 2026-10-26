@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CBDesk</title>
-  <meta name="description" content="CBDesk is a consented remote desktop under design. This site does not host a binary. An unsigned prerelease can appear on GitHub Releases after a v* tag.">
+  <meta name="description" content="CBDesk is an unsigned alpha of a consented remote desktop. This site does not host the files. Tag v0.1.0-alpha.1 is on GitHub Releases. SmartScreen and Gatekeeper can block it.">
+  <link rel="canonical" href="https://cumabozkurt.github.io/cbdesk/">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -14,53 +15,180 @@
       background: #f7f4ef;
       color: #1c1915;
     }
-    @media (prefers-color-scheme: dark) {
-      body { background: #1c1915; color: #f7f4ef; }
-      a { color: #f0c36a; }
-      .banner { background: #3a2a12; color: #f7f4ef; }
-      .card { background: #2a261f; }
-    }
     a { color: #6b3f12; }
     a:focus { outline: 3px solid #c47b2b; outline-offset: 2px; }
-    main { max-width: 42rem; margin: 0 auto; padding: 1.5rem; }
-    .banner {
-      background: #3a2a12;
-      color: #fff8ee;
-      padding: 0.75rem 1.5rem;
-    }
-    .banner p { max-width: 42rem; margin: 0 auto; }
+    .banner { background: #3a2a12; color: #fff8ee; padding: 0.75rem 1.5rem; }
+    .banner p { max-width: 52rem; margin: 0.35rem auto; }
     .banner a { color: #f0c36a; }
-    h1 { font-size: 2.25rem; line-height: 1.15; margin-bottom: 0.25rem; }
-    .lang { display: flex; gap: 1rem; margin: 1rem 0 1.5rem; }
-    .lang a {
+    main { max-width: 52rem; margin: 0 auto; padding: 1.5rem; }
+    h1 { font-size: 2.6rem; line-height: 1.1; margin: 0 0 0.4rem; }
+    .lead { font-size: 1.15rem; margin-top: 0; }
+    .nav { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 1rem 0 1.5rem; }
+    .nav a, .dl {
       display: inline-block;
-      padding: 0.4rem 0.8rem;
+      padding: 0.45rem 0.8rem;
       border: 2px solid currentColor;
       border-radius: 0.4rem;
       text-decoration: none;
       font-weight: 650;
     }
-    .card { background: #fff; border-radius: 0.6rem; padding: 1rem 1.1rem; margin: 1rem 0; }
-    h2 { font-size: 1.25rem; margin-top: 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.8rem; }
+    .card, .dl-card { background: #fff; border-radius: 0.6rem; padding: 1rem 1.1rem; margin: 1rem 0; }
+    h2 { font-size: 1.35rem; margin: 1.6rem 0 0.4rem; }
+    h3 { font-size: 1.05rem; margin: 0 0 0.3rem; }
+    .muted { color: #5c5346; }
+    .downloads { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.6rem; }
+    .downloads a { display: block; }
+    svg { width: 100%; height: auto; }
+    details { margin: 0.5rem 0; }
+    summary { cursor: pointer; font-weight: 650; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1c1915; color: #f7f4ef; }
+      a { color: #f0c36a; }
+      .banner { background: #2a2118; }
+      .card, .dl-card { background: #2a261f; }
+      .muted { color: #d9cbb8; }
+    }
   </style>
 </head>
 <body>
   <div class="banner">
-    <p><strong>Not a published release.</strong> This site does not host a file. After a v* tag, unsigned prerelease files can appear on <a href="https://github.com/cumabozkurt/cbdesk/releases">GitHub Releases</a>. SmartScreen and Gatekeeper can block them. <span lang="tr"><strong>Yayımlanmış bir sürüm değildir.</strong> Bu site dosya barındırmaz. Bir v* etiketinden sonra imzasız ön sürüm dosyaları <a href="https://github.com/cumabozkurt/cbdesk/releases">GitHub Releases</a> üzerinde görünebilir. SmartScreen ve Gatekeeper bunları engelleyebilir.</span></p>
+    <p><strong>Unsigned alpha.</strong> This site does not host a file. Tag <a href="https://github.com/cumabozkurt/cbdesk/releases/tag/v0.1.0-alpha.1">v0.1.0-alpha.1</a> is titled <q>v0.1.0-alpha.1 unsigned alpha</q>. Windows SmartScreen and macOS Gatekeeper can warn or block those files. They are not version 1.0.0. The crate in the repository is still 0.0.0.</p>
+    <p lang="tr"><strong>İmzasız alfa.</strong> Bu site dosya barındırmaz. <a href="https://github.com/cumabozkurt/cbdesk/releases/tag/v0.1.0-alpha.1">v0.1.0-alpha.1</a> etiketinin başlığı <q>v0.1.0-alpha.1 unsigned alpha</q> şeklindedir. Windows SmartScreen ve macOS Gatekeeper bu dosyaları uyarabilir veya engelleyebilir. 1.0.0 sürümü değildir. Depodaki crate hâlâ 0.0.0'dır.</p>
   </div>
   <main>
     <h1>CBDesk</h1>
-    <p>A remote desktop that asks before anyone sees your screen. The session indicator stays visible and cannot be switched off.</p>
-    <p lang="tr">Ekranınızı biri görmeden önce soran bir uzak masaüstü. Oturum göstergesi görünür kalır ve kapatılamaz.</p>
-    <nav class="lang" aria-label="Language">
+    <p class="lead">A remote desktop that asks before anyone sees your screen. The session indicator stays visible and cannot be switched off.</p>
+    <p class="lead" lang="tr">Ekranınızı biri görmeden önce soran bir uzak masaüstü. Oturum göstergesi görünür kalır ve kapatılamaz.</p>
+    <nav class="nav" aria-label="Language and source">
       <a href="en/index.html" hreflang="en" lang="en">English guide</a>
       <a href="tr/index.html" hreflang="tr" lang="tr">Türkçe kılavuz</a>
+      <a href="https://github.com/cumabozkurt/cbdesk">Source</a>
     </nav>
+
+    <h2 id="features">Features <span lang="tr">/ Özellikler</span></h2>
+    <div class="grid">
+      <article class="card">
+        <h3>Consent</h3>
+        <p>The person at the host approves. No answer within 30 seconds closes the connection. A ticket only locates a computer.</p>
+        <p lang="tr">Ev sahibi onaylar. 30 saniye içinde yanıt yoksa bağlantı kapanır. Bilet yalnız yer tarifidir.</p>
+      </article>
+      <article class="card">
+        <h3>Visible session</h3>
+        <p>The indicator has no off switch. Quick Support cannot enable unattended access.</p>
+        <p lang="tr">Göstergenin kapatma anahtarı yoktur. Hızlı Destek gözetimsiz erişim açamaz.</p>
+      </article>
+      <article class="card">
+        <h3>No CBDesk account</h3>
+        <p>No project identity server. An optional relay is one you name. This project does not run a public relay. A live symmetric NAT was not measured.</p>
+        <p lang="tr">Proje kimlik sunucusu yoktur. Aktarıcı, sizin adlandırdığınızdır. Bu proje genel bir aktarıcı çalıştırmaz. Canlı bir simetrik NAT ölçülmedi.</p>
+      </article>
+      <article class="card">
+        <h3>Not 30 frames per second</h3>
+        <p>The live picture is color, software VP8. The 1080p timings are one machine and one synthetic picture. Hardware encoders fail closed.</p>
+        <p lang="tr">Canlı görüntü renkli yazılım VP8'dir. 1080p süreleri tek makine ve tek sentetik görüntüdür. Donanım kodlayıcıları açılınca hata verir.</p>
+      </article>
+    </div>
+
+    <h2 id="how">How a session is supposed to work <span lang="tr">/ Bir oturumun işleyişi</span></h2>
+    <p class="muted">This is a diagram of the code, not a screenshot. No UI frame was captured.</p>
+    <p class="muted" lang="tr">Bu, kodun diyagramıdır; ekran görüntüsü değildir. Bir arayüz karesi kaydedilmedi.</p>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 300" role="img">
+      <title>Connection flow</title>
+      <desc>The ticket is a locator. The viewer dials it. The person at the host approves within 30 seconds or the connection closes. The indicator stays visible.</desc>
+      <rect width="880" height="300" fill="#fff8ee"/>
+      <g font-family="Segoe UI, system-ui, sans-serif" fill="#1c1915">
+        <rect x="16" y="24" width="200" height="112" rx="8" fill="#fff" stroke="#1c1915" stroke-width="2"/>
+        <text x="28" y="52" font-size="15" font-weight="700">1. Ticket</text>
+        <text x="28" y="76" font-size="13">A locator.</text>
+        <text x="28" y="96" font-size="13">Not permission.</text>
+        <text x="28" y="116" font-size="13" fill="#5c5346">Yer tarifi, izin değil.</text>
+
+        <rect x="232" y="24" width="200" height="112" rx="8" fill="#fff" stroke="#1c1915" stroke-width="2"/>
+        <text x="244" y="52" font-size="15" font-weight="700">2. Dial or LAN</text>
+        <text x="244" y="76" font-size="13">Ticket, or mDNS.</text>
+        <text x="244" y="96" font-size="13">Relay is optional.</text>
+        <text x="244" y="116" font-size="13" fill="#5c5346">Bilet veya mDNS.</text>
+
+        <rect x="448" y="24" width="200" height="112" rx="8" fill="#fff" stroke="#6b3f12" stroke-width="2"/>
+        <text x="460" y="52" font-size="15" font-weight="700">3. Approve</text>
+        <text x="460" y="76" font-size="13">30 seconds.</text>
+        <text x="460" y="96" font-size="13">Silence closes it.</text>
+        <text x="460" y="116" font-size="13" fill="#5c5346">Sessizlik kapatır.</text>
+
+        <rect x="664" y="24" width="200" height="112" rx="8" fill="#fff" stroke="#1c1915" stroke-width="2"/>
+        <text x="676" y="52" font-size="15" font-weight="700">4. Indicator</text>
+        <text x="676" y="76" font-size="13">Stays visible.</text>
+        <text x="676" y="96" font-size="13">No off switch.</text>
+        <text x="676" y="116" font-size="13" fill="#5c5346">Kapatılamaz.</text>
+      </g>
+      <text x="16" y="180" fill="#3a2a12" font-family="Segoe UI, system-ui, sans-serif" font-size="14">Direct loopback and same-machine LAN tests exist. A live symmetric NAT is unmeasured. This diagram is not 30 frames per second.</text>
+      <text x="16" y="220" fill="#3a2a12" font-family="Segoe UI, system-ui, sans-serif" font-size="14">If someone phoned and told you to install this, refuse. Banks, government offices, and support companies do not ask for remote access.</text>
+      <text x="16" y="256" fill="#3a2a12" font-family="Segoe UI, system-ui, sans-serif" font-size="14" lang="tr">Döngüsel ve aynı makinedeki LAN testleri vardır. Canlı simetrik NAT ölçülmedi. Biri telefonla kurmanızı söylediyse reddedin.</text>
+    </svg>
+
+    <h2 id="download">Download <span lang="tr">/ İndirme</span></h2>
+    <p>The buttons go to GitHub. This page does not store the bytes. Each file is an unsigned alpha from <code>v0.1.0-alpha.1</code>. <code>SHA256SUMS</code> is a digest list, not a signature. The note on the release reads <code>unsigned: CBDESK_SIGN_KEY is unset</code>. No phone install and no performance run of these binaries was recorded. macOS files are Apple Silicon only, not universal, and not notarized. The Linux CLI links <code>ubuntu-24.04</code> system libraries. The Android package is a debug APK and was not installed.</p>
+    <p lang="tr">Düğmeler GitHub'a gider. Bu sayfa baytları tutmaz. Her dosya <code>v0.1.0-alpha.1</code> etiketinin imzasız alfasıdır. <code>SHA256SUMS</code> özettir, imza değildir. Sürüm notu <code>unsigned: CBDESK_SIGN_KEY is unset</code> yazar. Bu ikililer bir telefona kurulmadı ve performansları ölçülmedi. macOS dosyaları yalnız Apple Silicon'dur; evrensel değildir ve noter onaylı değildir. Linux CLI, <code>ubuntu-24.04</code> sistem kitaplıklarına bağlanır. Android paketi hata ayıklama APK'sıdır ve kurulmadı.</p>
+
+    <h3 lang="en">English</h3>
+    <div class="downloads" lang="en">
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-desktop-0.1.0-alpha.1-windows-x64.zip">Windows desktop zip</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-desktop-0.1.0-alpha.1-linux-x64.tar.gz">Linux desktop tar.gz</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk_0.1.0-alpha.1_amd64.deb">Linux CLI deb</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-x86_64-unknown-linux-gnu.tar.gz">Linux CLI tar.gz</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-desktop-0.1.0-alpha.1-macos-arm64.zip">macOS arm64 desktop zip</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-aarch64-apple-darwin.tar.gz">macOS arm64 CLI</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-x86_64-pc-windows-msvc.zip">Windows CLI zip</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-android-arm64-debug.apk">Android arm64 debug APK</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/SHA256SUMS">SHA256SUMS</a>
+    </div>
+    <h3 lang="tr">Türkçe</h3>
+    <div class="downloads" lang="tr">
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-desktop-0.1.0-alpha.1-windows-x64.zip">Windows masaüstü zip</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-desktop-0.1.0-alpha.1-linux-x64.tar.gz">Linux masaüstü tar.gz</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk_0.1.0-alpha.1_amd64.deb">Linux CLI deb</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-x86_64-unknown-linux-gnu.tar.gz">Linux CLI tar.gz</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-desktop-0.1.0-alpha.1-macos-arm64.zip">macOS arm64 masaüstü zip</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-aarch64-apple-darwin.tar.gz">macOS arm64 CLI</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-x86_64-pc-windows-msvc.zip">Windows CLI zip</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/cbdesk-0.1.0-alpha.1-android-arm64-debug.apk">Android arm64 hata ayıklama APK</a>
+      <a class="dl" href="https://github.com/cumabozkurt/cbdesk/releases/download/v0.1.0-alpha.1/SHA256SUMS">SHA256SUMS</a>
+    </div>
+    <p>The guide pages say the same, with the build-from-source notes: <a href="en/install.html">Install</a> · <a href="tr/install.html" lang="tr">Kurulum</a>.</p>
+
+    <h2 id="faq">FAQ <span lang="tr">/ SSS</span></h2>
+    <details>
+      <summary>Why did SmartScreen or Gatekeeper complain?</summary>
+      <p>The alpha is unsigned. There is no Authenticode certificate and no Apple notarization. The warning is expected. Do not turn those protections off because a stranger asked you to.</p>
+    </details>
+    <details lang="tr">
+      <summary>SmartScreen veya Gatekeeper neden uyarı verdi?</summary>
+      <p>Alfa imzasızdır. Authenticode sertifikası ve Apple noter kaydı yoktur. Uyarı beklenen sonuçtur. Bir yabancı istedi diye bu korumaları kapatmayın.</p>
+    </details>
+    <details>
+      <summary>Is this a finished remote desktop?</summary>
+      <p>No. Version 0.0.0 is not a release. The tag is not the plan's alpha exit. No smoke matrix was run by a person. No 30 frame-per-second stream was measured. See <a href="en/limits.html">what is absent</a>.</p>
+    </details>
+    <details lang="tr">
+      <summary>Bu bitmiş bir uzak masaüstü mü?</summary>
+      <p>Hayır. 0.0.0 bir yayın değildir. Etiket, planın alfa çıkışı değildir. Duman matrisini bir kişi çalıştırmadı. 30 kare/saniye ölçülmedi. Bkz. <a href="tr/limits.html">neyin bulunmadığı</a>.</p>
+    </details>
+    <details>
+      <summary>Where is the documentation?</summary>
+      <p>The books below are the guide. The repository <code>README.md</code> is the front page.</p>
+    </details>
+    <details lang="tr">
+      <summary>Belgeler nerede?</summary>
+      <p>Aşağıdaki kitaplar kılavuzdur. Deponun kapı sayfası <code>README.md</code> dosyasıdır.</p>
+    </details>
+
+    <h2 id="docs">Guide <span lang="tr">/ Kılavuz</span></h2>
     <section class="card" lang="en">
-      <h2>What you can read</h2>
+      <h3>What you can read</h3>
       <ul>
         <li><a href="en/guide.html">How a session is supposed to work</a></li>
-        <li><a href="en/install.html">Download (unsigned, after a tag)</a></li>
+        <li><a href="en/install.html">Download (unsigned alpha)</a></li>
         <li><a href="en/security.html">Security model</a></li>
         <li><a href="en/privacy.html">Privacy</a></li>
         <li><a href="en/contributing.html">Contributing</a></li>
@@ -69,10 +197,10 @@
       </ul>
     </section>
     <section class="card" lang="tr">
-      <h2>Neleri okuyabilirsiniz</h2>
+      <h3>Neleri okuyabilirsiniz</h3>
       <ul>
         <li><a href="tr/guide.html">Bir oturumun nasıl işlemesi beklendiği</a></li>
-        <li><a href="tr/install.html">İndirme (imzasız, bir etiketten sonra)</a></li>
+        <li><a href="tr/install.html">İndirme (imzasız alfa)</a></li>
         <li><a href="tr/security.html">Güvenlik modeli</a></li>
         <li><a href="tr/privacy.html">Gizlilik</a></li>
         <li><a href="tr/contributing.html">Katkı</a></li>
