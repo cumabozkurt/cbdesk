@@ -70,12 +70,12 @@ This tree does not contain these. A green CI run does not add them.
   were not run.
 - A 72-hour soak, a Linux-to-Windows session, a usability round with a
   person, a beta channel, and version 1.0.0. The version is 0.0.0.
-- A file published by this commit. The release workflow can attach
-  unsigned prerelease files when a `v*` tag is pushed. This change does
-  not push that tag and does not run the workflow. The site does not host
-  the files. SmartScreen and Gatekeeper can warn or block them. No phone
-  install and no performance run of those binaries was recorded here.
-  A signed installer stays with the owner.
+- A file published by this commit. Tag `v0.1.0-alpha.1` already attaches
+  unsigned alpha files. This change does not rebuild them. The site does
+  not host the files. SmartScreen and Gatekeeper can warn or block them.
+  No phone install and no performance run of those binaries was recorded
+  here. A signed installer stays with the owner. The tag is not version
+  1.0.0 and not the plan's alpha exit.
 - A Wayland ScreenCast run. The manual plan is
   `docs/dev/wayland-screencast.md`. CI did not run it.
 - A confirmed listening test of the microphone path. A missing microphone

@@ -262,5 +262,9 @@ Version 0.0.0 is not a release.
   shared. A busy 5353 keeps sending to the group and listens on an ephemeral
   port. `--lan` is the operator opting into a private profile.
 - ADR-015 keeps the clean-room core. The M0 fork exit stays unmet on purpose.
+- The Pages home page and the install chapter link the unsigned alpha
+  files on tag `v0.1.0-alpha.1`. The site still does not host a binary.
+  This commit does not rebuild those files. No UI frame was captured.
+  The home page diagram is inline SVG.
 
 This tree is not derived from RustDesk. See ADR-002 and ADR-015.

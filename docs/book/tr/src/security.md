@@ -44,8 +44,9 @@ GitHub'ın özel güvenlik bildirimini kullanın:
 <https://github.com/cumabozkurt/cbdesk/security>
 
 Bir cihaz tohumunu veya başkasının bilgisayarına yönelik bir saldırıyı herkese
-açık bir konuya yazmayın. Bir `v*` etiketinden sonra imzasız bir GitHub
-ön sürümü olabilir. Desteklenen bir sürüm değildir. Kapsam varsayılan
-daldır. Yanıt hedefleri
+açık bir konuya yazmayın. `v0.1.0-alpha.1` etiketi bu ağacın imzasız
+alfasıdır. Desteklenen bir 1.0 sürümü değildir. Kapsam varsayılan daldır
+ve o etiket hakkındaki bildirimler aynı koşullarla kabul edilir. Yanıt
+hedefleri
 [SECURITY.md](https://github.com/cumabozkurt/cbdesk/blob/main/SECURITY.md)
 içindedir. Bunlar gönüllü hedeflerdir, bir hizmet sözleşmesi değildir.
