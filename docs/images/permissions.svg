@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 480" role="img">
+  <title>CBDesk permission model</title>
+  <desc>Diagram of the CBDesk permission model. A ticket, short code, LAN browse, or DHT record does not grant access. Ordinary grants are separate from high-risk grants. High-risk grants need an explicit opt-in. The session indicator cannot be hidden.</desc>
+  <rect width="920" height="480" fill="#f7f4ef"/>
+  <text x="32" y="40" fill="#1c1915" font-family="Segoe UI, system-ui, sans-serif" font-size="22" font-weight="700">Permission model</text>
+  <text x="32" y="64" fill="#5c5346" font-family="Segoe UI, system-ui, sans-serif" font-size="14">A locator is not authorization. There is no permission that hides the session.</text>
+
+  <rect x="32" y="88" width="270" height="250" rx="10" fill="#fff" stroke="#1c1915" stroke-width="2"/>
+  <text x="48" y="118" fill="#1c1915" font-family="Segoe UI, system-ui, sans-serif" font-size="16" font-weight="700">Not permission</text>
+  <text x="48" y="148" fill="#3a342c" font-family="Segoe UI, system-ui, sans-serif" font-size="14">Invite ticket</text>
+  <text x="48" y="172" fill="#3a342c" font-family="Segoe UI, system-ui, sans-serif" font-size="14">Short-code words</text>
+  <text x="48" y="196" fill="#3a342c" font-family="Segoe UI, system-ui, sans-serif" font-size="14">LAN browse</text>
+  <text x="48" y="220" fill="#3a342c" font-family="Segoe UI, system-ui, sans-serif" font-size="14">DHT record</text>
+  <text x="48" y="256" fill="#5c5346" font-family="Segoe UI, system-ui, sans-serif" font-size="13">The words confirm pairing</text>
+  <text x="48" y="274" fill="#5c5346" font-family="Segoe UI, system-ui, sans-serif" font-size="13">on the desk host. They do</text>
+  <text x="48" y="292" fill="#5c5346" font-family="Segoe UI, system-ui, sans-serif" font-size="13">not locate a computer.</text>
+  <text x="48" y="316" fill="#5c5346" font-family="Segoe UI, system-ui, sans-serif" font-size="13">Blinded DHT publish fails.</text>
+
+  <rect x="324" y="88" width="270" height="250" rx="10" fill="#fff" stroke="#1c1915" stroke-width="2"/>
+  <text x="340" y="118" fill="#1c1915" font-family="Segoe UI, system-ui, sans-serif" font-size="16" font-weight="700">Ordinary grants</text>
+  <text x="340" y="148" fill="#3a342c" font-family="Segoe UI, system-ui, sans-serif" font-size="14">view</text>
+  <text x="340" y="172" fill="#3a342c" font-family="Segoe UI, system-ui, sans-serif" font-size="14">input</text>
+  <text x="340" y="196" fill="#3a342c" font-family="Segoe UI, system-ui, sans-serif" font-size="14">clipboard (plain text, 60 KiB)</text>
+  <text x="340" y="220" fill="#3a342c" font-family="Segoe UI, system-ui, sans-serif" font-size="14">audio</text>
+  <text x="340" y="244" fill="#3a342c" font-family="Segoe UI, system-ui, sans-serif" font-size="14">file_read (needs a root)</text>
+  <text x="340" y="268" fill="#3a342c" font-family="Segoe UI, system-ui, sans-serif" font-size="14">sysinfo</text>
+  <text x="340" y="304" fill="#5c5346" font-family="Segoe UI, system-ui, sans-serif" font-size="13">Each one is named in --approve</text>
+  <text x="340" y="322" fill="#5c5346" font-family="Segoe UI, system-ui, sans-serif" font-size="13">or in the consent panel.</text>
+
+  <rect x="616" y="88" width="272" height="250" rx="10" fill="#fff8ee" stroke="#6b3f12" stroke-width="2"/>
+  <text x="632" y="118" fill="#1c1915" font-family="Segoe UI, system-ui, sans-serif" font-size="16" font-weight="700">High risk</text>
+  <text x="632" y="148" fill="#3a342c" font-family="Segoe UI, system-ui, sans-serif" font-size="14">file_write</text>
+  <text x="632" y="172" fill="#3a342c" font-family="Segoe UI, system-ui, sans-serif" font-size="14">terminal</text>
+  <text x="632" y="196" fill="#3a342c" font-family="Segoe UI, system-ui, sans-serif" font-size="14">block_input</text>
+  <text x="632" y="220" fill="#3a342c" font-family="Segoe UI, system-ui, sans-serif" font-size="14">privacy_mode</text>
+  <text x="632" y="256" fill="#5c5346" font-family="Segoe UI, system-ui, sans-serif" font-size="13">First contact needs an explicit</text>
+  <text x="632" y="274" fill="#5c5346" font-family="Segoe UI, system-ui, sans-serif" font-size="13">opt-in. The CLI flag is</text>
+  <text x="632" y="292" fill="#5c5346" font-family="Segoe UI, system-ui, sans-serif" font-size="13">--allow-high-risk.</text>
+  <text x="632" y="316" fill="#5c5346" font-family="Segoe UI, system-ui, sans-serif" font-size="13">The live host does not call</text>
+  <text x="632" y="334" fill="#5c5346" font-family="Segoe UI, system-ui, sans-serif" font-size="13">the grab, cover, or shell.</text>
+
+  <rect x="32" y="360" width="856" height="92" rx="10" fill="#3a2a12"/>
+  <text x="48" y="392" fill="#fff8ee" font-family="Segoe UI, system-ui, sans-serif" font-size="16" font-weight="700">Always on</text>
+  <text x="48" y="416" fill="#fff8ee" font-family="Segoe UI, system-ui, sans-serif" font-size="14">The session indicator cannot be turned off. Quick Support stays banned.</text>
+  <text x="48" y="436" fill="#f0c36a" font-family="Segoe UI, system-ui, sans-serif" font-size="14">If someone phoned and told you to install this, refuse the connection.</text>
+</svg>

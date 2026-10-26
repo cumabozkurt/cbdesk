@@ -10,6 +10,7 @@ docs/MASTER_PLAN.md
 docs/adr/002-fork-sequencing.md
 docs/adr/015-clean-room-media.md
 README.md
+README.tr.md
 NOTICE
 CHANGELOG.md
 tools/rebrand-check.sh

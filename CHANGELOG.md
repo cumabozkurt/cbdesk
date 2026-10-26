@@ -34,6 +34,10 @@ Version 0.0.0 is not a release.
 
 ### Added
 
+- `README.md` and `README.tr.md` are the project front page. They link the
+  unsigned alpha files on tag `v0.1.0-alpha.1` and repeat the limits in
+  `docs/dev/m0-status.md`. The pictures in `docs/images` are diagrams.
+  No UI frame was captured. This commit does not rebuild those files.
 - `.github/workflows/release.yml` builds unsigned CLI archives for Linux,
   Windows, and macOS with `cargo build --release --locked`, Flutter desktop
   bundles, an arm64 debug Android APK, the existing unsigned deb, and an
