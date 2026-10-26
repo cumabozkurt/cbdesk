@@ -258,24 +258,28 @@ yanked warning.
   key is in git. `tools/release/reproducible.sh` printed
   `SOURCE_DATE_EPOCH`, `rustc -vV`, and the sha256 of `Cargo.lock`. It does
   not compare two binaries, so this tree does not claim a reproducible
-  build. `packaging/deb/build.sh` can build an unsigned deb.
+  build.   `packaging/deb/build.sh` can build an unsigned deb.
   `CBDESK_VERSION` defaults to `0.0.0`. The AppImage script, `make-dmg.sh`,
-  the WiX source, and the Flatpak manifest are templates. The deb was not
-  built here. AppImage exits if `linuxdeploy` is missing and does not
-  download it. The DMG script exits on Linux. WiX was not compiled.
-  Flatpak was not submitted to Flathub. `.github/workflows/release.yml`
-  runs on a `v*` tag and on `workflow_dispatch`. It builds unsigned CLI
-  archives for Linux, Windows, and macOS, Flutter desktop bundles, an
-  arm64 debug APK, the unsigned deb, and the SBOM, then the publish job
-  creates a GitHub prerelease. That job is the only one with
-  `contents: write`. It still uploads when another platform job fails,
+  the WiX source, and the Flatpak manifest are templates. This workspace
+  did not run the deb script. AppImage exits if `linuxdeploy` is missing
+  and does not download it. The DMG script exits on Linux. WiX was not
+  compiled. Flatpak was not submitted to Flathub.
+  `.github/workflows/release.yml` runs on a `v*` tag and on
+  `workflow_dispatch`. It builds unsigned CLI archives for Linux, Windows,
+  and macOS, Flutter desktop bundles, an arm64 debug APK, the unsigned deb,
+  and the SBOM, then the publish job uploads them. That job is the only one
+  with `contents: write`. It still uploads when another platform job fails,
   and the notes name the missing file. The macOS desktop build does not
   pass `--no-codesign`; Flutter 3.47 rejects that flag. Signing is turned
   off with `CODE_SIGNING_ALLOWED=NO`. The macOS desktop release sets
   `ARCHS=arm64` and adds the `aarch64-apple-darwin` target. It does not
-  build `x86_64-apple-darwin`. The files are not signed. This pull
-  request does not run that workflow and publishes nothing. No phone was
-  installed, and no performance run of those binaries was recorded.
+  build `x86_64-apple-darwin`. The files are not signed. GitHub tag
+  `v0.1.0-alpha.1` attaches those unsigned alpha files. The release title
+  is `v0.1.0-alpha.1 unsigned alpha`. Crate version 0.0.0 is still not a
+  product release and is not the plan's alpha exit. This documentation
+  change did not rebuild the binaries. No phone was installed, and no
+  performance run of those binaries was recorded. The smoke matrix was
+  not run by a person.
 - The session indicator is a Flutter semantics live region. The node's
   label includes the existing catalog title (`Session` / `Oturum`) and the
   sentence that the indicator cannot be turned off, plus the status text.
@@ -465,14 +469,14 @@ invent one.
 | M2 Flutter screens S-01 through S-06, S-10, S-11 | Partial | Home, connect, consent, remote view, files, address book, and settings exist. They are not those wireframe ids. |
 | M2 fraud warning and an indicator that cannot be disabled | Done | The shell and the library both keep the indicator on. The indicator is a semantics live region. |
 | M2 Turkish and English | Partial | Catalogs cover the shell strings that exist, in both languages. The language switch shows `Türkçe` and `English` from the ARB files, including when the UI is the other language. There is no spoken usability test and no video tutorial. |
-| M2 portable Windows EXE, unsigned DMG, AppImage | Partial | The release workflow can pack an unsigned Windows CLI zip and a Flutter Windows zip when a `v*` tag is pushed. It was not run here. `make-dmg.sh` and the AppImage script are templates and were not run. No signed installer was built. |
-| M2 exit: desktop smoke matrix, the named test ids, an alpha release | Absent | Version 0.0.0 is not a release. The release workflow can upload an unsigned prerelease after a `v*` tag. That tag was not pushed here. The smoke matrix was not run by a person. |
+| M2 portable Windows EXE, unsigned DMG, AppImage | Partial | Tag `v0.1.0-alpha.1` includes an unsigned Windows CLI zip and a Flutter Windows zip. `make-dmg.sh` and the AppImage script are templates and were not run. No signed installer was built. |
+| M2 exit: desktop smoke matrix, the named test ids, an alpha release | Absent | Version 0.0.0 is not a release. Tag `v0.1.0-alpha.1` is an unsigned alpha on GitHub. It is not the plan's M2 alpha exit and not 1.0.0. The smoke matrix was not run by a person. |
 | M3 service, agent, and netd split on three desktops | Absent | One host process. The split in §5.3 is not built. |
 | M3 OPAQUE password and TOTP | Partial | `opaque-ke` 4.0.1 and HMAC-SHA1 TOTP are libraries. The CLI does not enroll a password. TOTP is not on the consent prompt. RUSTSEC-2026-0387 is ignored until a stable `opaque-ke` no longer depends on `crypto-bigint` 0.5.5. |
 | M3 hardware codecs and a blocklist | Partial | `hw-vaapi`, `hw-mediafoundation`, `hw-videotoolbox`, and `hw-mediacodec` shell out to ffmpeg and are off by default. No successful hardware encode was recorded. There is no codec blocklist. |
 | M3 audio | Partial | Opus and a cpal device open exist. This tree does not record that a person heard the stream. |
 | M3 `cbdesk doctor`, CLI v1, `cbdesk-relayd`, Docker image | Partial | `cbdesk doctor` prints a local address report. It is not CLI v1. `cbdesk-relayd` is the loopback binary in `docs/dev/relayd.md`. `packaging/relayd/Dockerfile` was not built and no image was published. |
-| M3 MSI, pkg, deb, rpm, Flatpak, winget, Homebrew, AUR | Partial | The release workflow can build the unsigned deb when a `v*` tag is pushed. It was not built in this workspace. WiX, Flatpak, DMG, and AppImage templates were not compiled or submitted. rpm, winget, Homebrew, AUR, and a signed pkg are absent. |
+| M3 MSI, pkg, deb, rpm, Flatpak, winget, Homebrew, AUR | Partial | Tag `v0.1.0-alpha.1` includes an unsigned deb built by the release workflow. This workspace did not rebuild it. WiX, Flatpak, DMG, and AppImage templates were not compiled or submitted. rpm, winget, Homebrew, AUR, and a signed pkg are absent. |
 | M3 DHT blinding on by default after review | Absent | Blinded publish still fails closed. There has been no review. |
 | M3 usability round T-UX-001 through T-UX-003 | Absent | No person ran that round. |
 | M3 exit: service, NAT, auth, and media tests, performance targets, a beta channel | Absent | A 1920×1080 software keyframe measured 201 ms, and a later solid-frame run measured 198 ms. Parallel strips of that solid frame took 52 ms and a quarter-size preview took 12 ms. Those are not the live inter-frame path and not a desktop. The 30 frame-per-second and glass-to-glass targets are not met. No beta channel exists. |

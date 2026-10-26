@@ -37,4 +37,7 @@ volunteers.
 
 ## Supported versions
 
-No release has been published. Only the default branch is in scope.
+The default branch is in scope. Tag `v0.1.0-alpha.1` is an unsigned alpha
+built from this tree. It is not a supported 1.0 release. Reports about that
+tag are welcome on the same terms as the default branch. There is no
+security-support commitment for a finished product, because this is not one.
